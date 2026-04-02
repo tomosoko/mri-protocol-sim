@@ -157,6 +157,7 @@ function LearnPanel() {
   const { params, activeTab, activeSequenceName, activeBodyPartId } = useProtocolStore()
   const [seqOpen, setSeqOpen] = useState(true)
   const [tipsOpen, setTipsOpen] = useState(false)
+  const [trGuideOpen, setTrGuideOpen] = useState(false)
 
   const seqClinical = activeSequenceName ? getSeqClinical(activeSequenceName, activeBodyPartId) : null
 
@@ -331,11 +332,20 @@ function LearnPanel() {
         </div>
       )}
 
-      {/* ===== TR延長時の対応ガイド ===== */}
+      {/* ===== TR延長時の対応ガイド — collapsible ===== */}
       <div style={{ borderBottom: '1px solid #252525' }}>
-        <div className="px-3 py-2" style={{ background: '#1c1000' }}>
-          <div className="text-xs font-semibold mb-2" style={{ color: '#fbbf24' }}>TR延長時の対応ガイド</div>
-          <div className="space-y-2 text-xs">
+        <button
+          className="w-full flex items-center gap-1.5 px-3 py-2 text-left"
+          onClick={() => setTrGuideOpen(o => !o)}
+        >
+          <ChevronDown
+            size={10}
+            style={{ color: '#6b7280', transform: trGuideOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+          />
+          <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>TR延長時の対応ガイド</span>
+        </button>
+        {trGuideOpen && (
+          <div className="px-3 pb-3 space-y-2 text-xs">
             {[
               { title: 'なぜTRが延長するか', text: 'スライス枚数増加・厚いSlice Gap・Concatenations増加・呼吸同期追加のいずれか。システムが必要なRFパルス時間を確保できずTRを自動延長する。' },
               { title: 'TRを上げずにスライスを増やす方法', text: '① Turbo Factor(ETL)を上げる → 1TR内に取得エコー数↑ → 同じTRでより多くのスライスを取得可能\n② iPAT(GRAPPA AF=2) → 取得ライン数半減 → TRの余裕↑\n③ Partial Fourier 6/8 → k空間の上半分省略 → echo trainを短縮' },
@@ -343,12 +353,12 @@ function LearnPanel() {
               { title: 'SARが超過してTR延長する場合', text: '① FA 180°→150°（SAR約30%↓）② BW↑（短いパルス使用可能）③ TSE→GRE系への変更 ④ 3T→1.5Tに切替。いずれもSARが主因の場合はSAR Assistantの"Advanced"を試す。' },
             ].map(({ title, text }) => (
               <div key={title}>
-                <div className="font-semibold mb-0.5" style={{ color: '#f59e0b' }}>{title}</div>
-                <div style={{ color: '#d4a55a', whiteSpace: 'pre-line' }}>{text}</div>
+                <div className="font-semibold mb-0.5" style={{ color: '#9ca3af' }}>{title}</div>
+                <div style={{ color: '#6b7280', whiteSpace: 'pre-line' }}>{text}</div>
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
       {/* ===== Tab tips — collapsible ===== */}
