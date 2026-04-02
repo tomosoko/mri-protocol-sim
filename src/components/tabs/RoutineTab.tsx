@@ -107,7 +107,7 @@ export function RoutineTab() {
           <ParamField label="Averages" hintKey="averages" value={params.averages} type="number"
             min={1} max={8} step={1}
             onChange={v => setParam('averages', v as number)} highlight={hl('averages')} />
-          <ParamField label="Concatenations" value={concatenations} type="number"
+          <ParamField label="Concatenations" hintKey="Concatenations" value={concatenations} type="number"
             min={1} max={16} step={1}
             onChange={v => setConcatenations(v as number)} />
 

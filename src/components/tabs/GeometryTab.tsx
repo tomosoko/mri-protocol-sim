@@ -69,7 +69,7 @@ export function GeometryTab() {
           <ParamField label="Multi Slice Mode" value={multiSliceMode} type="select"
             options={['Single Shot', 'Interleaved']}
             onChange={v => setMultiSliceMode(v as string)} />
-          <ParamField label="Concatenations" value={concatenations} type="number"
+          <ParamField label="Concatenations" hintKey="Concatenations" value={concatenations} type="number"
             min={1} max={16} step={1}
             onChange={v => setConcatenations(v as number)} />
 
@@ -159,14 +159,44 @@ export function GeometryTab() {
             min={10} max={150} step={5} unit="mm"
             onChange={v => setSatThickness(v as number)} />
 
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Saturation Bandの使いどころ</div>
-            <ul className="space-y-0.5" style={{ color: '#9ca3af' }}>
-              <li>• 腹部動脈MRA: 静脈血の上流にSat Band → 静脈信号抑制</li>
-              <li>• 腰椎矢状断: 腹部大動脈前方にSat Band → 拍動アーチファクト低減</li>
-              <li>• 頚椎矢状断: 喉頭前方にSat Band → 嚥下アーチファクト低減</li>
-              <li>• 骨盤: 直腸ガス・膀胱前方にSat Band → 化学シフト軽減</li>
-            </ul>
+          <div className="mx-3 mt-3 p-3 rounded text-xs space-y-3" style={{ background: '#111111', border: '1px solid #252525' }}>
+            <div>
+              <div className="font-semibold mb-1.5" style={{ color: '#60a5fa' }}>配置の基本原則</div>
+              <div className="space-y-1" style={{ color: '#9ca3af' }}>
+                <div><span className="text-white">動きアーチファクト対策:</span> 動く構造（大動脈・腸管・眼球）の<span className="text-yellow-400">直前（上流側）</span>に配置</div>
+                <div><span className="text-white">静脈抑制 in MRA:</span> 静脈血の流入方向の<span className="text-yellow-400">上流</span>に配置</div>
+                <div><span className="text-white">厚さ:</span> 標準<span className="text-green-400">40〜60mm</span>。薄すぎると効果不十分、厚すぎるとFOVにかかる</div>
+                <div><span className="text-white">Gap:</span> 目的領域との間隔<span className="text-green-400">10mm</span>が標準。近すぎると信号低下の影響あり</div>
+              </div>
+            </div>
+            <div style={{ borderTop: '1px solid #252525', paddingTop: '8px' }}>
+              <div className="font-semibold mb-1.5" style={{ color: '#60a5fa' }}>部位別配置ガイド</div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr style={{ color: '#6b7280' }}>
+                    <th className="text-left pb-1">部位</th>
+                    <th className="text-left pb-1">配置場所</th>
+                    <th className="text-left pb-1">目的</th>
+                  </tr>
+                </thead>
+                <tbody style={{ color: '#9ca3af' }}>
+                  <tr><td className="py-0.5 text-white">腹部 Tra</td><td>心臓下面（大動脈上流）</td><td>拍動アーチファクト↓</td></tr>
+                  <tr><td className="py-0.5 text-white">腰椎 Sag</td><td>腹部大動脈前方</td><td>拍動アーチファクト↓</td></tr>
+                  <tr><td className="py-0.5 text-white">頸椎 Sag</td><td>喉頭・気管前方</td><td>嚥下アーチファクト↓</td></tr>
+                  <tr><td className="py-0.5 text-white">頭部 Tra</td><td>眼球前方（眼窩病変時）</td><td>眼球運動↓</td></tr>
+                  <tr><td className="py-0.5 text-white">頸部MRA</td><td>頭蓋内側（静脈上流）</td><td>静脈信号抑制</td></tr>
+                  <tr><td className="py-0.5 text-white">膝関節 Sag</td><td>膝蓋前方脂肪体</td><td>脂肪信号軽減（PDFS時）</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div style={{ borderTop: '1px solid #252525', paddingTop: '8px' }}>
+              <div className="font-semibold mb-1" style={{ color: '#fbbf24' }}>注意点</div>
+              <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
+                <div>• 3TではSAR増加に注意（Sat BandはRFパルスを追加消費）</div>
+                <div>• FOV端にかかるとエイリアシングが生じる場合あり</div>
+                <div>• Sat BandがFOV内に近いと磁化移動効果で目的領域の信号低下</div>
+              </div>
+            </div>
           </div>
         </div>
       )}

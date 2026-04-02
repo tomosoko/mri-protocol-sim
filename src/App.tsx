@@ -12,15 +12,16 @@ import { PhysioTab } from './components/tabs/PhysioTab'
 import { InlineTab } from './components/tabs/InlineTab'
 import { SequenceTab } from './components/tabs/SequenceTab'
 import { presets } from './data/presets'
-import { Zap, BookOpen, ChevronDown } from 'lucide-react'
+import { Zap, BookOpen, ChevronDown, GraduationCap } from 'lucide-react'
 import { SequenceQueue } from './components/SequenceQueue'
 import { getSeqClinical } from './data/sequenceClinicalData'
+import { QuizPanel } from './components/QuizPanel'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'quiz' | null>('learn')
 
   const activePreset = presets.find(p => p.id === activePresetId)
 
@@ -67,6 +68,18 @@ export default function App() {
           >
             <Zap size={11} />
             アーチファクト対策
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'quiz' ? null : 'quiz')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'quiz' ? '#2d1f5e' : '#252525',
+              color: rightPanel === 'quiz' ? '#a78bfa' : '#6b7280',
+              border: `1px solid ${rightPanel === 'quiz' ? '#7c3aed' : '#374151'}`,
+            }}
+          >
+            <GraduationCap size={11} />
+            クイズ
           </button>
         </div>
       </div>
@@ -127,6 +140,7 @@ export default function App() {
           <div className="shrink-0 overflow-hidden" style={{ width: '300px', borderLeft: '1px solid #252525' }}>
             {rightPanel === 'artifact' && <ArtifactGuide />}
             {rightPanel === 'learn' && <LearnPanel />}
+            {rightPanel === 'quiz' && <QuizPanel />}
           </div>
         )}
       </div>

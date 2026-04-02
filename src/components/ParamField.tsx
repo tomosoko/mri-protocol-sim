@@ -18,7 +18,9 @@ interface ParamFieldProps {
 
 export function ParamField({ label, hintKey, value, type = 'number', options, min, max, step = 1, unit, onChange, highlight }: ParamFieldProps) {
   const [showHint, setShowHint] = useState(false)
-  const hint = hintKey ? hints[hintKey] : null
+  const hint = hintKey
+    ? (hints[hintKey] ?? hints[Object.keys(hints).find(k => k.toLowerCase() === hintKey.toLowerCase()) ?? ''])
+    : null
 
   return (
     <div className={`relative flex items-center gap-2 py-0.5 px-2 transition-all ${highlight ? 'ring-1 ring-yellow-400/40 bg-yellow-400/5' : ''}`}
