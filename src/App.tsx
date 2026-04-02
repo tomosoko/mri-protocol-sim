@@ -350,7 +350,7 @@ function LearnPanel() {
               { title: 'なぜTRが延長するか', text: 'スライス枚数増加・厚いSlice Gap・Concatenations増加・呼吸同期追加のいずれか。システムが必要なRFパルス時間を確保できずTRを自動延長する。' },
               { title: 'TRを上げずにスライスを増やす方法', text: '① Turbo Factor(ETL)を上げる → 1TR内に取得エコー数↑ → 同じTRでより多くのスライスを取得可能\n② iPAT(GRAPPA AF=2) → 取得ライン数半減 → TRの余裕↑\n③ Partial Fourier 6/8 → k空間の上半分省略 → echo trainを短縮' },
               { title: '逆にTRが短すぎる場合', text: 'TSEのT1混入が起きる（脂肪高信号・白質と灰白質のコントラスト低下）。T2強調では TR≥2500ms推奨。FLAIR/STIRはTRが2-6秒必要。' },
-              { title: 'SARが超過してTR延長する場合', text: '① FA 180°→150°（SAR約30%↓）② BW↑（短いパルス使用可能）③ TSE→GRE系への変更 ④ 3T→1.5Tに切替。いずれもSARが主因の場合はSAR Assistantの"Advanced"を試す。' },
+              { title: 'SARが超過してTR延長する場合', text: 'システムが「Low SAR mode」または「TR延長」を提案してくる。\n・Low SAR mode → FAを自動で下げる（例: 180°→120°）。SARは下がるがコントラストが変わる（T2強調が弱まるなど）\n・TR延長 → RFパルスの間隔を広げて組織の冷却時間を確保。画質への影響は少ない\n手動で対処するなら: ① FA 180°→150°（SAR約30%↓）② BW↑③ TSE→GRE系へ変更 ④ 3T→1.5Tに切替。SAR Assistantの"Advanced"も有効。' },
             ].map(({ title, text }) => (
               <div key={title}>
                 <div className="font-semibold mb-0.5" style={{ color: '#9ca3af' }}>{title}</div>
