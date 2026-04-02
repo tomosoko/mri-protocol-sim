@@ -213,24 +213,6 @@ function SequenceRow({ step, index, isActive, bodyPartId }: { step: SequenceStep
               <span style={{ color: '#d1d5db', fontSize: '9px' }}>{reason}</span>
             </div>
           )}
-          {clinical.clinical && (
-            <div>
-              <span style={{ color: '#a78bfa', fontSize: '9px' }}>臨床: </span>
-              <span style={{ color: '#c4b5fd', fontSize: '9px' }}>{clinical.clinical}</span>
-            </div>
-          )}
-          {clinical.findings && (
-            <div>
-              <span style={{ color: '#34d399', fontSize: '9px' }}>所見: </span>
-              <span style={{ color: '#6ee7b7', fontSize: '9px' }}>{clinical.findings}</span>
-            </div>
-          )}
-          {clinical.params && (
-            <div>
-              <span style={{ color: '#fbbf24', fontSize: '9px' }}>設定: </span>
-              <span style={{ color: '#fde68a', fontSize: '9px' }}>{clinical.params}</span>
-            </div>
-          )}
           {step.note && (
             <div>
               <span style={{ color: '#6b7280', fontSize: '9px' }}>技術: </span>
