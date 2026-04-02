@@ -125,7 +125,7 @@ function SequenceRow({ step, index, isActive, bodyPartId }: { step: SequenceStep
   const [expanded, setExpanded] = useState(false)
   const { setActiveSequence } = useProtocolStore()
 
-  const matchedPreset = step.presetId ?? matchPreset(step.name, bodyPartId)
+  const matchedPreset = step.presetId ?? matchPreset(step.name)
   const clinical = getSeqClinical(step.name, bodyPartId)
   const reason = step.reason ?? clinical.reason
   const hasDetail = !!(reason || step.note || clinical.clinical)
