@@ -311,29 +311,69 @@ export function getSeqClinical(name: string, bodyPartId: string | null): SeqClin
 
   // ====== 脊椎 ======
   if (bp === 'spine') {
-    if (n.includes('t2_qtse_sag') || n.includes('t2_tse_sag') || (n.includes('t2') && n.includes('sag') && bp === 'spine')) return {
-      reason: '脊椎矢状断T2（椎間板・脊髄の全体像把握）',
-      clinical: '脊椎MRIの基本シーケンス。椎間板水分含有量→T2高信号（正常）/低信号（変性）。脊髄圧迫のスクリーニング→全椎体を矢状断で一括評価。qtse（QuietX）技術で3Tでも騒音を大幅低減。',
-      findings: '椎間板ヘルニア: 後方突出+硬膜管圧迫（圧排・変形）｜脊髄症: 脊髄変形+T2高信号（軟化巣）｜椎体骨折: 変形+骨髄浮腫｜感染: 椎間板T2高信号+椎体浮腫',
-      params: 'qtse: QuietX技術でslew rate最適化→97%騒音低減。TR=3000-4000ms、TE=90-110ms。ETL=15-25。'
+    // 頸椎特異的
+    const isL = n.startsWith('l_')
+    const isT = n.startsWith('t_')
+
+    if (n.includes('t2_qtse_sag') || n.includes('t2_tse_sag') || (n.includes('t2') && n.includes('sag') && bp === 'spine')) {
+      if (isL) return {
+        reason: '腰椎矢状断T2 qtse（椎間板・脊柱管全体像）',
+        clinical: '腰椎MRIの基本。椎間板の水分含有量（黒＝変性）・脊柱管の広さ・終板変化（Modic分類）を評価。L4/5・L5/S1の椎間板ヘルニアが最多。下肢痛（坐骨神経痛）の責任レベルを矢状断で同定してから横断面で確認する。',
+        findings: '椎間板ヘルニア: 後方突出+硬膜管圧迫｜脊柱管狭窄: 硬膜管の砂時計状変形｜Modic I: T2高信号（浮腫・不安定）、Modic II: T1高信号（脂肪化）｜終板炎（Baastrup）',
+        params: 'L-qtse: FOV=280mm・スライス厚3mm・ETL=15。3T QuietX技術で騒音97%低減。'
+      }
+      if (isT) return {
+        reason: '胸椎矢状断T2 qtse（脊髄圧迫・腫瘍の全体評価）',
+        clinical: '胸椎は脊髄が最も細く、圧迫への耐性が低い。OPLLや黄色靱帯骨化（OYL）による胸髄圧迫を全長で評価。胸椎転移（骨髄置換）は矢状断T2/STIRで最も感度高く検出。Scheuermann病の椎体楔状変形も評価。',
+        findings: '胸髄圧迫: 脊髄の変形・T2高信号（脊髄症）｜黄色靱帯骨化(OYL): T2低信号の硬膜後方圧迫｜胸椎転移: T2高信号骨髄置換｜椎体血管腫: T2高信号',
+        params: 'T-qtse: FOV=350-400mm（胸椎全長）。3スタック収集or単一大FOV。'
+      }
+      return {
+        reason: '頸椎矢状断T2 qtse（頸髄症・椎間板ヘルニアの基本評価）',
+        clinical: '頸椎MRIの基本シーケンス。C3-7の椎間板ヘルニアによる神経根症（上肢放散痛）・頸髄症（歩行障害）の責任高位を評価。脊髄信号変化（高信号）は不可逆的脊髄障害の指標。qtse技術で3Tの騒音を大幅低減し患者負担を軽減。',
+        findings: '頸椎症性脊髄症: 脊髄T2高信号（C3-5に多い）｜椎間板ヘルニア: 後方突出+圧迫｜OPLL: T2低信号の前方圧迫｜頸椎不安定（RA）: C1-2亜脱臼',
+        params: 'C-qtse: FOV=240mm・スライス厚3mm・ETL=20。脊髄全長（C1〜T1）をカバー。'
+      }
     }
     if (n.includes('nstir') || (n.includes('stir') && bp === 'spine')) return {
       reason: 'STIR/nSTIR（骨髄浮腫・転移・炎症の最感度評価）',
-      clinical: 'TI=150ms（1.5T）/220ms（3T）で脂肪T1をnull→骨髄信号が低下→浮腫・転移・炎症が高信号として際立つ。全脊椎の転移スクリーニングに最も感度が高い（感度92%）。造影不要でも転移を検出できる点が利点。',
-      findings: '骨転移: 高信号（正常低信号骨髄との対比が明確）｜脊椎炎（化膿性）: 椎体+椎間板高信号｜強直性脊椎炎: 椎体角（Romanus病変）高信号｜疲労骨折: 骨折線沿いの高信号',
-      params: 'nSTIR: n=normalized。T1値に依存せず均一なSTIR効果。磁場不均一の影響を受けにくい。'
+      clinical: 'TI=150ms（1.5T）/220ms（3T）で脂肪T1をnull→骨髄信号が低下→浮腫・転移・炎症が高信号として際立つ。全脊椎の転移スクリーニングに最も感度が高い（感度92%）。造影不要でも転移を検出できる点が利点。nSTIRはT1値の影響を受けにくく3Tでより均一な抑制が得られる。',
+      findings: '骨転移: 高信号（正常低信号骨髄との対比明確）｜脊椎炎: 椎体+椎間板高信号｜強直性脊椎炎: 椎体角（Romanus病変）高信号｜疲労骨折: 骨折線沿い高信号｜化膿性脊椎炎: 椎間板高信号+椎体浮腫',
+      params: 'nSTIR=noise-optimized STIR。3T専用改良版。TI=220ms。TR≥5000ms。ETL=15-25。'
     }
-    if (n.includes('t1_qtse_sag') || n.includes('t1_tse_sag') || (n.includes('t1') && n.includes('sag') && bp === 'spine')) return {
-      reason: '脊椎矢状断T1（骨髄・解剖学的コントラスト評価）',
-      clinical: '正常骨髄は脂肪を多く含みT1高信号→転移・感染でT1低信号化（骨髄置換）として際立つ。造影後は脂肪抑制T1で増強部位を確認。脊椎の基本解剖評価（椎体の高さ・椎間板の厚さ）。',
-      findings: '転移: T1低信号（正常T1高信号骨髄の中に黒く浮かぶ）｜骨髄浮腫型転移: T1等信号（STIRで検出）｜感染: 椎間板T1低信号+椎体T1低信号（壊死）｜骨壊死: T1低信号+周囲高信号リム',
-      params: 'TR=400-600ms（T1コントラスト確保）。ETL=3-5（T1ブラーリング最小化）。造影後: 脂肪抑制追加。'
+    if (n.includes('t1_qtse_sag') || n.includes('t1_tse_sag') || (n.includes('t1') && n.includes('sag') && bp === 'spine')) {
+      if (isL) return {
+        reason: '腰椎矢状断T1（骨髄・解剖評価）',
+        clinical: '正常腰椎骨髄はT1高信号（脂肪豊富）。転移・感染で低信号化（骨髄置換）として際立つ。腰椎T1では椎体の形態・高さを評価し骨折後変化（Kümmell病：遅発性虚血壊死）をみる。赤色骨髄（造血骨髄）は閉経後に再活性化→T1低信号帯を転移と混同しないよう注意。',
+        findings: '転移: T1低信号（骨髄置換）｜良性圧迫骨折: T1で正常化傾向（脂肪化）｜感染（化膿性脊椎炎）: 椎間板T1低信号+椎体低信号｜赤色骨髄過形成: びまん性T1低信号（STIRで高信号なら転移を疑う）',
+        params: 'TR=400-600ms・TE<15ms。スライス厚3-4mm。STIRと組み合わせてfalse negativeを補完。'
+      }
+      return {
+        reason: '脊椎矢状断T1（骨髄・解剖学的コントラスト評価）',
+        clinical: '正常骨髄は脂肪を多く含みT1高信号→転移・感染でT1低信号化（骨髄置換）として際立つ。造影後は脂肪抑制T1で増強部位を確認。脊椎の基本解剖評価（椎体の高さ・椎間板の厚さ）。',
+        findings: '転移: T1低信号（正常T1高信号骨髄の中に黒く浮かぶ）｜感染: 椎間板T1低信号+椎体T1低信号（壊死）｜骨壊死: T1低信号+周囲高信号リム',
+        params: 'TR=400-600ms（T1コントラスト確保）。ETL=3-5（T1ブラーリング最小化）。造影後: 脂肪抑制追加。'
+      }
     }
-    if (n.includes('t2_tse_tra') || (n.includes('t2') && n.includes('tra') && bp === 'spine')) return {
-      reason: '脊椎横断面T2（神経根・脊髄断面評価）',
-      clinical: '矢状断で確認したヘルニア・狭窄の横断面確認。神経根の圧迫部位（左右・前後）を特定。脊髄の横断面で脱髄・腫瘍の分布（偏側性）を確認。治療計画（術式・アプローチ方向）に直結。',
-      findings: 'ヘルニア: 中央型/傍中央型/外側型の分類｜神経根圧迫: 根管内で扁平化した根｜脊髄腫瘍: 腫瘍の偏側性・周囲T2変化',
-      params: 'スライスを症状レベルに集中。厚さ3-4mm。FOVを脊椎の幅に最適化（150-200mm）。'
+    if (n.includes('t2_tse_tra') || (n.includes('t2') && n.includes('tra') && bp === 'spine')) {
+      if (isL) return {
+        reason: '腰椎横断面T2（椎間板ヘルニア・神経根圧迫の確定診断）',
+        clinical: '矢状断で同定した責任レベルの横断面評価。椎間板ヘルニアの型分類（中央型/傍中央型/外側型/椎間孔外）が治療方針を決定。神経根は硬膜外脂肪の中に高信号（T2高）として描出→圧迫部位（前方/後方/外側）の特定。脊柱管断面積の狭窄度評価。',
+        findings: 'ヘルニア: 中央型→両下肢症状、外側型→患側単根症状｜根管狭窄: 椎間孔内の根が扁平化｜黄色靱帯肥厚: 後方からの圧迫（脊柱管狭窄症）｜神経根腫脹: 圧迫根の信号上昇',
+        params: 'スライス厚3-4mm（椎間板レベルを中心に±2スライス）。FOV=180-200mm（腰椎）。'
+      }
+      return {
+        reason: '脊椎横断面T2（神経根・脊髄断面評価）',
+        clinical: '矢状断で確認したヘルニア・狭窄の横断面確認。神経根の圧迫部位（左右・前後）を特定。脊髄の横断面で脱髄・腫瘍の分布（偏側性）を確認。治療計画（術式・アプローチ方向）に直結。',
+        findings: 'ヘルニア: 中央型/傍中央型/外側型の分類｜神経根圧迫: 根管内で扁平化した根｜脊髄腫瘍: 腫瘍の偏側性・周囲T2変化',
+        params: 'スライスを症状レベルに集中。厚さ3-4mm。FOVを脊椎の幅に最適化（150-200mm）。'
+      }
+    }
+    if (n.includes('t1_tse_dixon') || (n.includes('dixon') && bp === 'spine')) return {
+      reason: '脊椎Dixon T1（骨髄脂肪定量・骨転移評価）',
+      clinical: 'Dixon法で脂肪画像・水画像を分離。脂肪分率（FF）マップで骨髄の脂肪含有量を定量化→正常骨髄は高脂肪（FF≥60%）・転移は低脂肪（FF<40%）。DPDX（Dual-Phase Dixon）で骨髄浸潤を定量評価できる。Whole-spine DixonによるBME（骨髄浮腫）評価も可能。',
+      findings: '転移: 脂肪画像で低信号（骨髄置換）・水画像で高信号｜脂肪骨髄化（加齢）: 脂肪画像高信号｜多発性骨髄腫: びまん性脂肪↓（speckled pattern）',
+      params: 'Dixon=1回収集でWater/Fat/In-phase/Opp-phase×4画像。全脊椎骨転移スクリーニングに有効。'
     }
     if (n.includes('t1_tse_sag_fs') || (n.includes('t1') && n.includes('fs') && bp === 'spine')) return {
       reason: '造影後脂肪抑制T1（増強部位の明瞭化）',
@@ -380,9 +420,75 @@ export function getSeqClinical(name: string, bodyPartId: string | null): SeqClin
       clinical: '骨壊死のT1低信号帯（正常骨髄の高信号の中に際立つ）、脂肪腫（高信号）、骨転移（低信号）の評価。解剖学的コントラストの基本。',
       findings: '骨壊死（Perthes/成人骨壊死）: T1低信号帯+周囲高信号リム｜脂肪腫: 均一高信号（脂肪抑制で消失）｜転移: T1低信号',
     }
-    if (n.includes('t2_blade') || n.includes('blade')) return {
-      reason: 'BLADE（放射状k空間TSE）—— 体動ロバスト',
-      clinical: '放射状k空間（PROPELLER法）で体動を retrospective補正。通常TSEで体動アーチファクトが問題になる肩・頸椎で特に有効。',
+    if (n.includes('t2_blade') || n.includes('blade') || n.includes('pd_blade')) {
+      if (n.includes('cor')) return {
+        reason: 'BLADE冠状断（肩: 回旋筋腱板・腱板断裂評価）',
+        clinical: '肩関節MRIの最重要シーケンス。棘上筋腱は冠状断で最も正確に評価→Full-thickness tearは腱の連続性断絶として描出。BLADEにより肩周囲の体動・血流アーチファクトを自動補正。通常TSEより格段にアーチファクトが少ない。',
+        findings: '棘上筋腱完全断裂: 腱の完全断絶+液体高信号（感度91%/特異度86%）｜部分断裂: 腱内高信号（関節面側/滑液包側）｜腱板変性: 低信号腱内の高信号変化｜腱板石灰化: T2低信号（HA沈着）',
+        params: 'FOV=180mm・スライス厚3mm・Matrix=320-384。斜冠状断（棘上筋長軸に平行）が標準。'
+      }
+      if (n.includes('sag')) return {
+        reason: 'BLADE矢状断（肩峰下インピンジメント・出口評価）',
+        clinical: '肩峰の形態（Type I/II/III）・肩峰下間隙の広さ・肩鎖関節の変形を評価。Type III鈎状肩峰はインピンジメント症候群の解剖学的素因。斜矢状断（関節窩に平行）で関節窩形態と関節唇を評価。',
+        findings: '肩峰骨棘: T2低信号骨棘が腱板上方を圧迫｜肩峰下滑液包炎: 滑液包内液体高信号｜SLAP損傷: 上方関節唇の剥離・高信号',
+      }
+      return {
+        reason: 'BLADE（放射状k空間TSE）—— 体動ロバスト高分解能TSE',
+        clinical: '放射状k空間（PROPELLER法）で体動を retrospective補正。通常TSEで体動アーチファクトが問題になる肩・頸椎で特に有効。320×320高分解能収集でも体動に強い。',
+      }
+    }
+    if (n.includes('pd_fs') || n.includes('pd_tse') || n.includes('pd-w') || (n.includes('pd') && n.includes('fs'))) {
+      if (n.includes('sag')) return {
+        reason: '脂肪抑制PD矢状断（ACL/PCL・半月板後角評価）',
+        clinical: '膝ACLは矢状断PDで最も正確に評価。正常ACLは低信号の太い索状構造。断裂では連続性断絶or消失+周囲浮腫（高信号）。半月板後角（外側>内側）は矢状断で前後2スライスにわたる蝶ネクタイ形が正常→1スライスのみは後角断裂のサイン（Ghost sign）。',
+        findings: 'ACL完全断裂: 連続性断絶（感度92%）｜Ghost sign: 半月板後角断裂の示唆｜PCL断裂: 弓状形態消失｜Segond骨折: 外側脛骨縁avulsion骨折（ACL断裂と高関連）',
+        params: 'TR=2500-3500ms、TE=25-35ms。FOV=150-180mm（膝）・スライス厚3mm。'
+      }
+      if (n.includes('cor')) return {
+        reason: '脂肪抑制PD冠状断（半月板本体・MCL/LCL評価）',
+        clinical: '内・外側半月板の体部を冠状断で評価。内側半月板断裂（水平断・縦断・放射状断裂）の確定診断。MCL/LCL（側副靱帯）の評価は冠状断が最適。Grade 2/3の側副靱帯損傷の診断。',
+        findings: '半月板水平断裂: 関節面に達する高信号（Grade 3）｜バケツ柄断裂: 関節内転位した半月板断片｜MCL断裂: 靱帯内高信号・走行異常｜軟骨損傷: 欠損・薄化',
+        params: 'FOV=150-180mm（膝）。1.5mm再構成も可。半月板は3スライス以上で確認。'
+      }
+      return {
+        reason: '脂肪抑制PD（関節の最重要シーケンス）',
+        clinical: 'ProtonDensity（PD）重み付け+脂肪抑制で軟骨・半月板・靱帯を最高コントラストで描出。TR/TE設定（TR=3000ms, TE=30ms）でPDコントラストを実現。脂肪抑制がないと脂肪信号が強く病変が埋もれる。',
+        findings: '半月板断裂: 高信号が関節面に達するGrade 3（感度85%/特異度95%）｜ACL損傷: 連続性断絶+周囲高信号浮腫｜軟骨損傷: 層構造欠損・低信号変化｜骨挫傷: 骨髄浮腫（STIR高信号）',
+        params: 'TR=2500-4000ms、TE=25-35ms。脂肪抑制: SPAIRまたはCHESS。スライス厚3mm。Matrix=384以上（膝: FOV=150-180mm）。'
+      }
+    }
+    if (n.includes('t2_tse') && bp === 'joint') {
+      if (n.includes('sag')) return {
+        reason: '関節矢状断T2（靱帯・骨髄・後方構造評価）',
+        clinical: '膝ACL・PCL・後方関節包の矢状断評価。ACLはSag PDとSag T2の両方で評価することで診断精度が向上。骨挫傷は矢状断T2/STIRで最も明瞭。',
+        findings: 'ACL断裂: 信号消失or線維の不連続｜PCL断裂: 弓状変形消失｜骨壊死: T2低信号帯+周囲浮腫',
+      }
+      if (n.includes('cor')) return {
+        reason: '関節冠状断T2（内外側構造・軟骨評価）',
+        clinical: '膝の場合: 内側・外側半月板、内外側側副靱帯（MCL/LCL）、軟骨の高さを評価。肩の場合: 回旋筋腱板（棘上筋・棘下筋）の冠状断評価。股関節の場合: 臼蓋・大腿骨頭の評価。',
+        findings: 'MCL断裂: 信号上昇・走行異常｜外側半月板損傷: 高信号が関節面到達｜軟骨変性: 厚さ減少・信号変化',
+      }
+      return {
+        reason: '関節T2（骨髄・関節液・腫瘤評価）',
+        clinical: '関節液（T2高信号）・骨髄浮腫の評価。腫瘤性病変の信号特性で良悪性を推定。関節周囲の滑液包炎・腱炎の浮腫評価。',
+        findings: '関節水腫: 均一T2高信号（感染では低信号成分混在）｜骨腫瘍: 信号特性で推定（低: 骨肉腫、高: 骨嚢腫）',
+      }
+    }
+    if (n.includes('t1_tse') && bp === 'joint') return {
+      reason: '関節T1（骨形態・脂肪・壊死評価）',
+      clinical: '骨壊死のT1低信号帯（正常骨髄の高信号の中に際立つ）、脂肪腫（高信号）、骨転移（低信号）の評価。解剖学的コントラストの基本。股関節Perthes病・成人大腿骨頭壊死の早期診断に重要。',
+      findings: '骨壊死（Perthes/成人骨壊死）: T1低信号帯+周囲高信号リム｜脂肪腫: 均一高信号（脂肪抑制で消失）｜転移: T1低信号',
+    }
+    if (n.includes('t2star') || n.includes('medic')) return {
+      reason: 'T2*（MEDIC）—— 関節軟骨・骨軟骨評価',
+      clinical: '3D GRE T2*で関節軟骨を薄スライス（1-2mm）で評価。肩関節の関節唇・SLAP病変の微細な評価。TE=20-25msでのT2*コントラストは軟骨の層構造（深層/表層）を区別できる。',
+      findings: '関節唇断裂: T2*高信号の関節唇内亀裂｜軟骨剥離: 骨軟骨界面の高信号｜Bankart損傷: 前方関節唇の剥離',
+      params: '3D MEDIC: TR=500-800ms、TE=20-25ms。スライス厚1-2mm。FOV=180mm（肩）。'
+    }
+    if (n.includes('diffusion_stir') || (n.includes('diffusion') && bp === 'joint')) return {
+      reason: '軟部組織・関節DWI（腫瘍評価）',
+      clinical: '関節周囲の軟部腫瘍・骨腫瘍の良悪性鑑別補助。STIRベースのDWIで骨髄信号を抑制しADCを正確に測定。ADC<1.0×10⁻³の軟部腫瘍は悪性を示唆（滑膜肉腫・未分化多形肉腫）。神経鞘腫は非常に高ADCが特徴的。',
+      findings: '悪性軟部腫瘤: ADC低下（<1.0×10⁻³）｜良性腱鞘巨細胞腫: ADC中等度｜神経鞘腫: ADC高値（>1.5×10⁻³）｜骨肉腫骨外成分: 不均一ADC',
     }
     if (n.includes('pdfs') || n.includes('pd_fs_tra')) return {
       reason: 'PD脂肪抑制アキシャル（半月板水平面・軟骨断面）',

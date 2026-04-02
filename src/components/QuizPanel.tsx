@@ -12,6 +12,9 @@ const CATEGORY_COLOR: Record<QuizQuestion['category'], string> = {
   'SAR/安全': '#ef4444',
   'シーケンス': '#8b5cf6',
   '臨床判断': '#06b6d4',
+  '救急・緊急': '#f43f5e',
+  '禁忌・安全確認': '#fb923c',
+  'MRI物理': '#a3e635',
 }
 
 const DIFF_LABEL = ['', '★', '★★', '★★★']

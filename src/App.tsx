@@ -21,7 +21,8 @@ const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'quiz' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | null>('learn')
+  const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
 
@@ -70,12 +71,12 @@ export default function App() {
             アーチファクト対策
           </button>
           <button
-            onClick={() => setRightPanel(rightPanel === 'quiz' ? null : 'quiz')}
+            onClick={() => setQuizMode(m => !m)}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
             style={{
-              background: rightPanel === 'quiz' ? '#2d1f5e' : '#252525',
-              color: rightPanel === 'quiz' ? '#a78bfa' : '#6b7280',
-              border: `1px solid ${rightPanel === 'quiz' ? '#7c3aed' : '#374151'}`,
+              background: quizMode ? '#2d1f5e' : '#252525',
+              color: quizMode ? '#a78bfa' : '#6b7280',
+              border: `1px solid ${quizMode ? '#7c3aed' : '#374151'}`,
             }}
           >
             <GraduationCap size={11} />
@@ -140,10 +141,28 @@ export default function App() {
           <div className="shrink-0 overflow-hidden" style={{ width: '300px', borderLeft: '1px solid #252525' }}>
             {rightPanel === 'artifact' && <ArtifactGuide />}
             {rightPanel === 'learn' && <LearnPanel />}
-            {rightPanel === 'quiz' && <QuizPanel />}
           </div>
         )}
       </div>
+
+      {/* Quiz: fullscreen overlay */}
+      {quizMode && (
+        <div className="fixed inset-0 z-50 flex flex-col" style={{ background: '#0e0e0e' }}>
+          <div className="flex items-center justify-between px-4 py-2 shrink-0" style={{ borderBottom: '1px solid #252525' }}>
+            <span className="text-sm font-semibold" style={{ color: '#a78bfa' }}>MRI Quiz</span>
+            <button
+              onClick={() => setQuizMode(false)}
+              className="text-xs px-3 py-1 rounded"
+              style={{ background: '#252525', color: '#9ca3af', border: '1px solid #374151' }}
+            >
+              ✕ 閉じる
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <QuizPanel />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -37,11 +37,11 @@ export interface BodyPart {
 export const protocolTree: BodyPart[] = [
   {
     id: 'head',
-    label: '頭部',
+    label: 'Head',
     groups: [
       {
         id: 'brain',
-        label: '脳',
+        label: 'Brain',
         variants: [
           {
             id: 'brain_routine_dot',
@@ -88,7 +88,7 @@ export const protocolTree: BodyPart[] = [
                 sequences: [
                   { name: 'AAHScout' },
                   { name: 't1_se_tra' },
-                  { name: 'CE注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'diffusion_ep2d_tra' },
                   { name: 't2_flair_tse_tra_fast' },
                   { name: 't1_space_sag_15' },
@@ -101,7 +101,7 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'pituitary',
-        label: '下垂体',
+        label: 'Pituitary',
         variants: [
           {
             id: 'pituitary_dot',
@@ -116,7 +116,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't1_tse_cor' },
                   { name: 't2_tse_sag' },
                   { name: 't1_tse_sag' },
-                  { name: 'CE注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 't1_tse_cor_dyn' },
                 ],
               },
@@ -128,7 +128,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't1_tse_cor' },
                   { name: 't2_tse_sag' },
                   { name: 't1_tse_sag' },
-                  { name: 'CE注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 't1_tse_cor_dyn' },
                 ],
               },
@@ -140,11 +140,11 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'neck',
-    label: '頸部',
+    label: 'Neck',
     groups: [
       {
         id: 'neck_routine',
-        label: 'ルーティン',
+        label: 'Routine',
         variants: [
           {
             id: 'neck_routine',
@@ -166,7 +166,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't2_tse_kugel5_tra_b0_200' },
                   { name: 't1_tse_DIXON_sag' },
                   { name: 't1_tse_sag' },
-                  { name: 'CE注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'dynamic(pre)_t1_vibe_fs_tra_bh' },
                   { name: 't1_tse_DIXON_tra_post' },
                   { name: 't1_tse_DIXON_cor_post' },
@@ -181,11 +181,11 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'chest',
-    label: '胸部',
+    label: 'Chest',
     groups: [
       {
         id: 'chest_routine',
-        label: 'ルーティン',
+        label: 'Routine',
         variants: [
           {
             id: 'chest_routine',
@@ -217,15 +217,15 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'breast',
-    label: '乳腺',
+    label: 'Breast',
     groups: [
       {
         id: 'breast_routine',
-        label: 'ルーティン',
+        label: 'Routine',
         variants: [
           {
             id: 'breast_routine_high_res',
-            label: 'routine_high_res',
+            label: 'routine_BR18_high_res',
             presetId: 'breast_dynamic',
             columns: [
               {
@@ -235,11 +235,108 @@ export const protocolTree: BodyPart[] = [
                   { name: 't2_fs_tse_tra' },
                   { name: 't1_tse_tra' },
                   { name: 'diffusion_resolve5_tra_fs' },
-                  { name: '造影注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'dynamic(pre)_vibe_fs_tra' },
                   { name: 'dynamic(90p)_vibe_fs_tra' },
                   { name: 't1_fs_vibe_sag_B' },
                   { name: 't1_fs_vibe_sag_L' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'breast_routine_dynamic',
+            label: 'routine_BR18_dynamic',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 't2_fs_tse_tra' },
+                  { name: 't1_tse_tra' },
+                  { name: 'diffusion_resolve5_tra_fs' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'dynamic(pre)_vibe_fs_tra' },
+                  { name: 'dynamic(1st)_vibe_fs_tra' },
+                  { name: 'dynamic(2nd)_vibe_fs_tra' },
+                  { name: 'dynamic(3rd)_vibe_fs_tra' },
+                  { name: 'dynamic(4th)_vibe_fs_tra' },
+                  { name: 't1_fs_vibe_sag_B' },
+                  { name: 't1_fs_vibe_sag_L' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'breast_routine_br18',
+            label: 'routine_BR18',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 't2_fs_tse_tra' },
+                  { name: 't1_tse_tra' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'dynamic(pre)_vibe_fs_tra' },
+                  { name: 'dynamic(90p)_vibe_fs_tra' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'breast_spine_body_high_res',
+            label: 'routine_Spine_Body_high_res',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 't2_fs_tse_tra' },
+                  { name: 't1_tse_tra' },
+                  { name: 'diffusion_resolve5_tra_fs' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'dynamic(pre)_vibe_fs_tra' },
+                  { name: 'dynamic(90p)_vibe_fs_tra' },
+                  { name: 't1_fs_vibe_sag_B' },
+                  { name: 't1_fs_vibe_sag_L' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'breast_spine_body_dynamic',
+            label: 'routine_Spine_Body_dynamic',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 't2_fs_tse_tra' },
+                  { name: 't1_tse_tra' },
+                  { name: 'diffusion_resolve5_tra_fs' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'dynamic(pre)_vibe_fs_tra' },
+                  { name: 'dynamic(1st)_vibe_fs_tra' },
+                  { name: 'dynamic(2nd)_vibe_fs_tra' },
+                  { name: 'dynamic(3rd)_vibe_fs_tra' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'breast_implant',
+            label: 'Inplant',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 't2_tse_tra' },
+                  { name: 't2_fs_tse_tra' },
+                  { name: 't1_tse_tra' },
+                  { name: 't2_WAIR_tra', note: 'Water/fat-saturated STIR for implant' },
+                  { name: 't2_STIR_tse_tra' },
                 ],
               },
             ],
@@ -250,11 +347,11 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'abdomen',
-    label: '腹部',
+    label: 'Abdomen',
     groups: [
       {
         id: 'abdomen_eob',
-        label: 'EOB（肝臓）',
+        label: 'EOB',
         variants: [
           {
             id: 'eob_dot_exhale',
@@ -270,17 +367,143 @@ export const protocolTree: BodyPart[] = [
                   { name: 't1_vibe_opp-In_tra_p4_bh', note: 'opposed/in-phase' },
                   { name: 't2_haste_tra_bh' },
                   { name: 'dynamic(pre)_vibe_fs_tra_2mm', note: 'ABLE' },
-                  { name: '造影注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'Care_Bolus', note: 'ABLE' },
                   { name: 'dynamic(30s)_vibe_fs_tra_2mm', note: 'ABLE' },
                   { name: 'dynamic(60s)_vibe_fs_tra_2mm', note: 'ABLE' },
                   { name: 'dynamic(120s)_vibe_fs_tra_2mm', note: 'ABLE' },
                   { name: 't2_haste_FS_tra_bh' },
                   { name: 'diffusion_ep2d_tra_PACE' },
-                  { name: '_15min_', isTimer: true, note: 'EOB肝細胞相待機' },
+                  { name: '_15min_', isTimer: true, note: 'EOB hepatocyte phase wait' },
                   { name: 'dynamic(15min)_vibe_fs_tra_2mm' },
                   { name: 'dynamic(15min)_vibe_fs_cor_3mm' },
                   { name: 'dynamic(15min)_vibe_fs_sag_3mm' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'eob_dot_inhale',
+            label: 'EOB_Dot_Inhale',
+            presetId: 'liver_eob',
+            columns: [
+              {
+                label: '2mm',
+                sequences: [
+                  { name: 'localizer_bh' },
+                  { name: 'localizer_haste_cor_bh' },
+                  { name: 'Care_Bolus_position_haste_sag' },
+                  { name: 't1_vibe_opp-In_tra_p4_bh', note: 'opposed/in-phase' },
+                  { name: 't2_haste_tra_bh' },
+                  { name: 'dynamic(pre)_vibe_fs_tra_2mm', note: 'ABLE, inhale BH' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'Care_Bolus', note: 'ABLE' },
+                  { name: 'dynamic(30s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(60s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(120s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: '_15min_', isTimer: true, note: 'EOB hepatocyte phase wait' },
+                  { name: 'dynamic(15min)_vibe_fs_tra_2mm' },
+                  { name: 'dynamic(15min)_vibe_fs_cor_3mm' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'eob_mrcp_dot_exhale',
+            label: 'EOB+MRCP_Dot_Exhale',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer_bh' },
+                  { name: 'localizer_haste_cor_bh' },
+                  { name: 'Care_Bolus_position_haste_sag' },
+                  { name: 'MRCP2d_rane_cor_bh_fs' },
+                  { name: 't1_vibe_opp-In_tra_p4_bh', note: 'opposed/in-phase' },
+                  { name: 't2_haste_tra_bh' },
+                  { name: 'dynamic(pre)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'Care_Bolus', note: 'ABLE' },
+                  { name: 'dynamic(30s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(60s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(120s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'MRCP_HR_t2_space_cor_PACE' },
+                  { name: 'diffusion_ep2d_tra_PACE_spair' },
+                  { name: '_15min_', isTimer: true, note: 'EOB hepatocyte phase wait' },
+                  { name: 'dynamic(15min)_vibe_fs_tra_2mm' },
+                  { name: 'dynamic(15min)_vibe_fs_cor_3mm' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'eob_fbd',
+            label: 'FBD',
+            columns: [
+              {
+                label: 'Free Breath',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 'localizer_haste_cor_RT' },
+                  { name: 't1_starVIBE_opp_In_tra', note: 'Free breathing' },
+                  { name: 't2_haste_tra_RT' },
+                  { name: 't1_starVIBE_SPAIR_tra' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'Care_Bolus', note: 'ABLE' },
+                  { name: 'dynamic(30s)_starVIBE_fs_tra' },
+                  { name: 'dynamic(60s)_starVIBE_fs_tra' },
+                  { name: 'dynamic(120s)_starVIBE_fs_tra' },
+                  { name: '_15min_', isTimer: true, note: 'EOB hepatocyte phase wait' },
+                  { name: 'dynamic(15min)_starVIBE_fs_tra' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'eob_dot_2mm',
+            label: 'EOB_Dot_2mm',
+            columns: [
+              {
+                label: '2mm',
+                sequences: [
+                  { name: 'localizer_bh' },
+                  { name: 'localizer_haste_cor_bh' },
+                  { name: 'Care_Bolus_position_haste_sag' },
+                  { name: 't1_vibe_opp-In_tra_p4_bh' },
+                  { name: 't2_haste_tra_bh' },
+                  { name: 'dynamic(pre)_vibe_fs_tra_2mm', note: 'ABLE, 2mm slice' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'Care_Bolus', note: 'ABLE' },
+                  { name: 'dynamic(30s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(60s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(120s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: '_15min_', isTimer: true, note: 'EOB hepatocyte phase wait' },
+                  { name: 'dynamic(15min)_vibe_fs_tra_2mm' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'eob_dot_3mm',
+            label: 'EOB_Dot_3mm',
+            columns: [
+              {
+                label: '3mm',
+                sequences: [
+                  { name: 'localizer_bh' },
+                  { name: 'localizer_haste_cor_bh' },
+                  { name: 'Care_Bolus_position_haste_sag' },
+                  { name: 't1_vibe_opp-In_tra_p4_bh' },
+                  { name: 't2_haste_tra_bh' },
+                  { name: 'dynamic(pre)_vibe_fs_tra_3mm', note: 'ABLE, 3mm slice' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'Care_Bolus', note: 'ABLE' },
+                  { name: 'dynamic(30s)_vibe_fs_tra_3mm', note: 'ABLE' },
+                  { name: 'dynamic(60s)_vibe_fs_tra_3mm', note: 'ABLE' },
+                  { name: 'dynamic(120s)_vibe_fs_tra_3mm', note: 'ABLE' },
+                  { name: '_15min_', isTimer: true, note: 'EOB hepatocyte phase wait' },
+                  { name: 'dynamic(15min)_vibe_fs_tra_3mm' },
+                  { name: 'dynamic(15min)_vibe_fs_cor_3mm' },
                 ],
               },
             ],
@@ -297,7 +520,7 @@ export const protocolTree: BodyPart[] = [
             presetId: 'mrcp_3d',
             columns: [
               {
-                label: 'BH',
+                label: 'Strategy',
                 sequences: [
                   { name: 'localizer_bh' },
                   { name: 'MRCP2d_rane_cor_bh_fs' },
@@ -325,11 +548,51 @@ export const protocolTree: BodyPart[] = [
               },
             ],
           },
+          {
+            id: 'mrcp_dynamic_2mm',
+            label: 'MRCP+dynamic_2mm',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer_bh' },
+                  { name: 'localizer_haste_cor_bh' },
+                  { name: 'MRCP2d_rane_cor_bh_fs' },
+                  { name: 't2_haste_tra_bh' },
+                  { name: 't1_vibe_opp-In_tra_p4_bh' },
+                  { name: 'dynamic(pre)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'Care_Bolus', note: 'ABLE' },
+                  { name: 'dynamic(30s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'dynamic(60s)_vibe_fs_tra_2mm', note: 'ABLE' },
+                  { name: 'MRCP_HR_t2_space_cor_PACE' },
+                  { name: 'diffusion_ep2d_tra_PACE_spair' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'mrcp_baby',
+            label: 'Baby_MRCP',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer' },
+                  { name: 'localizer_haste_cor' },
+                  { name: 'MRCP2d_rane_cor_bh_fs' },
+                  { name: 't2_haste_tra_bh' },
+                  { name: 'MRCP_HR_t2_space_cor_PACE' },
+                  { name: 'diffusion_ep2d_tra_PACE_spair' },
+                ],
+              },
+            ],
+          },
         ],
       },
       {
         id: 'abdomen_renal',
-        label: '腎臓',
+        label: 'Renal',
         variants: [
           {
             id: 'renal_routine',
@@ -363,7 +626,7 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'abdomen_liver',
-        label: '肝臓',
+        label: 'Liver',
         variants: [
           {
             id: 'liver_routine',
@@ -387,7 +650,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 'localizer_bh' },
                   { name: 't2_haste_tra_bh' },
                   { name: 't1_vibe_opp_tra_p4_bh' },
-                  { name: 'heavy_Dixon_tra_bh', note: 'ヘビーDixon' },
+                  { name: 'heavy_Dixon_tra_bh', note: 'Heavy Dixon' },
                   { name: 'diffusion_ep2d_tra_PACE' },
                   { name: 't2_haste_cor_bh' },
                 ],
@@ -400,11 +663,11 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'pelvis',
-    label: '骨盤',
+    label: 'Pelvis',
     groups: [
       {
         id: 'pelvis_male',
-        label: '男性（前立腺）',
+        label: 'Male (Prostate)',
         variants: [
           {
             id: 'pelvis_male_routine',
@@ -436,7 +699,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't2_tse_sag' },
                   { name: 't2_tse_SPAIR_cor' },
                   { name: 'dynamic(pre)_vibe_fs_tra' },
-                  { name: '造影注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'dynamic_vibe_fs_tra' },
                   { name: 't1_tse_sag_fs' },
                   { name: 't1_tse_cor_fs' },
@@ -448,7 +711,7 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'pelvis_female',
-        label: '女性（子宮・卵巣）',
+        label: 'Female (Uterus/Ovary)',
         variants: [
           {
             id: 'pelvis_female_routine',
@@ -466,7 +729,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't2_tse_fs_tra' },
                   { name: 'diffusion_ep2d_tra' },
                   { name: 't2_tse_sag' },
-                  { name: '造影注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 't1_tse_fs_tra' },
                   { name: 't1_tse_fs_tse' },
                   { name: 't1_fs_tse_cor' },
@@ -480,7 +743,7 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'pelvis_rectum',
-        label: '直腸',
+        label: 'Rectum',
         variants: [
           {
             id: 'pelvis_rectum_routine',
@@ -494,7 +757,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 'diffusion_resolve5_tra_b0_800' },
                   { name: 't1_tse_fist_DIXON_tra' },
                   { name: 'dynamic(dyn)_vibe_fs' },
-                  { name: '造影注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 't1_tse_DIXON_cor' },
                   { name: 't1_fs_tse_sag' },
                   { name: 't1_fs_BLADE_tra_320' },
@@ -506,7 +769,7 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'pelvis_bladder',
-        label: '膀胱',
+        label: 'Bladder',
         variants: [
           {
             id: 'pelvis_bladder_routine',
@@ -522,9 +785,37 @@ export const protocolTree: BodyPart[] = [
                   { name: 't2_tse_sag' },
                   { name: 't1_tse_SPAIR_tra' },
                   { name: 'diffusion_ep2d_tra_b0_1500' },
-                  { name: '造影注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'dynamic_vibe_fs_tra_bh' },
                   { name: 't1_tse_SHFL_fs_tra', note: 'SHFL=Shuffle' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'pelvis_joint',
+        label: 'Joint',
+        variants: [
+          {
+            id: 'pelvis_joint_routine',
+            label: 'routine',
+            presetId: 'hip_dixon',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer_trufi' },
+                  { name: 't2_tse_DIXON_cor' },
+                  { name: 't1_tse_cor' },
+                  { name: 't2_tse_DIXON_tra' },
+                  { name: 't2_tse_tra' },
+                  { name: 'diffusion_stir_ep2d_tra' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 'dynamic(pre)_t1_vibe_fs_tra_tset' },
+                  { name: 't1_tse_DIXON_cor' },
+                  { name: 't1_tse_DIXON_tra' },
                 ],
               },
             ],
@@ -535,11 +826,11 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'spine',
-    label: '脊椎',
+    label: 'Spine',
     groups: [
       {
         id: 'spine_cervical',
-        label: '頸椎',
+        label: 'Cervical',
         variants: [
           {
             id: 'c_spine_routine',
@@ -567,8 +858,36 @@ export const protocolTree: BodyPart[] = [
         ],
       },
       {
+        id: 'spine_thoracic',
+        label: 'Thoracic',
+        variants: [
+          {
+            id: 't_spine_routine',
+            label: 'routine',
+            presetId: 'spine_c_qtse',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer_quiet' },
+                  { name: 'localizer_haste_cor' },
+                  { name: 'localizer_haste_sag' },
+                  { name: 'T_t2_qtse_sag', note: 'quiet TSE' },
+                  { name: 'T_t1_qtse_sag' },
+                  { name: 'T_t2_qtse_tra' },
+                  { name: 'option？', isDecision: true },
+                  { name: 'T_t2_stir_qtse_sag', isOptional: true },
+                  { name: 'T_t2_stir_qtse_cor', isOptional: true },
+                  { name: 'T_t1_tse_DIXON_sag', isOptional: true },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
         id: 'spine_lumbar',
-        label: '腰椎',
+        label: 'Lumbar',
         variants: [
           {
             id: 'l_spine_routine',
@@ -598,11 +917,11 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'spine_whole',
-        label: '全脊椎',
+        label: 'Whole Spine',
         variants: [
           {
             id: 'whole_spine',
-            label: 'WholeSpine',
+            label: 'WholeSpine(C to L)',
             presetId: 'spine_whole',
             columns: [
               {
@@ -617,6 +936,28 @@ export const protocolTree: BodyPart[] = [
                   { name: 'C_t2_qtse_tra' },
                   { name: 'T_t2_qtse_tra' },
                   { name: 'L_t2_qtse_tra' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'whole_spine_l_to_c',
+            label: 'WholeSpine(L to C)',
+            columns: [
+              {
+                label: 'Strategy',
+                sequences: [
+                  { name: 'localizer_bh' },
+                  { name: 'localizer_haste_cor' },
+                  { name: 'L_t1_tse_DIXON_sag' },
+                  { name: 'L_t2_stir_qtse_sag' },
+                  { name: 'T_t1_tse_DIXON_sag' },
+                  { name: 'T_t2_stir_qtse_sag' },
+                  { name: 'C_t1_tse_DIXON_sag' },
+                  { name: 'C_t2_stir_qtse_sag' },
+                  { name: 'L_t2_qtse_tra' },
+                  { name: 'T_t2_qtse_tra' },
+                  { name: 'C_t2_qtse_tra' },
                 ],
               },
             ],
@@ -641,11 +982,11 @@ export const protocolTree: BodyPart[] = [
   },
   {
     id: 'joint',
-    label: '関節',
+    label: 'Joint',
     groups: [
       {
         id: 'joint_knee',
-        label: '膝関節',
+        label: 'Knee',
         variants: [
           {
             id: 'knee_dot',
@@ -675,7 +1016,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't1_tse_sag' },
                   { name: 't2_tse_DIXON_tra' },
                   { name: 't2_tse_tra' },
-                  { name: 'diffusion_stir_ep2d_tra', note: '腫瘍評価用DWI' },
+                  { name: 'diffusion_stir_ep2d_tra', note: 'Tumor assessment DWI' },
                 ],
               },
             ],
@@ -684,11 +1025,11 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'joint_shoulder',
-        label: '肩関節',
+        label: 'Shoulder',
         variants: [
           {
             id: 'shl_shoulder_dot',
-            label: 'SHL_Shoulder_Dot',
+            label: 'SHL_Shoulder_Dot_FOV180',
             presetId: 'shoulder_blade',
             columns: [
               {
@@ -726,7 +1067,7 @@ export const protocolTree: BodyPart[] = [
       },
       {
         id: 'joint_hip',
-        label: '股関節',
+        label: 'Hip',
         variants: [
           {
             id: 'hip_routine',
@@ -743,7 +1084,7 @@ export const protocolTree: BodyPart[] = [
                   { name: 't2_tse_DIXON_tra' },
                   { name: 't2_tse_tra' },
                   { name: 'diffusion_stir_ep2d_tra' },
-                  { name: 'CE注射', isCE: true },
+                  { name: 'CE_Injection', isCE: true },
                   { name: 'dynamic_vibe_fs_tra' },
                   { name: 'dynamic_vibe_fs_cor' },
                   { name: 't1_tse_DIXON_cor' },
