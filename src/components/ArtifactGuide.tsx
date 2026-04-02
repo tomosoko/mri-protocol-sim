@@ -30,19 +30,19 @@ export function ArtifactGuide() {
   }
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: '#1a1f2e' }}>
+    <div className="h-full overflow-y-auto" style={{ background: '#141414' }}>
       <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5"
-        style={{ color: '#4b5563', borderBottom: '1px solid #1f2937' }}>
+        style={{ color: '#4b5563', borderBottom: '1px solid #252525' }}>
         <Zap size={11} />
         アーチファクト対策ガイド
       </div>
       <div className="p-2 space-y-1">
         {artifacts.map(artifact => (
-          <div key={artifact.id} className="rounded overflow-hidden" style={{ border: '1px solid #1f2937' }}>
+          <div key={artifact.id} className="rounded overflow-hidden" style={{ border: '1px solid #252525' }}>
             <button
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
               style={{
-                background: expanded === artifact.id ? '#1e2d4a' : '#1f2937',
+                background: expanded === artifact.id ? '#1e2d4a' : '#252525',
                 color: expanded === artifact.id ? '#93c5fd' : '#9ca3af',
               }}
               onClick={() => handleSelect(artifact.id)}
@@ -52,7 +52,7 @@ export function ArtifactGuide() {
             </button>
 
             {expanded === artifact.id && (
-              <div className="px-3 py-2 text-xs space-y-3" style={{ background: '#111827' }}>
+              <div className="px-3 py-2 text-xs space-y-3" style={{ background: '#0e0e0e' }}>
                 <div>
                   <div className="font-semibold mb-1" style={{ color: '#f87171' }}>原因</div>
                   <p style={{ color: '#9ca3af' }}>{artifact.cause}</p>
@@ -61,7 +61,7 @@ export function ArtifactGuide() {
                   <div className="font-semibold mb-1" style={{ color: '#34d399' }}>対策</div>
                   <div className="space-y-1.5">
                     {artifact.solutions.map((sol, i) => (
-                      <div key={i} className="p-2 rounded" style={{ background: '#1f2937' }}>
+                      <div key={i} className="p-2 rounded" style={{ background: '#252525' }}>
                         <div className="flex items-center gap-2 mb-0.5">
                           <button
                             onClick={() => goToParam(sol.param)}
@@ -77,7 +77,7 @@ export function ArtifactGuide() {
                     ))}
                   </div>
                 </div>
-                <div className="p-2 rounded text-xs" style={{ background: '#1a1a2e', border: '1px solid #7c3aed' }}>
+                <div className="p-2 rounded text-xs" style={{ background: '#141414', border: '1px solid #7c3aed' }}>
                   <span className="font-semibold" style={{ color: '#a78bfa' }}>例: </span>
                   <span style={{ color: '#d1d5db' }}>{artifact.example}</span>
                 </div>

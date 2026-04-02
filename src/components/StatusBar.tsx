@@ -20,7 +20,7 @@ export function StatusBar() {
 
   return (
     <div className="flex items-center gap-6 px-4 py-1.5 text-xs font-mono border-b"
-      style={{ background: '#111827', borderColor: '#1f2937', color: '#9ca3af' }}>
+      style={{ background: '#0e0e0e', borderColor: '#252525', color: '#9ca3af' }}>
       {/* Scan time */}
       <div className="flex items-center gap-1.5">
         <span style={{ color: '#6b7280' }}>TIME</span>

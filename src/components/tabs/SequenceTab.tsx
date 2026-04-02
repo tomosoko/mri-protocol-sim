@@ -20,7 +20,7 @@ export function SequenceTab() {
         onChange={v => setParam('partialFourier', v as typeof params.partialFourier)} highlight={hl('partialFourier')} />
 
       {/* ETL guide */}
-      <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+      <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
         <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Turbo Factor（ETL）の使い分け</div>
         <table className="w-full">
           <tbody style={{ color: '#9ca3af' }}>
@@ -34,7 +34,7 @@ export function SequenceTab() {
       </div>
 
       {/* DWI b-values */}
-      <div className="border-t mt-2 pt-2 mx-3" style={{ borderColor: '#1f2937' }}>
+      <div className="border-t mt-2 pt-2 mx-3" style={{ borderColor: '#252525' }}>
         <div className="text-xs font-semibold mb-2" style={{ color: '#9ca3af' }}>b値設定（DWI）</div>
         <div className="flex flex-wrap gap-1 mb-2">
           {params.bValues.map((b, i) => (
@@ -49,7 +49,7 @@ export function SequenceTab() {
               key={b}
               onClick={() => setParam('bValues', [...params.bValues, b].sort((a, z) => a - z))}
               className="px-2 py-0.5 rounded text-xs font-mono transition-colors"
-              style={{ background: '#1f2937', color: '#6b7280', border: '1px solid #374151' }}
+              style={{ background: '#252525', color: '#6b7280', border: '1px solid #374151' }}
             >
               +b{b}
             </button>
@@ -66,7 +66,7 @@ export function SequenceTab() {
         </div>
 
         {isDWI && (
-          <div className="mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>b値の臨床ガイド</div>
             <table className="w-full">
               <tbody style={{ color: '#9ca3af' }}>

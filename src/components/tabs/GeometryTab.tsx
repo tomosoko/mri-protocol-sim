@@ -39,7 +39,7 @@ export function GeometryTab() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div className="flex border-b mb-3" style={{ borderColor: '#1f2937' }}>
+      <div className="flex border-b mb-3" style={{ borderColor: '#252525' }}>
         {(['Common', 'AutoAlign', 'Navigator', 'Saturation', 'Tim'] as SubTab[]).map(t => (
           <button
             key={t}
@@ -74,7 +74,7 @@ export function GeometryTab() {
             onChange={v => setConcatenations(v as number)} />
 
           {/* Phase direction guide */}
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>位相方向の選択ガイド</div>
             <table className="w-full">
               <thead>
@@ -107,7 +107,7 @@ export function GeometryTab() {
             onChange={v => setAutoAlignInitRot(v as boolean)} />
           <ParamField label="3D AutoAlign" value={autoAlign3D} type="toggle"
             onChange={v => setAutoAlign3D(v as boolean)} />
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>AutoAlignについて</div>
             <div style={{ color: '#9ca3af' }}>
               自動的に解剖学的ランドマークを検出し、スライス位置・向きを最適化します。
@@ -130,7 +130,7 @@ export function GeometryTab() {
               <ParamField label="Navigator Position" value={navPosition} type="select"
                 options={['Auto', 'Manual']}
                 onChange={v => setNavPosition(v as string)} />
-              <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+              <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
                 <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>PACE収集効率の目安</div>
                 <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
                   <div>収集窓 <span className="text-white">±2.5mm:</span> 効率50-60%、精度◎</div>
@@ -159,7 +159,7 @@ export function GeometryTab() {
             min={10} max={150} step={5} unit="mm"
             onChange={v => setSatThickness(v as number)} />
 
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Saturation Bandの使いどころ</div>
             <ul className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <li>• 腹部動脈MRA: 静脈血の上流にSat Band → 静脈信号抑制</li>
@@ -181,7 +181,7 @@ export function GeometryTab() {
           <ParamField label="Table Position H" value={tablePosH} type="number"
             min={-500} max={500} step={10} unit="mm"
             onChange={v => setTablePosH(v as number)} />
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Tim (Total imaging matrix)</div>
             <div style={{ color: '#9ca3af' }}>
               複数のコイルを組み合わせて大FOV撮像を実現。脊椎全長・全身DWIなどで使用。

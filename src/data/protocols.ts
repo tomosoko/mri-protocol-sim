@@ -1,7 +1,9 @@
 export interface SequenceStep {
   name: string
   duration?: string
-  note?: string
+  note?: string        // 技術的注記 (ABLE, quiet TSE等)
+  reason?: string      // 臨床的根拠（なぜ撮るのか）
+  presetId?: string    // 対応するプリセットID（クリック時にパラメータをロード）
   isOptional?: boolean
   isCE?: boolean
   isTimer?: boolean

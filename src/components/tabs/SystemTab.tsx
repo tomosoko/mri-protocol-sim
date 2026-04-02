@@ -41,7 +41,7 @@ export function SystemTab() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div className="flex border-b mb-3" style={{ borderColor: '#1f2937' }}>
+      <div className="flex border-b mb-3" style={{ borderColor: '#252525' }}>
         {(['Misc', 'Adjustments', 'Adj.Volume', 'pTx', 'Tx-Rx'] as SubTab[]).map(t => (
           <button
             key={t}
@@ -66,7 +66,7 @@ export function SystemTab() {
                   onClick={() => setParam('fieldStrength', f)}
                   className="px-4 py-1.5 rounded text-sm font-bold transition-all"
                   style={{
-                    background: params.fieldStrength === f ? '#1d4ed8' : '#1f2937',
+                    background: params.fieldStrength === f ? '#1d4ed8' : '#252525',
                     color: params.fieldStrength === f ? '#fff' : '#6b7280',
                     border: `1px solid ${params.fieldStrength === f ? '#2563eb' : '#374151'}`,
                   }}
@@ -76,13 +76,13 @@ export function SystemTab() {
               ))}
             </div>
             {params.fieldStrength === 3.0 && (
-              <div className="mt-2 p-2 rounded text-xs" style={{ background: '#1a1a2e', border: '1px solid #7c3aed', color: '#a78bfa' }}>
+              <div className="mt-2 p-2 rounded text-xs" style={{ background: '#141414', border: '1px solid #7c3aed', color: '#a78bfa' }}>
                 ⚠ 3T注意: SAR≈4倍・化学シフト2倍・Dielectric Effect・SNR↑（理論値√2倍）
               </div>
             )}
           </div>
 
-          <div className="border-t my-1" style={{ borderColor: '#1f2937' }} />
+          <div className="border-t my-1" style={{ borderColor: '#252525' }} />
 
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Coil</div>
           <ParamField label="Coil Selection" value={coilSelection} type="select"
@@ -101,7 +101,7 @@ export function SystemTab() {
             options={['Flat', 'Center']}
             onChange={v => setCoilFocus(v as string)} />
 
-          <div className="border-t my-1" style={{ borderColor: '#1f2937' }} />
+          <div className="border-t my-1" style={{ borderColor: '#252525' }} />
 
           <ParamField label="Gradient Mode" hintKey="gradientMode" value={params.gradientMode} type="select"
             options={['Fast', 'Normal', 'Whisper']}
@@ -111,7 +111,7 @@ export function SystemTab() {
             onChange={v => setParam('shim', v as typeof params.shim)} />
 
           {/* Gradient mode guide */}
-          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Gradient Mode</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">Fast: </span>最速・最大騒音・PNS（末梢神経刺激）↑ → 心臓シネ/EPI</div>
@@ -141,7 +141,7 @@ export function SystemTab() {
             options={['Never', 'Always', 'When Changed']}
             onChange={v => setConfirmFreq(v as string)} />
 
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>iPAT（並列撮像）設定</div>
             <ParamField label="iPAT Mode" hintKey="iPAT" value={params.ipatMode} type="select"
               options={['Off', 'GRAPPA', 'CAIPIRINHA']}
@@ -179,7 +179,7 @@ export function SystemTab() {
           <ParamField label="Orientation" value={adjOrientation} type="select"
             options={['Iso-Center', 'Custom']}
             onChange={v => setAdjOrientation(v as string)} />
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div style={{ color: '#9ca3af' }}>
               Adjustment Volumeは磁場均一性の調整（シム）を行う領域を定義します。
               撮像部位に合わせてサイズ・位置を最適化することでシム精度が向上します。
@@ -199,7 +199,7 @@ export function SystemTab() {
             onChange={v => setImageScaling(v as number)} />
           <ParamField label="TrueForm" value={trueForm} type="toggle"
             onChange={v => setTrueForm(v as boolean)} />
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>pTx (parallel Transmit)</div>
             <div style={{ color: '#9ca3af' }}>
               複数の送信チャンネルを使用してB1フィールドを均一化します。3Tでの腹部・骨盤撮像でのDielectric Effect対策に有効。
@@ -217,7 +217,7 @@ export function SystemTab() {
             onChange={v => setB1ShimMode(v as string)} />
           <ParamField label="RF Shim" value={rfShim} type="toggle"
             onChange={v => setRfShim(v as boolean)} />
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>B1 Shim Mode</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">TrueForm: </span>位相・振幅最適化で均一なB1分布を実現（推奨）</div>

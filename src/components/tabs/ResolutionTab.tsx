@@ -38,7 +38,7 @@ export function ResolutionTab() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div className="flex border-b mb-3" style={{ borderColor: '#1f2937' }}>
+      <div className="flex border-b mb-3" style={{ borderColor: '#252525' }}>
         {(['Common', 'Acceleration', 'Filter'] as SubTab[]).map(t => (
           <button
             key={t}
@@ -69,7 +69,7 @@ export function ResolutionTab() {
             onChange={v => setParam('interpolation', v as boolean)} />
 
           {/* Voxel info */}
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>ボクセルサイズ計算</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1" style={{ color: '#9ca3af' }}>
               <span>読み取り方向:</span>
@@ -84,12 +84,12 @@ export function ResolutionTab() {
           </div>
 
           {/* Chemical shift */}
-          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>
               化学シフト量 ({params.fieldStrength}T)
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex-1 h-2 rounded" style={{ background: '#1f2937' }}>
+              <div className="flex-1 h-2 rounded" style={{ background: '#252525' }}>
                 <div className="h-full rounded" style={{
                   width: `${Math.min(cs * 20, 100)}%`,
                   background: cs < 1.5 ? '#34d399' : cs < 3 ? '#fbbf24' : '#f87171',
@@ -111,8 +111,8 @@ export function ResolutionTab() {
 
       {subTab === 'Acceleration' && (
         <div className="space-y-0.5">
-          <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Parallel Imaging</div>
-          <ParamField label="Acceleration Mode" value={accelMode} type="select"
+          <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>iPAT（並列撮像）</div>
+          <ParamField label="Acceleration Mode" hintKey="iPAT" value={accelMode} type="select"
             options={['Off', 'GRAPPA', 'CAIPIRINHA']}
             onChange={v => setAccelMode(v as string)} />
           <ParamField label="Deep Resolve" value={deepResolve} type="toggle"
@@ -131,6 +131,57 @@ export function ResolutionTab() {
           <ParamField label="Reference Lines PE" value={refLinesPE} type="number"
             min={8} max={64} step={4}
             onChange={v => setRefLinesPE(v as number)} />
+
+          {/* iPAT SNR calculation */}
+          {accelMode !== 'Off' && (
+            <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #1e3a5f' }}>
+              <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>
+                iPAT SNR推定（AF={accelFactorPE}）
+              </div>
+              <div className="space-y-1" style={{ color: '#9ca3af' }}>
+                <div>SNR低下: <span className="font-mono text-yellow-400">
+                  {(100 / Math.sqrt(accelFactorPE)).toFixed(0)}%
+                </span>（√{accelFactorPE}×g-factor分）</div>
+                <div>撮像時間: <span className="font-mono text-green-400">約1/{accelFactorPE}に短縮</span></div>
+                {accelMode === 'GRAPPA' && (
+                  <div className="mt-1 pt-1" style={{ borderTop: '1px solid #252525' }}>
+                    <span className="text-blue-400">GRAPPA: </span>
+                    k空間アンダーサンプリング→コイル感度で補間。ACS（Reference Lines）が精度の鍵。
+                  </div>
+                )}
+                {accelMode === 'CAIPIRINHA' && (
+                  <div className="mt-1 pt-1" style={{ borderTop: '1px solid #252525' }}>
+                    <span className="text-purple-400">CAIPIRINHA: </span>
+                    SMS同時多断面励起+ブリップ傾斜でエイリアスをシフト。GRAPPAより68%のケースで画質優位。腹部3D撮像に最適。
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* GRAPPA vs CAIPIRINHA comparison */}
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
+            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>GRAPPA vs CAIPIRINHA</div>
+            <table className="w-full" style={{ color: '#9ca3af' }}>
+              <thead>
+                <tr style={{ color: '#6b7280', borderBottom: '1px solid #252525' }}>
+                  <th className="text-left pb-1 text-xs">項目</th>
+                  <th className="text-center pb-1 text-xs">GRAPPA</th>
+                  <th className="text-center pb-1 text-xs">CAIPIRINHA</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td className="py-0.5">加速軸</td><td className="text-center">位相方向のみ</td><td className="text-center">位相+スライス</td></tr>
+                <tr><td className="py-0.5">g-factor</td><td className="text-center text-yellow-400">高め</td><td className="text-center text-green-400">低い</td></tr>
+                <tr><td className="py-0.5">適応</td><td className="text-center">2D/3D全般</td><td className="text-center">3D腹部・骨盤</td></tr>
+                <tr><td className="py-0.5">1.5T</td><td className="text-center">AF≤2推奨</td><td className="text-center">AF≤2</td></tr>
+                <tr><td className="py-0.5">3T</td><td className="text-center">AF≤3</td><td className="text-center">AF≤3</td></tr>
+              </tbody>
+            </table>
+            <div className="mt-2 pt-1 text-xs" style={{ borderTop: '1px solid #252525', color: '#6b7280' }}>
+              DWI(EPI)でAF=2使用→エコートレイン半分→磁化率歪み・EPI歪みが大幅改善（一石二鳥）
+            </div>
+          </div>
         </div>
       )}
 

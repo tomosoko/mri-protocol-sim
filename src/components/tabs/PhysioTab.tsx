@@ -33,7 +33,7 @@ export function PhysioTab() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div className="flex border-b mb-3" style={{ borderColor: '#1f2937' }}>
+      <div className="flex border-b mb-3" style={{ borderColor: '#252525' }}>
         {(['Signal', 'Cardiac', 'PACE'] as SubTab[]).map(t => (
           <button
             key={t}
@@ -57,17 +57,17 @@ export function PhysioTab() {
             onChange={v => setSigConcatenations(v as number)} />
 
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Current TR</div>
-          <div className="mx-3 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="flex justify-between items-center">
               <span style={{ color: '#9ca3af' }}>TR:</span>
               <span className="font-mono text-white font-bold">{params.TR} ms</span>
             </div>
-            <div className="mt-2 pt-2" style={{ borderTop: '1px solid #1f2937', color: '#6b7280' }}>
+            <div className="mt-2 pt-2" style={{ borderTop: '1px solid #252525', color: '#6b7280' }}>
               心電図同期では TR が RR 間隔に依存します（Cardiac タブ参照）
             </div>
           </div>
 
-          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>信号源の選択</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">ECG: </span>心電図（最高精度・貼付電極が必要）</div>
@@ -99,7 +99,7 @@ export function PhysioTab() {
                 onChange={v => setMultipleRR(v as boolean)} />
 
               {/* Heart rate display */}
-              <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+              <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
                 <div className="flex justify-between items-center mb-2">
                   <span style={{ color: '#9ca3af' }}>推定心拍数 (60000/TR):</span>
                   <span className="font-mono font-bold text-green-400">{heartRate} bpm</span>
@@ -144,7 +144,7 @@ export function PhysioTab() {
             min={10} max={100} step={5} unit="%"
             onChange={v => setGatingWindow(v as number)} />
 
-          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>PACE収集効率の目安</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div>ナビゲーターウィンドウ <span className="text-white">±2.5mm:</span> 効率50-60%、精度◎</div>
@@ -154,7 +154,7 @@ export function PhysioTab() {
             </div>
           </div>
 
-          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0f172a', border: '1px solid #1f2937' }}>
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>呼吸補正モードの比較</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">Breath-hold: </span>最短時間・最高品質。患者協力が必要。</div>

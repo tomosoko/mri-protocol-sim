@@ -1,86 +1,130 @@
 import { useState } from 'react'
-import { ChevronRight, ChevronDown, Folder, FolderOpen, FileText } from 'lucide-react'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useProtocolStore } from '../store/protocolStore'
-import { presets, categories } from '../data/presets'
+import { protocolTree } from '../data/protocols'
+import { presets } from '../data/presets'
+
+// 全ボディパーツを最初から展開
+const initExpanded = (): Record<string, boolean> => {
+  const ex: Record<string, boolean> = { USER: true }
+  for (const bp of protocolTree) {
+    ex[bp.id] = true
+    for (const g of bp.groups) {
+      ex[`${bp.id}/${g.id}`] = false // グループはデフォルト折り畳み
+    }
+  }
+  return ex
+}
 
 export function ProtocolTree() {
-  const { activePresetId, loadPreset } = useProtocolStore()
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ USER: true, ...Object.fromEntries(categories.map(c => [c, true])) })
+  const { activeVariantId, setActiveProtocol, loadPreset } = useProtocolStore()
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(initExpanded)
 
   const toggle = (key: string) => setExpanded(e => ({ ...e, [key]: !e[key] }))
 
+  const handleVariantClick = (bodyPartId: string, groupId: string, variantId: string, presetId?: string) => {
+    setActiveProtocol(bodyPartId, groupId, variantId)
+    if (presetId) {
+      const preset = presets.find(p => p.id === presetId)
+      if (preset) loadPreset(presetId)
+    }
+  }
+
   return (
-    <div className="h-full overflow-y-auto select-none" style={{ background: '#1a1f2e' }}>
-      <div className="px-2 py-2 text-xs font-semibold uppercase tracking-wider" style={{ color: '#4b5563' }}>
-        Protocol Tree
+    <div className="h-full overflow-y-auto select-none" style={{ background: '#0a0a0a', fontSize: '11px' }}>
+      {/* Header */}
+      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest" style={{ color: '#1e3a5f', borderBottom: '1px solid #1c1c1c' }}>
+        Protocol
       </div>
-      {/* USER root */}
-      <TreeNode
-        label="USER"
-        expanded={expanded['USER']}
-        onToggle={() => toggle('USER')}
-        depth={0}
-        isFolder
-      >
-        {categories.map(cat => (
-          <TreeNode
-            key={cat}
-            label={cat}
-            expanded={expanded[cat]}
-            onToggle={() => toggle(cat)}
-            depth={1}
-            isFolder
-          >
-            {presets.filter(p => p.category === cat).map(p => (
-              <div
-                key={p.id}
-                onClick={() => loadPreset(p.id)}
-                className="flex items-center gap-1.5 py-1 px-2 rounded cursor-pointer transition-colors text-xs"
-                style={{
-                  paddingLeft: `${3 * 12 + 8}px`,
-                  background: activePresetId === p.id ? '#1e3a5f' : 'transparent',
-                  color: activePresetId === p.id ? '#93c5fd' : '#9ca3af',
-                }}
-                onMouseEnter={e => { if (activePresetId !== p.id) (e.currentTarget as HTMLElement).style.background = '#1f2937' }}
-                onMouseLeave={e => { if (activePresetId !== p.id) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                title={p.description}
-              >
-                <FileText size={11} style={{ flexShrink: 0 }} />
-                <span className="truncate">{p.label}</span>
-              </div>
-            ))}
-          </TreeNode>
-        ))}
-      </TreeNode>
-    </div>
-  )
-}
 
-function TreeNode({ label, expanded, onToggle, depth, isFolder, children }: {
-  label: string
-  expanded: boolean
-  onToggle: () => void
-  depth: number
-  isFolder?: boolean
-  children?: React.ReactNode
-}) {
-  const Icon = isFolder ? (expanded ? FolderOpen : Folder) : FileText
-  const ChevIcon = expanded ? ChevronDown : ChevronRight
+      {/* SYSTEM / INSTITUTION (decorative) */}
+      <div className="px-2 py-0.5 flex items-center gap-1" style={{ color: '#1e2d3d' }}>
+        <ChevronRight size={9} />
+        <span>SYSTEM</span>
+      </div>
+      <div className="py-0.5 flex items-center gap-1" style={{ color: '#1e2d3d', paddingLeft: '20px' }}>
+        <ChevronRight size={9} />
+        <span>INSTITUTION</span>
+      </div>
 
-  return (
-    <div>
+      {/* USER */}
       <div
-        className="flex items-center gap-1 py-1 rounded cursor-pointer transition-colors text-xs"
-        style={{ paddingLeft: `${depth * 12 + 8}px`, color: '#d1d5db' }}
-        onClick={onToggle}
-        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1f2937')}
-        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+        className="flex items-center gap-1 py-0.5 px-2 cursor-pointer"
+        style={{ color: '#4b6fa8', fontWeight: 600 }}
+        onClick={() => toggle('USER')}
       >
-        <ChevIcon size={11} style={{ flexShrink: 0, color: '#6b7280' }} />
-        <Icon size={12} style={{ flexShrink: 0, color: '#3b82f6' }} />
-        <span className="font-medium">{label}</span>
+        {expanded['USER'] ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
+        <span>USER</span>
       </div>
-      {expanded && children}
+
+      {expanded['USER'] && protocolTree.map(bodyPart => {
+        const bpKey = bodyPart.id
+        const bpExpanded = !!expanded[bpKey]
+        return (
+          <div key={bodyPart.id}>
+            {/* Body part level */}
+            <div
+              className="flex items-center gap-1 py-0.5 cursor-pointer transition-colors"
+              style={{ paddingLeft: '14px', color: bpExpanded ? '#7ca9d4' : '#4b6880' }}
+              onClick={() => toggle(bpKey)}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#7ca9d4')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = bpExpanded ? '#7ca9d4' : '#4b6880')}
+            >
+              {bpExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
+              <span className="font-semibold truncate">{bodyPart.label}</span>
+            </div>
+
+            {bpExpanded && bodyPart.groups.map(group => {
+              const grpKey = `${bodyPart.id}/${group.id}`
+              const grpExpanded = !!expanded[grpKey]
+              return (
+                <div key={group.id}>
+                  {/* Group level */}
+                  <div
+                    className="flex items-center gap-1 py-0.5 cursor-pointer transition-colors"
+                    style={{ paddingLeft: '22px', color: grpExpanded ? '#93c5fd' : '#4b6880' }}
+                    onClick={() => toggle(grpKey)}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1c1c1c')}
+                    onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+                  >
+                    {grpExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
+                    <span className="truncate">{group.label}</span>
+                  </div>
+
+                  {/* Variants */}
+                  {grpExpanded && group.variants.map(variant => {
+                    const active = activeVariantId === variant.id
+                    return (
+                      <div
+                        key={variant.id}
+                        className="flex items-center gap-1 py-0.5 cursor-pointer transition-all"
+                        style={{
+                          paddingLeft: '30px',
+                          paddingRight: '4px',
+                          background: active ? '#1e3a5f' : 'transparent',
+                          color: active ? '#93c5fd' : '#5a7a9a',
+                          borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
+                        }}
+                        onClick={() => handleVariantClick(bodyPart.id, group.id, variant.id, variant.presetId)}
+                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#1c1c1c' }}
+                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+                        title={variant.label}
+                      >
+                        <span className="truncate" style={{ fontSize: '10px' }}>{variant.label}</span>
+                        {variant.columns.length > 1 && (
+                          <span className="shrink-0 ml-auto" style={{ fontSize: '8px', color: active ? '#3b82f6' : '#1e3a5f' }}>
+                            {variant.columns.length}col
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        )
+      })}
     </div>
   )
 }
