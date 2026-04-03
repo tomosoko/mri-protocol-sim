@@ -191,6 +191,8 @@ function LearnPanel() {
   const [seqOpen, setSeqOpen] = useState(true)
   const [tipsOpen, setTipsOpen] = useState(false)
   const [trGuideOpen, setTrGuideOpen] = useState(false)
+  const [paramRefOpen, setParamRefOpen] = useState(false)
+  const [simOpen, setSimOpen] = useState(true)
 
   const seqClinical = activeSequenceName ? getSeqClinical(activeSequenceName, activeBodyPartId) : null
 
@@ -460,25 +462,316 @@ function LearnPanel() {
         </div>
       </div>
 
+      {/* ===== パラメータ連動シミュレーター ===== */}
+      {(() => {
+        const { TR, TE, TI, flipAngle, sliceThickness, matrixFreq, matrixPhase, phaseResolution, fov, bandwidth,
+          averages, turboFactor, ipatFactor, ipatMode, slices, fieldStrength, bValues, fatSat } = params
+
+        // コントラスト予測
+        const contrast = (() => {
+          if (TI > 1500) return { label: 'FLAIR系', color: '#a78bfa', note: 'CSF抑制T2' }
+          if (TI > 0 && TI < 300) return { label: 'STIR系', color: '#f43f5e', note: '脂肪抑制T2' }
+          if (bValues && bValues.some(b => b >= 500)) return { label: 'DWI', color: '#06b6d4', note: `b=${Math.max(...bValues)}` }
+          if (TR < 800 && TE < 30) return { label: 'T1強調', color: '#f59e0b', note: `TR=${TR} TE=${TE}` }
+          if (TR > 2000 && TE > 70) return { label: 'T2強調', color: '#3b82f6', note: `TR=${TR} TE=${TE}` }
+          if (TR > 2000 && TE < 40) return { label: 'PD強調', color: '#10b981', note: `TR=${TR} TE=${TE}` }
+          return { label: '混合/GRE', color: '#9ca3af', note: `TR=${TR} TE=${TE}` }
+        })()
+
+        // 相対SNR推定（参考値）
+        const voxelVol = (fov / matrixFreq) * (fov * phaseResolution / 100 / matrixPhase) * sliceThickness
+        const accelFactor = ipatMode !== 'Off' ? ipatFactor : 1
+        const snrRel = voxelVol * Math.sqrt(turboFactor * averages / accelFactor) / Math.sqrt(bandwidth || 1)
+        const snrNorm = Math.min(100, Math.round(snrRel * 8))
+
+        // 推定撮像時間
+        const phaseLines = Math.round(matrixPhase * (phaseResolution / 100))
+        const linesPerTR = Math.max(1, turboFactor / accelFactor)
+        const trSec = TR / 1000
+        const estTimeSec = Math.round(trSec * (phaseLines / linesPerTR) * averages * Math.ceil(slices / Math.max(1, linesPerTR)))
+        const estTimeMin = (estTimeSec / 60).toFixed(1)
+
+        // SAR推定（相対値）
+        const sarRel = Math.round(Math.min(100, (flipAngle * flipAngle) / (TR || 1) * (fieldStrength === 3.0 ? 4 : 1) * 0.02))
+        const sarColor = sarRel > 70 ? '#f87171' : sarRel > 40 ? '#fbbf24' : '#4ade80'
+
+        return (
+          <div style={{ borderBottom: '1px solid #252525' }}>
+            <button
+              className="w-full flex items-center gap-1.5 px-3 py-2 text-left"
+              onClick={() => setSimOpen(o => !o)}
+            >
+              <ChevronDown size={10} style={{ color: '#6b7280', transform: simOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+              <span className="text-xs font-semibold" style={{ color: '#34d399' }}>パラメータ連動シミュレーター</span>
+            </button>
+            {simOpen && (
+              <div className="px-3 pb-3 space-y-2">
+                {/* コントラスト予測 */}
+                <div className="p-2 rounded" style={{ background: '#0e0e0e', border: `1px solid ${contrast.color}44` }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs" style={{ color: '#6b7280' }}>コントラスト予測</span>
+                    <span className="text-xs font-bold font-mono" style={{ color: contrast.color }}>{contrast.label}</span>
+                  </div>
+                  <div className="text-xs" style={{ color: '#4b5563' }}>{contrast.note}{fatSat !== 'None' ? ` + ${fatSat}脂肪抑制` : ''}</div>
+                </div>
+
+                {/* SNR / SAR / Time */}
+                <div className="grid grid-cols-3 gap-1">
+                  {/* SNR */}
+                  <div className="p-1.5 rounded text-center" style={{ background: '#0e0e0e', border: '1px solid #252525' }}>
+                    <div className="text-xs mb-0.5" style={{ color: '#6b7280' }}>相対SNR</div>
+                    <div className="h-1 rounded-full overflow-hidden mb-1" style={{ background: '#252525' }}>
+                      <div className="h-full rounded-full" style={{ width: `${snrNorm}%`, background: snrNorm > 60 ? '#4ade80' : snrNorm > 30 ? '#fbbf24' : '#f87171' }} />
+                    </div>
+                    <div className="text-xs font-mono font-bold" style={{ color: '#e5e7eb' }}>{snrNorm}%</div>
+                  </div>
+                  {/* SAR */}
+                  <div className="p-1.5 rounded text-center" style={{ background: '#0e0e0e', border: '1px solid #252525' }}>
+                    <div className="text-xs mb-0.5" style={{ color: '#6b7280' }}>SAR目安</div>
+                    <div className="h-1 rounded-full overflow-hidden mb-1" style={{ background: '#252525' }}>
+                      <div className="h-full rounded-full" style={{ width: `${sarRel}%`, background: sarColor }} />
+                    </div>
+                    <div className="text-xs font-mono font-bold" style={{ color: sarColor }}>{sarRel}%</div>
+                  </div>
+                  {/* Time */}
+                  <div className="p-1.5 rounded text-center" style={{ background: '#0e0e0e', border: '1px solid #252525' }}>
+                    <div className="text-xs mb-0.5" style={{ color: '#6b7280' }}>推定時間</div>
+                    <div className="text-xs font-mono font-bold mt-2" style={{ color: '#93c5fd' }}>{estTimeMin}m</div>
+                  </div>
+                </div>
+
+                {/* ボクセルサイズ */}
+                <div className="px-2 py-1.5 rounded text-xs" style={{ background: '#0e0e0e' }}>
+                  <span style={{ color: '#4b5563' }}>ボクセル: </span>
+                  <span className="font-mono" style={{ color: '#d1d5db' }}>
+                    {(fov / matrixFreq).toFixed(1)}×{(fov * (phaseResolution / 100) / matrixPhase).toFixed(1)}×{sliceThickness}mm
+                  </span>
+                  <span className="ml-2" style={{ color: '#4b5563' }}>=</span>
+                  <span className="ml-1 font-mono font-semibold" style={{ color: '#fbbf24' }}>{voxelVol.toFixed(2)}mm³</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ===== 部位別パラメータ早見表 ===== */}
+      <div style={{ borderBottom: '1px solid #252525' }}>
+        <button
+          className="w-full flex items-center gap-1.5 px-3 py-2 text-left"
+          onClick={() => setParamRefOpen(o => !o)}
+        >
+          <ChevronDown size={10} style={{ color: '#6b7280', transform: paramRefOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+          <span className="text-xs font-semibold" style={{ color: '#fbbf24' }}>部位別パラメータ早見表</span>
+        </button>
+        {paramRefOpen && (
+          <div className="px-3 pb-3 space-y-3 text-xs">
+            {([
+              {
+                part: '頭部 / Brain', color: '#3b82f6',
+                rows: [
+                  ['DWI(脳梗塞)', 'b=1000 / TR≥5000 / BW=1500+ / GRAPPA AF=2 / 5mm'],
+                  ['FLAIR', 'TR=9000 / TE=100 / TI=2500@3T / ETL=20 / 5mm'],
+                  ['T2 TSE', 'TR=5000 / TE=100 / ETL=25 / Matrix=320 / 5mm'],
+                  ['T2* GRE', 'TR=800 / TE=20 / FA=15° / 2-3mm (微小出血)'],
+                  ['TOF-MRA', 'TR=25-35 / TE=3.4 / FA=20° / 0.6mm 3D'],
+                ],
+              },
+              {
+                part: '腹部 / Abdomen', color: '#f59e0b',
+                rows: [
+                  ['EOB-VIBE BH', 'TR=4 / TE=2.1/1.1(OP/IP) / FA=10° / BW=400 / 2-3mm'],
+                  ['HASTE BH', 'TR=∞ / TE=83 / FA=120° / ETL=144 / BW=558 / 5mm'],
+                  ['DWI PACE', 'b=0,50,800 / TR=5000 / BW=1400+ / GRAPPA AF=2'],
+                  ['3D MRCP', 'TE=700-1000 / TR=4000 / 厚スラブ40-80mm / PACE'],
+                  ['starVIBE', 'FA=10-15° / Radial / Free Breath / OP+In同時'],
+                ],
+              },
+              {
+                part: '骨盤 / Pelvis (前立腺)', color: '#8b5cf6',
+                rows: [
+                  ['T2 TSE tra', 'TR=4000-6000 / TE=100 / 3mm / FOV=180 / Matrix=320'],
+                  ['RESOLVE DWI', 'b=0,400,800,1400 / seg=3-6 / TR=3000 / BW=1600+'],
+                  ['DCE VIBE', '<10s/相 / Gd 0.1mmol/kg / 2mL/s / FA=12°'],
+                  ['T2 sag/cor', 'TE=100 / 3mm / EPE評価には斜断が推奨'],
+                ],
+              },
+              {
+                part: '脊椎 / Spine', color: '#10b981',
+                rows: [
+                  ['qtse sag (C)', 'TR=3500 / TE=100 / ETL=20 / 3mm / FOV=240'],
+                  ['qtse sag (L)', 'TR=3500 / TE=100 / ETL=15 / 3mm / FOV=280'],
+                  ['STIR/nSTIR', 'TI=220@3T / TR=5000 / 転移感度≈92%'],
+                  ['Dixon T1', '1回でW/F/IP/OP 4画像 / 骨髄脂肪定量'],
+                ],
+              },
+              {
+                part: '関節 / Joint (膝)', color: '#06b6d4',
+                rows: [
+                  ['PD FS sag', 'TR=3000-4000 / TE=30 / FA=90° / FOV=150-180 / 3mm'],
+                  ['PD FS cor', 'FOV=150-180 / SPAIR / Matrix=384 / 半月板評価'],
+                  ['PD FS tra', 'FA=90° / TE=30 / 軟骨断面・半月板水平面'],
+                  ['T2* MEDIC', 'TE=20-25 / 3D / 1-2mm / 関節軟骨・関節唇'],
+                ],
+              },
+              {
+                part: '肩 / Shoulder', color: '#f43f5e',
+                rows: [
+                  ['BLADE cor', 'FOV=180 / 3mm / 斜冠状断（棘上筋長軸平行）'],
+                  ['BLADE sag', 'FOV=180 / 3mm / 肩峰形態・出口評価'],
+                  ['PD FS', 'TR=3500 / TE=30 / ETL=12 / SPAIR'],
+                ],
+              },
+            ] as { part: string; color: string; rows: [string, string][] }[]).map(({ part, color, rows }) => (
+              <div key={part}>
+                <div className="font-semibold mb-1" style={{ color }}>{part}</div>
+                <div className="space-y-0.5">
+                  {rows.map(([seq, val]) => (
+                    <div key={seq} className="flex gap-2 p-1 rounded" style={{ background: '#0e0e0e' }}>
+                      <span className="shrink-0 font-semibold" style={{ color: '#9ca3af', width: '88px' }}>{seq}</span>
+                      <span className="font-mono" style={{ color: '#6b7280' }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ===== Quick reference ===== */}
-      <div className="p-3">
-        <div className="text-xs font-semibold mb-2" style={{ color: '#60a5fa' }}>クイックリファレンス</div>
-        <div className="grid grid-cols-2 gap-1 text-xs">
-          {[
-            ['T1強調', '短TR短TE'],
-            ['T2強調', '長TR長TE'],
-            ['PD強調', '長TR短TE'],
-            ['FLAIR', 'T2+TI2200'],
-            ['STIR', 'T2+TI150'],
-            ['DWI急性梗塞', 'b=1000'],
-            ['MRCP', 'TE≥700ms'],
-            ['冠動脈TD', 'RR×75%'],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between p-1 rounded" style={{ background: '#0e0e0e' }}>
-              <span style={{ color: '#6b7280' }}>{k}</span>
-              <span style={{ color: '#e5e7eb' }} className="font-mono">{v}</span>
-            </div>
-          ))}
+      <div className="p-3 space-y-3">
+        <div className="text-xs font-semibold" style={{ color: '#60a5fa' }}>クイックリファレンス</div>
+
+        {/* コントラスト重み付け */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>コントラスト重み付け</div>
+          <div className="space-y-0.5 text-xs">
+            {([
+              ['T1強調', '短TR(400-600) 短TE(10-20)', '#f59e0b'],
+              ['T2強調', '長TR(≥2000) 長TE(80-120)', '#3b82f6'],
+              ['PD強調', '長TR(≥2000) 短TE(20-30)', '#10b981'],
+              ['FLAIR', 'TI=2500ms@3T / CSF抑制T2', '#8b5cf6'],
+              ['STIR', 'TI=220ms@3T / 脂肪抑制T2', '#f43f5e'],
+              ['DWI', 'b=1000(脳) / 800(腹部) / 1500(骨盤)', '#06b6d4'],
+            ] as [string, string, string][]).map(([k, v, c]) => (
+              <div key={k} className="flex items-baseline gap-2 p-1 rounded" style={{ background: '#0e0e0e' }}>
+                <span className="shrink-0 font-semibold" style={{ color: c, width: '52px' }}>{k}</span>
+                <span className="font-mono" style={{ color: '#9ca3af' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 脂肪抑制使い分け */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>脂肪抑制 使い分け</div>
+          <div className="space-y-0.5 text-xs">
+            {([
+              ['CHESS', '頭部・脊椎（均一磁場）', '#9ca3af'],
+              ['SPAIR', '腹部・乳腺（不均一磁場に強い）', '#34d399'],
+              ['STIR', '関節・金属近傍　※造影後NG', '#f87171'],
+              ['Dixon', '3Tダイナミック第一選択・定量評価', '#a78bfa'],
+            ] as [string, string, string][]).map(([k, v, c]) => (
+              <div key={k} className="flex items-baseline gap-2 p-1 rounded" style={{ background: '#0e0e0e' }}>
+                <span className="shrink-0 font-semibold font-mono" style={{ color: c, width: '48px' }}>{k}</span>
+                <span style={{ color: '#9ca3af' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 主要パラメータ値 */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>主要パラメータ値</div>
+          <div className="grid grid-cols-2 gap-0.5 text-xs">
+            {([
+              ['MRCP TE', '≥700 ms'],
+              ['FLAIR TI@3T', '2500 ms'],
+              ['STIR TI@3T', '220 ms'],
+              ['冠動脈TD', 'RR×75%'],
+              ['EOB待機', '15-20 min'],
+              ['動脈相', '25-35 s'],
+              ['門脈相', '60-70 s'],
+              ['平衡相', '120 s'],
+            ] as [string, string][]).map(([k, v]) => (
+              <div key={k} className="flex justify-between items-center px-1.5 py-0.5 rounded" style={{ background: '#0e0e0e' }}>
+                <span style={{ color: '#6b7280' }}>{k}</span>
+                <span className="font-mono font-semibold" style={{ color: '#e5e7eb' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 呼吸補正 */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>呼吸補正</div>
+          <div className="space-y-0.5 text-xs">
+            {([
+              ['BH', '息止め。最短・最高画質。協力可能な患者に', '#fbbf24'],
+              ['RT', '自由呼吸。2-4倍時間延長。高齢者・非協力患者', '#9ca3af'],
+              ['PACE', '自由呼吸。効率50-60%。高精度DWI・MRCP', '#60a5fa'],
+            ] as [string, string, string][]).map(([k, v, c]) => (
+              <div key={k} className="flex items-start gap-2 p-1 rounded" style={{ background: '#0e0e0e' }}>
+                <span className="shrink-0 font-semibold font-mono" style={{ color: c, width: '36px' }}>{k}</span>
+                <span style={{ color: '#9ca3af' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SAR */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>SAR 規制値</div>
+          <div className="grid grid-cols-2 gap-0.5 text-xs">
+            {([
+              ['全身', '4 W/kg'],
+              ['頭部', '3.2 W/kg'],
+              ['3T vs 1.5T', '約4倍↑'],
+              ['FA 180→120°', 'SAR 約30%↓'],
+            ] as [string, string][]).map(([k, v]) => (
+              <div key={k} className="flex justify-between items-center px-1.5 py-0.5 rounded" style={{ background: '#0e0e0e' }}>
+                <span style={{ color: '#6b7280' }}>{k}</span>
+                <span className="font-mono font-semibold" style={{ color: '#fca5a5' }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ADC閾値 */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>ADC閾値（×10⁻³ mm²/s）</div>
+          <div className="space-y-0.5 text-xs">
+            {([
+              ['急性脳梗塞', '<0.6', '#f87171'],
+              ['前立腺癌(PCa)', '<1.0', '#f87171'],
+              ['乳癌', '<1.2', '#f87171'],
+              ['肝転移', '<1.0', '#f87171'],
+              ['良性病変', '>1.4', '#4ade80'],
+            ] as [string, string, string][]).map(([k, v, c]) => (
+              <div key={k} className="flex justify-between items-center px-1.5 py-0.5 rounded" style={{ background: '#0e0e0e' }}>
+                <span style={{ color: '#6b7280' }}>{k}</span>
+                <span className="font-mono font-semibold" style={{ color: c }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* iPAT */}
+        <div>
+          <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>iPAT（並列撮像）</div>
+          <div className="space-y-0.5 text-xs">
+            {([
+              ['AF=2', '時間×1/2 / SNR×70% / 推奨'],
+              ['AF=3', '1.5T腹部では非推奨（g-factor↑）'],
+              ['DWI用途', 'EPIエコートレイン短縮→歪み改善'],
+            ] as [string, string][]).map(([k, v]) => (
+              <div key={k} className="flex items-start gap-2 p-1 rounded" style={{ background: '#0e0e0e' }}>
+                <span className="shrink-0 font-semibold font-mono" style={{ color: '#60a5fa', width: '36px' }}>{k}</span>
+                <span style={{ color: '#9ca3af' }}>{v}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
