@@ -240,7 +240,7 @@ export function DiffPanel() {
                         </div>
                         <div className="grid grid-cols-2 gap-1 text-xs font-mono">
                           <span style={{ color: '#fbbf24' }}>{formatValue(curr)}</span>
-                          <span style={{ color: '#60a5fa' }}>{formatValue(comp)}</span>
+                          <span style={{ color: '#9ca3af' }}>{formatValue(comp)}</span>
                         </div>
                       </div>
                     )

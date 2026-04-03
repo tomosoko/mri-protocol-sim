@@ -18,12 +18,13 @@ import { getSeqClinical } from './data/sequenceClinicalData'
 import { QuizPanel } from './components/QuizPanel'
 import { DiffPanel } from './components/DiffPanel'
 import { ScenarioExercisePanel } from './components/ScenarioExercisePanel'
+import { SNRMapPanel } from './components/SNRMapPanel'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
@@ -71,6 +72,17 @@ export default function App() {
           >
             <Zap size={11} />
             アーチファクト対策
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'snrmap' ? null : 'snrmap')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'snrmap' ? '#0f1e2e' : '#252525',
+              color: rightPanel === 'snrmap' ? '#38bdf8' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'snrmap' ? '#0369a1' : '#374151'}`,
+            }}
+          >
+            SNR
           </button>
           <button
             onClick={() => setRightPanel(rightPanel === 'diff' ? null : 'diff')}
@@ -171,6 +183,7 @@ export default function App() {
             {rightPanel === 'learn' && <LearnPanel />}
             {rightPanel === 'diff' && <DiffPanel />}
             {rightPanel === 'scenario' && <ScenarioExercisePanel />}
+            {rightPanel === 'snrmap' && <SNRMapPanel />}
           </div>
         )}
       </div>

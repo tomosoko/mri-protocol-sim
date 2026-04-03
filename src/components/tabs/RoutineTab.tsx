@@ -20,7 +20,7 @@ export function RoutineTab() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div className="flex border-b" style={{ borderColor: '#252525', background: '#0d1117' }}>
+      <div className="flex border-b" style={{ borderColor: '#252525', background: '#0e0e0e' }}>
         {(['Part1', 'Part2', 'Assistant'] as const).map(t => (
           <button
             key={t}
@@ -60,7 +60,7 @@ export function RoutineTab() {
                     step={1}
                     onChange={e => (fn as (v: number) => void)(parseFloat(e.target.value) || 0)}
                     className="px-1 py-0 rounded text-xs text-right font-mono outline-none"
-                    style={{ background: '#0d1117', border: '1px solid #374151', color: '#e5e7eb', width: '46px', height: '18px' }}
+                    style={{ background: '#0e0e0e', border: '1px solid #2a2a2a', color: '#d8d8d8', width: '46px', height: '18px' }}
                   />
                 </div>
               ))}

@@ -227,7 +227,7 @@ export function ScenarioExercisePanel() {
               {/* Detailed explanation */}
               <div
                 className="p-2.5 rounded text-xs leading-relaxed"
-                style={{ background: '#0d1117', border: '1px solid #3a1a00' }}
+                style={{ background: '#0e0e0e', border: '1px solid #3a1a00' }}
               >
                 <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>詳細解説</div>
                 <div style={{ color: '#9ca3af' }}>{current.detailedExplanation}</div>
