@@ -5,9 +5,9 @@ import { ParamField } from '../ParamField'
 type SubTab = 'Subtraction' | 'MIP' | 'Composing'
 
 const subTabStyle = (active: boolean) => ({
-  background: active ? '#1e3a5f' : 'transparent',
-  color: active ? '#93c5fd' : '#6b7280',
-  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+  background: active ? '#1e1200' : 'transparent',
+  color: active ? '#e88b00' : '#5a5a5a',
+  borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
 const sectionHeader = { color: '#4b5563' }
@@ -72,7 +72,7 @@ export function InlineTab() {
             onChange={v => setSaveOriginal(v as boolean)} />
 
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Subtraction の使いどころ</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>Subtraction の使いどころ</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div>• CE-MRA: 造影前後差分で血管のみを抽出</div>
               <div>• 乳腺造影: 動的撮像での増強パターン評価</div>
@@ -107,7 +107,7 @@ export function InlineTab() {
             onChange={v => setSaveMipOriginal(v as boolean)} />
 
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>MIP/MPR の使い分け</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>MIP/MPR の使い分け</div>
             <table className="w-full">
               <tbody style={{ color: '#9ca3af' }}>
                 <tr><td className="py-0.5 text-white w-28">MIP</td><td>TOF-MRA / PC-MRA / CE-MRA</td></tr>

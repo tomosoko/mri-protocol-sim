@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
-import { ParamField } from '../ParamField'
-
-const SH = ({ label }: { label: string }) => (
-  <div className="px-3 pt-2 pb-0.5 flex items-center gap-2">
-    <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#374151' }}>{label}</div>
-    <div className="flex-1 h-px" style={{ background: '#252525' }} />
-  </div>
-)
+import { ParamField, SectionHeader as SH } from '../ParamField'
 
 export function RoutineTab() {
   const { params, setParam, activeRoutineTab, setActiveRoutineTab, highlightedParams } = useProtocolStore()
@@ -34,9 +27,9 @@ export function RoutineTab() {
             onClick={() => setActiveRoutineTab(t)}
             className="px-4 py-1.5 text-xs transition-colors"
             style={{
-              background: activeRoutineTab === t ? '#1e3a5f' : 'transparent',
-              color: activeRoutineTab === t ? '#93c5fd' : '#6b7280',
-              borderBottom: activeRoutineTab === t ? '2px solid #3b82f6' : '2px solid transparent',
+              background: activeRoutineTab === t ? '#1e1200' : 'transparent',
+              color: activeRoutineTab === t ? '#e88b00' : '#5a5a5a',
+              borderBottom: activeRoutineTab === t ? '2px solid #e88b00' : '2px solid transparent',
             }}
           >
             {t}
@@ -115,7 +108,7 @@ export function RoutineTab() {
           <ParamField label="AutoAlign" value={autoAlign} type="toggle"
             onChange={v => setAutoAlign(v as boolean)} />
           {autoAlign && (
-            <div className="mx-3 mt-1 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #1e3a5f', color: '#93c5fd' }}>
+            <div className="mx-3 mt-1 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #3a1a00', color: '#e88b00' }}>
               解剖ランドマーク自動検出でスライス位置・向きを最適化。頭部・膝・脊椎で有効。
             </div>
           )}
@@ -172,7 +165,7 @@ export function RoutineTab() {
             onChange={v => setParam('allowedDelay', v as number)} />
 
           <div className="mt-3 mx-3 p-3 rounded text-xs space-y-1" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>SAR規制値（IEC 60601-2-33）</div>
+            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>SAR規制値（IEC 60601-2-33）</div>
             <div style={{ color: '#9ca3af' }}>全身平均: <span className="text-white">4 W/kg</span> / 15分</div>
             <div style={{ color: '#9ca3af' }}>頭部: <span className="text-white">3.2 W/kg</span> / 10分</div>
             <div style={{ color: '#9ca3af' }}>局所体幹: <span className="text-white">10 W/kg</span> / 5分</div>
@@ -191,9 +184,9 @@ export function RoutineTab() {
                 onClick={() => setParam('fieldStrength', f)}
                 className="flex-1 py-1 rounded text-sm font-bold transition-all"
                 style={{
-                  background: params.fieldStrength === f ? '#1d4ed8' : '#252525',
+                  background: params.fieldStrength === f ? '#8a4400' : '#1a1a1a',
                   color: params.fieldStrength === f ? '#fff' : '#6b7280',
-                  border: `1px solid ${params.fieldStrength === f ? '#2563eb' : '#374151'}`,
+                  border: `1px solid ${params.fieldStrength === f ? '#c47400' : '#374151'}`,
                 }}
               >
                 {f}T

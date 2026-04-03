@@ -6,9 +6,9 @@ import { chemShift } from '../../store/calculators'
 type SubTab = 'Common' | 'Acceleration' | 'Filter'
 
 const subTabStyle = (active: boolean) => ({
-  background: active ? '#1e3a5f' : 'transparent',
-  color: active ? '#93c5fd' : '#6b7280',
-  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+  background: active ? '#1e1200' : 'transparent',
+  color: active ? '#e88b00' : '#5a5a5a',
+  borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
 const sectionHeader = { color: '#4b5563' }
@@ -70,7 +70,7 @@ export function ResolutionTab() {
 
           {/* Voxel info */}
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>ボクセルサイズ計算</div>
+            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>ボクセルサイズ計算</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1" style={{ color: '#9ca3af' }}>
               <span>読み取り方向:</span>
               <span className="text-white font-mono">{readPx} mm</span>
@@ -85,7 +85,7 @@ export function ResolutionTab() {
 
           {/* Chemical shift */}
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>
+            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>
               化学シフト量 ({params.fieldStrength}T)
             </div>
             <div className="flex items-center gap-3">
@@ -134,8 +134,8 @@ export function ResolutionTab() {
 
           {/* iPAT SNR calculation */}
           {accelMode !== 'Off' && (
-            <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #1e3a5f' }}>
-              <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>
+            <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #3a1a00' }}>
+              <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>
                 iPAT SNR推定（AF={accelFactorPE}）
               </div>
               <div className="space-y-1" style={{ color: '#9ca3af' }}>
@@ -161,7 +161,7 @@ export function ResolutionTab() {
 
           {/* GRAPPA vs CAIPIRINHA comparison */}
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>GRAPPA vs CAIPIRINHA</div>
+            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>GRAPPA vs CAIPIRINHA</div>
             <table className="w-full" style={{ color: '#9ca3af' }}>
               <thead>
                 <tr style={{ color: '#6b7280', borderBottom: '1px solid #252525' }}>

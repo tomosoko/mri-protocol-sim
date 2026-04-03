@@ -5,9 +5,9 @@ import { ParamField } from '../ParamField'
 type SubTab = 'Misc' | 'Adjustments' | 'Adj.Volume' | 'pTx' | 'Tx-Rx'
 
 const subTabStyle = (active: boolean) => ({
-  background: active ? '#1e3a5f' : 'transparent',
-  color: active ? '#93c5fd' : '#6b7280',
-  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+  background: active ? '#1e1200' : 'transparent',
+  color: active ? '#e88b00' : '#5a5a5a',
+  borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
 const sectionHeader = { color: '#4b5563' }
@@ -66,9 +66,9 @@ export function SystemTab() {
                   onClick={() => setParam('fieldStrength', f)}
                   className="px-4 py-1.5 rounded text-sm font-bold transition-all"
                   style={{
-                    background: params.fieldStrength === f ? '#1d4ed8' : '#252525',
+                    background: params.fieldStrength === f ? '#8a4400' : '#1a1a1a',
                     color: params.fieldStrength === f ? '#fff' : '#6b7280',
-                    border: `1px solid ${params.fieldStrength === f ? '#2563eb' : '#374151'}`,
+                    border: `1px solid ${params.fieldStrength === f ? '#c47400' : '#374151'}`,
                   }}
                 >
                   {f}T
@@ -112,7 +112,7 @@ export function SystemTab() {
 
           {/* Gradient mode guide */}
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Gradient Mode</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>Gradient Mode</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">Fast: </span>最速・最大騒音・PNS（末梢神経刺激）↑ → 心臓シネ/EPI</div>
               <div><span className="text-white">Normal: </span>標準バランス → 通常検査</div>
@@ -142,7 +142,7 @@ export function SystemTab() {
             onChange={v => setConfirmFreq(v as string)} />
 
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>iPAT（並列撮像）設定</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>iPAT（並列撮像）設定</div>
             <ParamField label="iPAT Mode" hintKey="iPAT" value={params.ipatMode} type="select"
               options={['Off', 'GRAPPA', 'CAIPIRINHA']}
               onChange={v => setParam('ipatMode', v as typeof params.ipatMode)} highlight={hl('ipatMode')} />
@@ -200,7 +200,7 @@ export function SystemTab() {
           <ParamField label="TrueForm" value={trueForm} type="toggle"
             onChange={v => setTrueForm(v as boolean)} />
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>pTx (parallel Transmit)</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>pTx (parallel Transmit)</div>
             <div style={{ color: '#9ca3af' }}>
               複数の送信チャンネルを使用してB1フィールドを均一化します。3Tでの腹部・骨盤撮像でのDielectric Effect対策に有効。
               TrueFormは標準的なCP送信モードでB1均一性を最適化します。
@@ -218,7 +218,7 @@ export function SystemTab() {
           <ParamField label="RF Shim" value={rfShim} type="toggle"
             onChange={v => setRfShim(v as boolean)} />
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>B1 Shim Mode</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>B1 Shim Mode</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">TrueForm: </span>位相・振幅最適化で均一なB1分布を実現（推奨）</div>
               <div><span className="text-white">CP Mode: </span>従来のCircular Polarized送信モード</div>

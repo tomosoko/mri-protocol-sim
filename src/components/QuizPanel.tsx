@@ -89,7 +89,7 @@ export function QuizPanel() {
         ) : (
           <>
             <div className="text-center">
-              <div className="text-2xl font-bold mb-1" style={{ color: '#93c5fd' }}>
+              <div className="text-2xl font-bold mb-1" style={{ color: '#e88b00' }}>
                 {score} / {answered}
               </div>
               <div className="text-xs" style={{ color: '#9ca3af' }}>
@@ -104,7 +104,7 @@ export function QuizPanel() {
         <button
           onClick={handleReset}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs"
-          style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb' }}
+          style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #2563eb' }}
         >
           <RefreshCw size={11} />
           もう一度
@@ -164,7 +164,7 @@ export function QuizPanel() {
         <div className="h-0.5 rounded-full overflow-hidden" style={{ background: '#252525' }}>
           <div
             className="h-full rounded-full transition-all"
-            style={{ background: '#3b82f6', width: `${((currentIndex + (selected !== null ? 1 : 0)) / filtered.length) * 100}%` }}
+            style={{ background: '#e88b00', width: `${((currentIndex + (selected !== null ? 1 : 0)) / filtered.length) * 100}%` }}
           />
         </div>
       </div>
@@ -241,8 +241,8 @@ export function QuizPanel() {
 
         {/* Explanation */}
         {showExplanation && (
-          <div className="p-3 rounded text-xs leading-relaxed" style={{ background: '#0d1117', border: '1px solid #1e3a5f' }}>
-            <div className="font-semibold mb-1.5" style={{ color: '#60a5fa' }}>解説</div>
+          <div className="p-3 rounded text-xs leading-relaxed" style={{ background: '#0d1117', border: '1px solid #3a1a00' }}>
+            <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>解説</div>
             <div style={{ color: '#9ca3af' }}>{current.explanation}</div>
           </div>
         )}
@@ -252,7 +252,7 @@ export function QuizPanel() {
           <button
             onClick={handleNext}
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold"
-            style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb' }}
+            style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #2563eb' }}
           >
             {currentIndex + 1 >= filtered.length ? '結果を見る' : '次の問題'}
             <ChevronRight size={12} />

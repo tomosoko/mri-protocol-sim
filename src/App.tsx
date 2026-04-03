@@ -50,9 +50,9 @@ export default function App() {
             onClick={() => setRightPanel(rightPanel === 'learn' ? null : 'learn')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
             style={{
-              background: rightPanel === 'learn' ? '#1e3a5f' : '#252525',
-              color: rightPanel === 'learn' ? '#93c5fd' : '#6b7280',
-              border: `1px solid ${rightPanel === 'learn' ? '#2563eb' : '#374151'}`,
+              background: rightPanel === 'learn' ? '#2a1200' : '#252525',
+              color: rightPanel === 'learn' ? '#e88b00' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'learn' ? '#c47400' : '#374151'}`,
             }}
           >
             <BookOpen size={11} />
@@ -62,9 +62,9 @@ export default function App() {
             onClick={() => setRightPanel(rightPanel === 'artifact' ? null : 'artifact')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
             style={{
-              background: rightPanel === 'artifact' ? '#1e3a5f' : '#252525',
-              color: rightPanel === 'artifact' ? '#93c5fd' : '#6b7280',
-              border: `1px solid ${rightPanel === 'artifact' ? '#2563eb' : '#374151'}`,
+              background: rightPanel === 'artifact' ? '#2a1200' : '#252525',
+              color: rightPanel === 'artifact' ? '#e88b00' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'artifact' ? '#c47400' : '#374151'}`,
             }}
           >
             <Zap size={11} />
@@ -113,9 +113,11 @@ export default function App() {
                 onClick={() => setActiveTab(tab)}
                 className="px-4 py-2 text-xs whitespace-nowrap transition-colors shrink-0"
                 style={{
-                  background: activeTab === tab ? '#1a2d44' : 'transparent',
-                  color: activeTab === tab ? '#93c5fd' : '#6b7280',
-                  borderBottom: activeTab === tab ? '2px solid #3b82f6' : '2px solid transparent',
+                  background: activeTab === tab ? '#1e1200' : 'transparent',
+                  color: activeTab === tab ? '#e88b00' : '#5a5a5a',
+                  borderBottom: activeTab === tab ? '2px solid #e88b00' : '2px solid transparent',
+                  fontSize: '11px',
+                  padding: '6px 14px',
                 }}
               >
                 {tab}
@@ -124,7 +126,7 @@ export default function App() {
           </div>
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto p-2" style={{ background: '#141414' }}>
+          <div className="flex-1 overflow-y-auto" style={{ background: '#111111' }}>
             {activeTab === 'Routine' && <RoutineTab />}
             {activeTab === 'Contrast' && <ContrastTab />}
             {activeTab === 'Resolution' && <ResolutionTab />}
@@ -172,14 +174,14 @@ function ActiveSequenceBar() {
   if (!activeSequenceName) return null
   return (
     <div className="flex items-center gap-2 px-3 py-1 shrink-0 text-xs"
-      style={{ background: '#0d1b2e', borderBottom: '1px solid #1e3a5f' }}>
-      <span style={{ color: '#3b82f6' }}>▶</span>
-      <span className="font-mono font-semibold" style={{ color: '#93c5fd' }}>{activeSequenceName}</span>
+      style={{ background: '#1a0e00', borderBottom: '1px solid #3a1a00' }}>
+      <span style={{ color: '#e88b00' }}>▶</span>
+      <span className="font-mono font-semibold" style={{ color: '#e88b00' }}>{activeSequenceName}</span>
       {activePresetId && (
         <>
-          <span style={{ color: '#1e3a5f' }}>|</span>
+          <span style={{ color: '#2a1200' }}>|</span>
           <span style={{ color: '#4b5563' }}>preset: </span>
-          <span style={{ color: '#60a5fa' }}>{activePresetId}</span>
+          <span style={{ color: '#e88b00' }}>{activePresetId}</span>
         </>
       )}
     </div>
@@ -305,7 +307,7 @@ function LearnPanel() {
         <BookOpen size={11} />
         学習ガイド
         {activeSequenceName && (
-          <span className="ml-auto font-mono text-xs truncate max-w-[140px]" style={{ color: '#3b82f6' }}>
+          <span className="ml-auto font-mono text-xs truncate max-w-[140px]" style={{ color: '#e88b00' }}>
             {activeSequenceName}
           </span>
         )}
@@ -318,20 +320,20 @@ function LearnPanel() {
           <button
             className="w-full flex items-center gap-1.5 px-3 py-2 text-left"
             onClick={() => setSeqOpen(o => !o)}
-            style={{ background: '#0d1b2e' }}
+            style={{ background: '#1a0e00' }}
           >
             <ChevronDown
               size={10}
-              style={{ color: '#3b82f6', transform: seqOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+              style={{ color: '#e88b00', transform: seqOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
             />
-            <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>シーケンス解説</span>
+            <span className="text-xs font-semibold" style={{ color: '#e88b00' }}>シーケンス解説</span>
           </button>
 
           {seqOpen && (
             <div className="px-3 pb-3 space-y-2.5" style={{ paddingTop: '10px' }}>
               {/* Purpose */}
-              <div className="p-2 rounded" style={{ background: '#0e0e0e', border: '1px solid #1e3a5f' }}>
-                <div className="text-xs font-semibold mb-1" style={{ color: '#60a5fa' }}>目的</div>
+              <div className="p-2 rounded" style={{ background: '#0e0e0e', border: '1px solid #3a1a00' }}>
+                <div className="text-xs font-semibold mb-1" style={{ color: '#e88b00' }}>目的</div>
                 <div className="text-xs leading-relaxed" style={{ color: '#d1d5db' }}>{seqClinical.reason}</div>
               </div>
 
@@ -406,13 +408,13 @@ function LearnPanel() {
             size={10}
             style={{ color: '#6b7280', transform: tipsOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
           />
-          <span className="text-xs font-semibold" style={{ color: '#93c5fd' }}>{tip.title}</span>
+          <span className="text-xs font-semibold" style={{ color: '#e88b00' }}>{tip.title}</span>
         </button>
         {tipsOpen && (
           <ul className="px-3 pb-3 space-y-2">
             {tip.items.map((item, i) => (
               <li key={i} className="flex gap-2 text-xs" style={{ color: '#9ca3af' }}>
-                <span style={{ color: '#3b82f6', flexShrink: 0 }}>›</span>
+                <span style={{ color: '#e88b00', flexShrink: 0 }}>›</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -473,7 +475,7 @@ function LearnPanel() {
           if (TI > 0 && TI < 300) return { label: 'STIR系', color: '#f43f5e', note: '脂肪抑制T2' }
           if (bValues && bValues.some(b => b >= 500)) return { label: 'DWI', color: '#06b6d4', note: `b=${Math.max(...bValues)}` }
           if (TR < 800 && TE < 30) return { label: 'T1強調', color: '#f59e0b', note: `TR=${TR} TE=${TE}` }
-          if (TR > 2000 && TE > 70) return { label: 'T2強調', color: '#3b82f6', note: `TR=${TR} TE=${TE}` }
+          if (TR > 2000 && TE > 70) return { label: 'T2強調', color: '#e88b00', note: `TR=${TR} TE=${TE}` }
           if (TR > 2000 && TE < 40) return { label: 'PD強調', color: '#10b981', note: `TR=${TR} TE=${TE}` }
           return { label: '混合/GRE', color: '#9ca3af', note: `TR=${TR} TE=${TE}` }
         })()
@@ -536,7 +538,7 @@ function LearnPanel() {
                   {/* Time */}
                   <div className="p-1.5 rounded text-center" style={{ background: '#0e0e0e', border: '1px solid #252525' }}>
                     <div className="text-xs mb-0.5" style={{ color: '#6b7280' }}>推定時間</div>
-                    <div className="text-xs font-mono font-bold mt-2" style={{ color: '#93c5fd' }}>{estTimeMin}m</div>
+                    <div className="text-xs font-mono font-bold mt-2" style={{ color: '#e88b00' }}>{estTimeMin}m</div>
                   </div>
                 </div>
 
@@ -568,7 +570,7 @@ function LearnPanel() {
           <div className="px-3 pb-3 space-y-3 text-xs">
             {([
               {
-                part: '頭部 / Brain', color: '#3b82f6',
+                part: '頭部 / Brain', color: '#e88b00',
                 rows: [
                   ['DWI(脳梗塞)', 'b=1000 / TR≥5000 / BW=1500+ / GRAPPA AF=2 / 5mm'],
                   ['FLAIR', 'TR=9000 / TE=100 / TI=2500@3T / ETL=20 / 5mm'],
@@ -641,7 +643,7 @@ function LearnPanel() {
 
       {/* ===== Quick reference ===== */}
       <div className="p-3 space-y-3">
-        <div className="text-xs font-semibold" style={{ color: '#60a5fa' }}>クイックリファレンス</div>
+        <div className="text-xs font-semibold" style={{ color: '#e88b00' }}>クイックリファレンス</div>
 
         {/* コントラスト重み付け */}
         <div>
@@ -767,7 +769,7 @@ function LearnPanel() {
               ['DWI用途', 'EPIエコートレイン短縮→歪み改善'],
             ] as [string, string][]).map(([k, v]) => (
               <div key={k} className="flex items-start gap-2 p-1 rounded" style={{ background: '#0e0e0e' }}>
-                <span className="shrink-0 font-semibold font-mono" style={{ color: '#60a5fa', width: '36px' }}>{k}</span>
+                <span className="shrink-0 font-semibold font-mono" style={{ color: '#e88b00', width: '36px' }}>{k}</span>
                 <span style={{ color: '#9ca3af' }}>{v}</span>
               </div>
             ))}

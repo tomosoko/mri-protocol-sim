@@ -21,7 +21,7 @@ export function SequenceTab() {
 
       {/* ETL guide */}
       <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-        <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Turbo Factor（ETL）の使い分け</div>
+        <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>Turbo Factor（ETL）の使い分け</div>
         <table className="w-full">
           <tbody style={{ color: '#9ca3af' }}>
             <tr><td className="py-0.5 text-white w-36">T2 TSE 頭部</td><td>ETL 15-25</td><td style={{ color: '#6b7280' }}>高コントラスト</td></tr>
@@ -38,7 +38,7 @@ export function SequenceTab() {
         <div className="text-xs font-semibold mb-2" style={{ color: '#9ca3af' }}>b値設定（DWI）</div>
         <div className="flex flex-wrap gap-1 mb-2">
           {params.bValues.map((b, i) => (
-            <span key={i} className="px-2 py-0.5 rounded text-xs font-mono" style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb' }}>
+            <span key={i} className="px-2 py-0.5 rounded text-xs font-mono" style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #c47400' }}>
               b={b}
             </span>
           ))}
@@ -67,7 +67,7 @@ export function SequenceTab() {
 
         {isDWI && (
           <div className="mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>b値の臨床ガイド</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>b値の臨床ガイド</div>
             <table className="w-full">
               <tbody style={{ color: '#9ca3af' }}>
                 <tr><td className="py-0.5 text-white w-24">b=0</td><td>実質T2画像。ADC算出の基準点。</td></tr>

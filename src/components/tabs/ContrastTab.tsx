@@ -5,9 +5,9 @@ import { ParamField } from '../ParamField'
 type SubTab = 'Common' | 'Dynamic'
 
 const subTabStyle = (active: boolean) => ({
-  background: active ? '#1e3a5f' : 'transparent',
-  color: active ? '#93c5fd' : '#6b7280',
-  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+  background: active ? '#1e1200' : 'transparent',
+  color: active ? '#e88b00' : '#5a5a5a',
+  borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
 const sectionHeader = { color: '#4b5563' }
@@ -79,7 +79,7 @@ export function ContrastTab() {
 
           {/* T1/T2 contrast guide */}
           <div className="mx-3 mt-3 p-3 rounded" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="text-xs font-semibold mb-2" style={{ color: '#60a5fa' }}>コントラスト重み付けの目安</div>
+            <div className="text-xs font-semibold mb-2" style={{ color: '#e88b00' }}>コントラスト重み付けの目安</div>
             <table className="w-full text-xs">
               <thead>
                 <tr style={{ color: '#6b7280' }}>
@@ -147,7 +147,7 @@ export function ContrastTab() {
             options={['Standard', 'Water Only', 'Fat Only', 'Opp-Phase', 'In-Phase']}
             onChange={v => setFatWaterContrast(v as string)} />
           {(fatWaterContrast === 'Opp-Phase' || fatWaterContrast === 'In-Phase') && (
-            <div className="mx-3 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #1e3a5f', color: '#93c5fd' }}>
+            <div className="mx-3 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #3a1a00', color: '#e88b00' }}>
               {fatWaterContrast === 'Opp-Phase'
                 ? 'Opposed-Phase: 水・脂肪が逆位相。脂肪含有病変（副腎腺腫・脂肪肝）の検出に有効。TE≈2.3ms(3T)/4.6ms(1.5T)'
                 : 'In-Phase: 水・脂肪が同位相。解剖学的コントラスト基準。TE≈4.6ms(3T)/9.2ms(1.5T)'}

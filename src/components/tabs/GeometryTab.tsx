@@ -5,9 +5,9 @@ import { ParamField } from '../ParamField'
 type SubTab = 'Common' | 'AutoAlign' | 'Navigator' | 'Saturation' | 'Tim'
 
 const subTabStyle = (active: boolean) => ({
-  background: active ? '#1e3a5f' : 'transparent',
-  color: active ? '#93c5fd' : '#6b7280',
-  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+  background: active ? '#1e1200' : 'transparent',
+  color: active ? '#e88b00' : '#5a5a5a',
+  borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
 const sectionHeader = { color: '#4b5563' }
@@ -75,7 +75,7 @@ export function GeometryTab() {
 
           {/* Phase direction guide */}
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>位相方向の選択ガイド</div>
+            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>位相方向の選択ガイド</div>
             <table className="w-full">
               <thead>
                 <tr style={{ color: '#6b7280' }}>
@@ -108,7 +108,7 @@ export function GeometryTab() {
           <ParamField label="3D AutoAlign" value={autoAlign3D} type="toggle"
             onChange={v => setAutoAlign3D(v as boolean)} />
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>AutoAlignについて</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>AutoAlignについて</div>
             <div style={{ color: '#9ca3af' }}>
               自動的に解剖学的ランドマークを検出し、スライス位置・向きを最適化します。
               頭部・膝関節・脊椎プロトコルで特に有効。再現性の向上に貢献します。
@@ -131,7 +131,7 @@ export function GeometryTab() {
                 options={['Auto', 'Manual']}
                 onChange={v => setNavPosition(v as string)} />
               <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-                <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>PACE収集効率の目安</div>
+                <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>PACE収集効率の目安</div>
                 <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
                   <div>収集窓 <span className="text-white">±2.5mm:</span> 効率50-60%、精度◎</div>
                   <div>収集窓 <span className="text-white">±5mm:</span> 効率70-80%、精度○</div>
@@ -161,7 +161,7 @@ export function GeometryTab() {
 
           <div className="mx-3 mt-3 p-3 rounded text-xs space-y-3" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div>
-              <div className="font-semibold mb-1.5" style={{ color: '#60a5fa' }}>配置の基本原則</div>
+              <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>配置の基本原則</div>
               <div className="space-y-1" style={{ color: '#9ca3af' }}>
                 <div><span className="text-white">動きアーチファクト対策:</span> 動く構造（大動脈・腸管・眼球）の<span className="text-yellow-400">直前（上流側）</span>に配置</div>
                 <div><span className="text-white">静脈抑制 in MRA:</span> 静脈血の流入方向の<span className="text-yellow-400">上流</span>に配置</div>
@@ -170,7 +170,7 @@ export function GeometryTab() {
               </div>
             </div>
             <div style={{ borderTop: '1px solid #252525', paddingTop: '8px' }}>
-              <div className="font-semibold mb-1.5" style={{ color: '#60a5fa' }}>部位別配置ガイド</div>
+              <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>部位別配置ガイド</div>
               <table className="w-full text-xs">
                 <thead>
                   <tr style={{ color: '#6b7280' }}>
@@ -212,7 +212,7 @@ export function GeometryTab() {
             min={-500} max={500} step={10} unit="mm"
             onChange={v => setTablePosH(v as number)} />
           <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Tim (Total imaging matrix)</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>Tim (Total imaging matrix)</div>
             <div style={{ color: '#9ca3af' }}>
               複数のコイルを組み合わせて大FOV撮像を実現。脊椎全長・全身DWIなどで使用。
               Set-n-Go: テーブル移動を自動化し連続撮像を効率化します。

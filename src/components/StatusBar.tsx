@@ -29,7 +29,7 @@ export function StatusBar() {
       {/* Field strength */}
       <div className="flex items-center gap-1.5">
         <span style={{ color: '#6b7280' }}>B0</span>
-        <span style={{ color: '#60a5fa' }} className="font-semibold">{params.fieldStrength}T</span>
+        <span style={{ color: '#e88b00' }} className="font-semibold">{params.fieldStrength}T</span>
       </div>
       {/* Voxel */}
       <div className="flex items-center gap-1.5">

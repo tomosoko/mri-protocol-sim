@@ -5,9 +5,9 @@ import { ParamField } from '../ParamField'
 type SubTab = 'Signal' | 'Cardiac' | 'PACE'
 
 const subTabStyle = (active: boolean) => ({
-  background: active ? '#1e3a5f' : 'transparent',
-  color: active ? '#93c5fd' : '#6b7280',
-  borderBottom: active ? '2px solid #3b82f6' : '2px solid transparent',
+  background: active ? '#1e1200' : 'transparent',
+  color: active ? '#e88b00' : '#5a5a5a',
+  borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
 const sectionHeader = { color: '#4b5563' }
@@ -68,7 +68,7 @@ export function PhysioTab() {
           </div>
 
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>信号源の選択</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>信号源の選択</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">ECG: </span>心電図（最高精度・貼付電極が必要）</div>
               <div><span className="text-white">PULSE: </span>パルスオキシメータ（簡便・遅延あり）</div>
@@ -104,7 +104,7 @@ export function PhysioTab() {
                   <span style={{ color: '#9ca3af' }}>推定心拍数 (60000/TR):</span>
                   <span className="font-mono font-bold text-green-400">{heartRate} bpm</span>
                 </div>
-                <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>Trigger Delay の目安</div>
+                <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>Trigger Delay の目安</div>
                 <table className="w-full">
                   <tbody style={{ color: '#9ca3af' }}>
                     <tr><td className="py-0.5 text-white">心筋（収縮末期）</td><td>350-400 ms</td></tr>
@@ -145,7 +145,7 @@ export function PhysioTab() {
             onChange={v => setGatingWindow(v as number)} />
 
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>PACE収集効率の目安</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>PACE収集効率の目安</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div>ナビゲーターウィンドウ <span className="text-white">±2.5mm:</span> 効率50-60%、精度◎</div>
               <div>ナビゲーターウィンドウ <span className="text-white">±5mm:</span> 効率70-80%、精度○</div>
@@ -155,7 +155,7 @@ export function PhysioTab() {
           </div>
 
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-1" style={{ color: '#60a5fa' }}>呼吸補正モードの比較</div>
+            <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>呼吸補正モードの比較</div>
             <div className="space-y-0.5" style={{ color: '#9ca3af' }}>
               <div><span className="text-white">Breath-hold: </span>最短時間・最高品質。患者協力が必要。</div>
               <div><span className="text-white">PACE: </span>横隔膜直接追跡。自由呼吸可。効率50-60%。</div>

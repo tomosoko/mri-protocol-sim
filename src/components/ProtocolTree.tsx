@@ -33,7 +33,7 @@ export function ProtocolTree() {
   return (
     <div className="h-full overflow-y-auto select-none" style={{ background: '#0a0a0a', fontSize: '11px' }}>
       {/* Header */}
-      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest" style={{ color: '#1e3a5f', borderBottom: '1px solid #1c1c1c' }}>
+      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest" style={{ color: '#e88b00', borderBottom: '1px solid #2a1200' }}>
         Protocol
       </div>
 
@@ -50,7 +50,7 @@ export function ProtocolTree() {
       {/* USER */}
       <div
         className="flex items-center gap-1 py-0.5 px-2 cursor-pointer"
-        style={{ color: '#4b6fa8', fontWeight: 600 }}
+        style={{ color: '#e88b00', fontWeight: 600 }}
         onClick={() => toggle('USER')}
       >
         {expanded['USER'] ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
@@ -65,10 +65,10 @@ export function ProtocolTree() {
             {/* Body part level */}
             <div
               className="flex items-center gap-1 py-0.5 cursor-pointer transition-colors"
-              style={{ paddingLeft: '14px', color: bpExpanded ? '#7ca9d4' : '#4b6880' }}
+              style={{ paddingLeft: '14px', color: bpExpanded ? '#c47400' : '#4a4a4a' }}
               onClick={() => toggle(bpKey)}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#7ca9d4')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = bpExpanded ? '#7ca9d4' : '#4b6880')}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#e88b00')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = bpExpanded ? '#c47400' : '#4a4a4a')}
             >
               {bpExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
               <span className="font-semibold truncate">{bodyPart.label}</span>
@@ -82,7 +82,7 @@ export function ProtocolTree() {
                   {/* Group level */}
                   <div
                     className="flex items-center gap-1 py-0.5 cursor-pointer transition-colors"
-                    style={{ paddingLeft: '22px', color: grpExpanded ? '#93c5fd' : '#4b6880' }}
+                    style={{ paddingLeft: '22px', color: grpExpanded ? '#e88b00' : '#5a5a5a' }}
                     onClick={() => toggle(grpKey)}
                     onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1c1c1c')}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
@@ -101,9 +101,9 @@ export function ProtocolTree() {
                         style={{
                           paddingLeft: '30px',
                           paddingRight: '4px',
-                          background: active ? '#1e3a5f' : 'transparent',
-                          color: active ? '#93c5fd' : '#5a7a9a',
-                          borderLeft: active ? '2px solid #3b82f6' : '2px solid transparent',
+                          background: active ? '#2a1200' : 'transparent',
+                          color: active ? '#e88b00' : '#5a5a5a',
+                          borderLeft: active ? '2px solid #e88b00' : '2px solid transparent',
                         }}
                         onClick={() => handleVariantClick(bodyPart.id, group.id, variant.id, variant.presetId)}
                         onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#1c1c1c' }}
@@ -112,7 +112,7 @@ export function ProtocolTree() {
                       >
                         <span className="truncate" style={{ fontSize: '10px' }}>{variant.label}</span>
                         {variant.columns.length > 1 && (
-                          <span className="shrink-0 ml-auto" style={{ fontSize: '8px', color: active ? '#3b82f6' : '#1e3a5f' }}>
+                          <span className="shrink-0 ml-auto" style={{ fontSize: '8px', color: active ? '#e88b00' : '#333' }}>
                             {variant.columns.length}col
                           </span>
                         )}

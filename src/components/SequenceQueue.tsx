@@ -69,7 +69,7 @@ export function SequenceQueue() {
     <div className="h-full flex flex-col" style={{ background: '#0e0e0e' }}>
       {/* Header */}
       <div className="px-2 py-1 shrink-0" style={{ borderBottom: '1px solid #252525' }}>
-        <div className="text-xs font-semibold truncate leading-tight" style={{ color: '#60a5fa' }}>
+        <div className="text-xs font-semibold truncate leading-tight" style={{ color: '#e88b00' }}>
           {group?.label} / {variant.label}
         </div>
         <div className="flex items-center gap-1 mt-0.5" style={{ color: '#374151' }}>
@@ -90,9 +90,9 @@ export function SequenceQueue() {
                 onClick={() => setActiveProtocol(activeBodyPartId!, activeGroupId!, activeVariantId!, i)}
                 className="px-1.5 rounded transition-colors"
                 style={{
-                  background: activeColumnIndex === i ? '#1e3a5f' : '#252525',
-                  color: activeColumnIndex === i ? '#93c5fd' : '#6b7280',
-                  border: `1px solid ${activeColumnIndex === i ? '#2563eb' : '#374151'}`,
+                  background: activeColumnIndex === i ? '#2a1200' : '#252525',
+                  color: activeColumnIndex === i ? '#e88b00' : '#5a5a5a',
+                  border: `1px solid ${activeColumnIndex === i ? '#c47400' : '#2a2a2a'}`,
                   fontSize: '9px',
                   height: '15px',
                   lineHeight: '13px',
@@ -131,7 +131,7 @@ function SequenceRow({ step, index, isActive, bodyPartId }: { step: SequenceStep
   const hasDetail = !!(reason || step.note || clinical.clinical)
 
   const rowBg =
-    isActive ? '#1e3a5f' :
+    isActive ? '#2a1200' :
     step.isCE ? '#2d1515' :
     step.isTimer ? '#1c1500' :
     step.isDecision ? '#0c1425' :
@@ -141,11 +141,11 @@ function SequenceRow({ step, index, isActive, bodyPartId }: { step: SequenceStep
     step.isCE ? '#ef4444' :
     step.isTimer ? '#f59e0b' :
     step.isDecision ? '#3b82f6' :
-    matchedPreset ? '#1e3a5f' :
+    matchedPreset ? '#2a1200' :
     'transparent'
 
   const nameColor =
-    isActive ? '#93c5fd' :
+    isActive ? '#e88b00' :
     step.isCE ? '#fca5a5' :
     step.isTimer ? '#fde047' :
     step.isDecision ? '#60a5fa' :
@@ -194,22 +194,22 @@ function SequenceRow({ step, index, isActive, bodyPartId }: { step: SequenceStep
 
         {hasDetail && (
           expanded
-            ? <ChevronDown size={8} style={{ color: '#3b82f6', flexShrink: 0 }} />
+            ? <ChevronDown size={8} style={{ color: '#e88b00', flexShrink: 0 }} />
             : <ChevronRight size={8} style={{ color: '#374151', flexShrink: 0 }} />
         )}
       </div>
 
       {expanded && (
-        <div className="mx-1.5 mb-0.5 px-2 py-1.5 rounded space-y-1" style={{ background: '#111111', border: '1px solid #1e3a5f' }}>
+        <div className="mx-1.5 mb-0.5 px-2 py-1.5 rounded space-y-1" style={{ background: '#111111', border: '1px solid #3a1a00' }}>
           {matchedPreset && (
             <div className="pb-1" style={{ borderBottom: '1px solid #252525' }}>
-              <span style={{ fontSize: '8px', color: '#3b82f6' }}>preset: </span>
-              <span style={{ fontSize: '8px', color: '#60a5fa' }}>{matchedPreset}</span>
+              <span style={{ fontSize: '8px', color: '#e88b00' }}>preset: </span>
+              <span style={{ fontSize: '8px', color: '#e88b00' }}>{matchedPreset}</span>
             </div>
           )}
           {reason && (
             <div>
-              <span style={{ color: '#60a5fa', fontSize: '9px' }}>目的: </span>
+              <span style={{ color: '#e88b00', fontSize: '9px' }}>目的: </span>
               <span style={{ color: '#d1d5db', fontSize: '9px' }}>{reason}</span>
             </div>
           )}

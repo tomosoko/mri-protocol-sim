@@ -43,7 +43,7 @@ export function ArtifactGuide() {
               className="w-full flex items-center gap-2 px-3 py-2 text-xs text-left transition-colors"
               style={{
                 background: expanded === artifact.id ? '#1e2d4a' : '#252525',
-                color: expanded === artifact.id ? '#93c5fd' : '#9ca3af',
+                color: expanded === artifact.id ? '#e88b00' : '#9ca3af',
               }}
               onClick={() => handleSelect(artifact.id)}
             >
@@ -66,7 +66,7 @@ export function ArtifactGuide() {
                           <button
                             onClick={() => goToParam(sol.param)}
                             className="px-1.5 py-0.5 rounded text-xs font-mono transition-colors hover:bg-blue-900"
-                            style={{ background: '#1e3a5f', color: '#93c5fd', border: '1px solid #2563eb' }}
+                            style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #2563eb' }}
                           >
                             {sol.param}
                           </button>
