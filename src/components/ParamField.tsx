@@ -25,7 +25,7 @@ export function ParamField({ label, hintKey, value, type = 'number', options, mi
   return (
     <div
       className={`relative flex items-center transition-all ${highlight ? 'bg-yellow-400/5' : 'hover:bg-white/[0.02]'}`}
-      style={{ minHeight: '20px', borderBottom: '1px solid #1a1a1a' }}
+      style={{ minHeight: '28px', borderBottom: '1px solid #1a1a1a' }}
     >
       {/* Highlight indicator */}
       {highlight && (
