@@ -3,14 +3,144 @@ import { useProtocolStore } from '../store/protocolStore'
 import { kSpacePatterns, type SequenceType, type KSpaceLine } from '../data/kSpacePatterns'
 
 const CANVAS_SIZE = 256
+const IFT_SIZE = 64 // 64x64 IFT計算サイズ
 
-// trIndexに応じた充填済みラインの色（青緑グラデーション）
-function trIndexToColor(trIndex: number, maxTr: number): string {
-  const t = maxTr > 0 ? Math.min(1, trIndex / maxTr) : 0
-  // 深青(0) → 青緑(0.5) → シアン(1)
-  const r = Math.round(0 + 20 * t)
-  const g = Math.round(80 + 160 * t)
-  const b = Math.round(160 + 80 * t)
+// -----------------------------------------------------------------------------
+// 簡易IFT（2D逆DFT: 行方向・列方向を分離した近似）
+// -----------------------------------------------------------------------------
+
+interface Complex { re: number; im: number }
+
+// 1D逆DFT（N点）
+function idft1d(input: Complex[]): Complex[] {
+  const N = input.length
+  const output: Complex[] = new Array(N)
+  for (let n = 0; n < N; n++) {
+    let re = 0
+    let im = 0
+    for (let k = 0; k < N; k++) {
+      const angle = (2 * Math.PI * k * n) / N
+      re += input[k].re * Math.cos(angle) - input[k].im * Math.sin(angle)
+      im += input[k].re * Math.sin(angle) + input[k].im * Math.cos(angle)
+    }
+    output[n] = { re: re / N, im: im / N }
+  }
+  return output
+}
+
+// 2D逆DFT（行→列の分離計算）
+function idft2d(kData: Complex[][]): number[][] {
+  const N = IFT_SIZE
+  // 行方向IDFT
+  const rowResult: Complex[][] = kData.map(row => idft1d(row))
+
+  // 列方向IDFT
+  const output: number[][] = Array.from({ length: N }, () => new Array(N).fill(0))
+  for (let kx = 0; kx < N; kx++) {
+    const col: Complex[] = rowResult.map(row => row[kx])
+    const transformed = idft1d(col)
+    for (let ky = 0; ky < N; ky++) {
+      output[ky][kx] = Math.sqrt(transformed[ky].re ** 2 + transformed[ky].im ** 2)
+    }
+  }
+  return output
+}
+
+// k空間の理想的な信号分布（ガウス分布 × 楕円ファントム）
+function buildIdealKSpace(
+  lines: KSpaceLine[],
+  filledUpTo: number,
+  matrixPhase: number,
+): Complex[][] {
+  const N = IFT_SIZE
+  const half = Math.floor(N / 2)
+
+  // 理想的なk空間データ（ガウス分布）
+  const kData: Complex[][] = Array.from({ length: N }, (_, kyIdx) => {
+    return Array.from({ length: N }, (_, kxIdx) => {
+      const ky = kyIdx - half
+      const kx = kxIdx - half
+      // ガウス重み（中心ほど強度高）
+      const sigma = N / 4
+      const weight = Math.exp(-(ky * ky + kx * kx) / (2 * sigma * sigma))
+      // 楕円ファントム由来の位相（簡略化: 実部のみ）
+      return { re: weight, im: 0 }
+    })
+  })
+
+  // 未取得ラインをゼロ埋め
+  const filledKySet = new Set<number>()
+  for (let i = 0; i < Math.min(filledUpTo, lines.length); i++) {
+    const line = lines[i]
+    if (!line.isSkipped) {
+      filledKySet.add(line.ky)
+    }
+  }
+
+  const kyScale = N / matrixPhase
+
+  for (let kyIdx = 0; kyIdx < N; kyIdx++) {
+    const ky = Math.round((kyIdx - half) / kyScale)
+    if (!filledKySet.has(ky)) {
+      // 未取得行はゼロ埋め
+      for (let kxIdx = 0; kxIdx < N; kxIdx++) {
+        kData[kyIdx][kxIdx] = { re: 0, im: 0 }
+      }
+    }
+  }
+
+  return kData
+}
+
+// IFTを計算してImageDataに変換（64x64）
+function computeIFTImageData(
+  lines: KSpaceLine[],
+  filledUpTo: number,
+  matrixPhase: number,
+): ImageData {
+  const N = IFT_SIZE
+  const kData = buildIdealKSpace(lines, filledUpTo, matrixPhase)
+  const spatial = idft2d(kData)
+
+  // 最大値でノーマライズ
+  let maxVal = 0
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      maxVal = Math.max(maxVal, spatial[y][x])
+    }
+  }
+
+  const imgData = new ImageData(N, N)
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const val = maxVal > 0 ? Math.round((spatial[y][x] / maxVal) * 255) : 0
+      const idx = (y * N + x) * 4
+      imgData.data[idx] = val
+      imgData.data[idx + 1] = val
+      imgData.data[idx + 2] = val
+      imgData.data[idx + 3] = 255
+    }
+  }
+  return imgData
+}
+
+// -----------------------------------------------------------------------------
+// k空間描画
+// -----------------------------------------------------------------------------
+
+// ky位置・信号強度に応じた充填済みラインの色
+function kyToColor(ky: number, matrixPhase: number, alpha = 1): string {
+  const half = Math.floor(matrixPhase / 2)
+  // ガウス重み: 中心ほど明るく
+  const sigma2 = (half * half) / 8
+  const weight = Math.exp(-(ky * ky) / sigma2) // 0~1
+  // 暗青(0) → 白(1) のグラデーション
+  const r = Math.round(20 + 235 * weight)
+  const g = Math.round(100 + 155 * weight)
+  const b = Math.round(180 + 75 * weight)
+  if (alpha < 1) {
+    return `rgba(${r},${g},${b},${alpha})`
+  }
   return `rgb(${r},${g},${b})`
 }
 
@@ -23,7 +153,6 @@ function drawKSpace(
   sequenceType: SequenceType,
 ): void {
   const half = Math.floor(matrixPhase / 2)
-  const maxTr = lines.length > 0 ? Math.max(...lines.map(l => l.trIndex)) : 0
 
   // 背景
   ctx.fillStyle = '#0a0a0a'
@@ -35,7 +164,6 @@ function drawKSpace(
 
   // ky → y座標変換（ky=+half → 上、ky=-half → 下）
   const kyToY = (ky: number): number => {
-    // ky=+half → y=0, ky=-half → y=CANVAS_SIZE
     return ((half - ky) / matrixPhase) * CANVAS_SIZE
   }
 
@@ -76,44 +204,124 @@ function drawKSpace(
     ctx.restore()
   }
 
-  // EPI zigzagの視覚的方向インジケーター
+  const isBLADE = sequenceType === 'BLADE'
   const isEPI = sequenceType === 'EPI'
+  const isTSE = sequenceType === 'TSE'
 
-  // 充填済みラインを描画
-  const filledLines = lines.slice(0, filledUpTo)
-  for (const line of filledLines) {
-    if (line.isSkipped) {
-      // スキップライン（暗い赤）
-      ctx.fillStyle = '#3f0d0d'
-      const y = kyToY(line.ky)
-      ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
-      continue
-    }
-    if (line.isACS) {
-      // ACSライン（オレンジ）
-      ctx.fillStyle = '#f97316'
-      const y = kyToY(line.ky)
-      ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
-      continue
+  if (isBLADE) {
+    // BLADEは回転する矩形ブレードをCanvas transformで描画
+    const bladesDrawn = new Map<number, KSpaceLine[]>()
+    const filledLines = lines.slice(0, filledUpTo)
+    for (const line of filledLines) {
+      const angle = line.bladeAngleDeg ?? 0
+      if (!bladesDrawn.has(angle)) bladesDrawn.set(angle, [])
+      bladesDrawn.get(angle)!.push(line)
     }
 
-    // 通常充填ライン（trIndexグラデーション）
-    ctx.fillStyle = trIndexToColor(line.trIndex, maxTr)
-    const y = kyToY(line.ky)
+    const cx = CANVAS_SIZE / 2
+    const cy = CANVAS_SIZE / 2
 
-    if (isEPI) {
-      // EPIは奇数echoIndexで逆方向（右→左は半分だけ描画で視覚的に区別）
-      const isReverse = line.echoIndex % 2 === 1
-      if (isReverse) {
-        // 右半分は少し暗く（zigzag表現）
-        ctx.fillRect(0, y, CANVAS_SIZE / 2, clampedLineH)
-        ctx.fillStyle = trIndexToColor(line.trIndex, maxTr).replace('rgb', 'rgba').replace(')', ',0.7)')
-        ctx.fillRect(CANVAS_SIZE / 2, y, CANVAS_SIZE / 2, clampedLineH)
-      } else {
-        ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+    for (const [angleDeg, bladeLines] of bladesDrawn.entries()) {
+      const angleRad = (angleDeg * Math.PI) / 180
+      const bladeKys = bladeLines.map(l => l.ky)
+      const minKy = Math.min(...bladeKys)
+      const maxKy = Math.max(...bladeKys)
+      const bladeWidthPx = CANVAS_SIZE * 0.8
+      const centerY = kyToY((minKy + maxKy) / 2)
+      const bladeOffsetY = centerY - cy
+
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(angleRad)
+      ctx.translate(-cx, -cy + bladeOffsetY)
+
+      // ブレード内の各ラインを描画
+      for (const line of bladeLines) {
+        const lineY = kyToY(line.ky) - bladeOffsetY
+        ctx.fillStyle = kyToColor(line.ky, matrixPhase)
+        ctx.fillRect(cx - bladeWidthPx / 2, lineY, bladeWidthPx, clampedLineH)
       }
-    } else {
-      ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+      ctx.restore()
+    }
+  } else {
+    // 充填済みラインを描画
+    const filledLines = lines.slice(0, filledUpTo)
+    for (const line of filledLines) {
+      if (line.isSkipped) {
+        ctx.fillStyle = '#3f0d0d'
+        const y = kyToY(line.ky)
+        ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+        continue
+      }
+      if (line.isACS) {
+        ctx.fillStyle = '#f97316'
+        const y = kyToY(line.ky)
+        ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+        continue
+      }
+
+      // TSEのスピンエコー主エコー（echoIndex=0）は少し明るく
+      const isTSEMainEcho = isTSE && line.echoIndex === 0
+      const y = kyToY(line.ky)
+
+      if (isEPI) {
+        // EPIはechoIndexで方向が変わる（zigzag矢印は別途オーバーレイ）
+        ctx.fillStyle = kyToColor(line.ky, matrixPhase)
+        ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+      } else {
+        ctx.fillStyle = isTSEMainEcho
+          ? kyToColor(line.ky, matrixPhase, 1) // 主エコーも同色（後で明るいオーバーレイ）
+          : kyToColor(line.ky, matrixPhase)
+        ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+
+        // TSE主エコー（echoIndex=0）に明るいオーバーレイ
+        if (isTSEMainEcho) {
+          ctx.fillStyle = 'rgba(255,255,255,0.18)'
+          ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+        }
+      }
+    }
+
+    // EPI: 現在充填中ラインに矢印オーバーレイ
+    if (isEPI && filledUpTo > 0 && filledUpTo < lines.length) {
+      const currentLine = lines[filledUpTo - 1]
+      if (currentLine && !currentLine.isSkipped) {
+        const y = kyToY(currentLine.ky)
+        const isReverse = currentLine.echoIndex % 2 === 1
+        const arrowY = y + clampedLineH / 2
+
+        ctx.save()
+        ctx.strokeStyle = 'rgba(255,220,50,0.9)'
+        ctx.fillStyle = 'rgba(255,220,50,0.9)'
+        ctx.lineWidth = 1.5
+
+        if (isReverse) {
+          // 右→左矢印
+          ctx.beginPath()
+          ctx.moveTo(CANVAS_SIZE - 12, arrowY)
+          ctx.lineTo(10, arrowY)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(10, arrowY)
+          ctx.lineTo(18, arrowY - 4)
+          ctx.lineTo(18, arrowY + 4)
+          ctx.closePath()
+          ctx.fill()
+        } else {
+          // 左→右矢印
+          ctx.beginPath()
+          ctx.moveTo(12, arrowY)
+          ctx.lineTo(CANVAS_SIZE - 10, arrowY)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(CANVAS_SIZE - 10, arrowY)
+          ctx.lineTo(CANVAS_SIZE - 18, arrowY - 4)
+          ctx.lineTo(CANVAS_SIZE - 18, arrowY + 4)
+          ctx.closePath()
+          ctx.fill()
+        }
+        ctx.restore()
+      }
     }
   }
 
@@ -149,6 +357,10 @@ function drawKSpace(
   ctx.restore()
 }
 
+// -----------------------------------------------------------------------------
+// コンポーネント
+// -----------------------------------------------------------------------------
+
 const SEQ_TYPES: SequenceType[] = ['TSE', 'HASTE', 'EPI', 'GRE', 'BLADE']
 
 interface InnerProps {
@@ -175,7 +387,10 @@ function KSpaceVisualizerInner({
   const [isPlaying, setIsPlaying] = useState(false)
   const [speed, setSpeed] = useState(3)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const iftCanvasRef = useRef<HTMLCanvasElement>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // IFT計算は重いのでthrottleする
+  const lastIftFrameRef = useRef<number>(0)
 
   const totalLines = lines.length
   const activeLines = lines.filter(l => !l.isSkipped)
@@ -208,7 +423,7 @@ function KSpaceVisualizerInner({
     }
   }, [isPlaying, speed, totalLines])
 
-  // Canvas描画
+  // k空間Canvas描画
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -216,6 +431,21 @@ function KSpaceVisualizerInner({
     if (!ctx) return
     drawKSpace(ctx, lines, filledUpTo, matrixPhase, partialFourier, seqType)
   }, [lines, filledUpTo, matrixPhase, partialFourier, seqType])
+
+  // IFTプレビュー描画（throttle: 最低200ms間隔）
+  useEffect(() => {
+    const now = Date.now()
+    if (now - lastIftFrameRef.current < 200 && filledUpTo !== 0 && filledUpTo !== totalLines) return
+    lastIftFrameRef.current = now
+
+    const canvas = iftCanvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const imgData = computeIFTImageData(lines, filledUpTo, matrixPhase)
+    ctx.putImageData(imgData, 0, 0)
+  }, [lines, filledUpTo, matrixPhase, totalLines])
 
   const handlePlayPause = () => {
     if (filledUpTo >= totalLines) {
@@ -237,19 +467,52 @@ function KSpaceVisualizerInner({
     return origIdx < filledUpTo
   }).length
 
+  // IFTのぼかし度（0=完全、1=未取得）
+  const fillRatio = totalLines > 0 ? filledUpTo / totalLines : 0
+  const blurPx = Math.round((1 - fillRatio) * 4)
+
   return (
     <>
-      {/* Canvas */}
+      {/* k空間 + IFTプレビュー 横並び */}
       <div
-        className="flex items-center justify-center shrink-0 py-2"
+        className="flex items-start justify-center gap-2 shrink-0 py-2 px-2"
         style={{ background: '#0a0a0a', borderBottom: '1px solid #252525' }}
       >
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
-          style={{ display: 'block', border: '1px solid #252525' }}
-        />
+        {/* k空間Canvas */}
+        <div className="flex flex-col items-center gap-1">
+          <span style={{ fontSize: '8px', color: '#4b5563', fontFamily: 'monospace' }}>k空間</span>
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_SIZE}
+            height={CANVAS_SIZE}
+            style={{ display: 'block', border: '1px solid #252525' }}
+          />
+        </div>
+
+        {/* IFTプレビュー */}
+        <div className="flex flex-col items-center gap-1">
+          <span style={{ fontSize: '8px', color: '#4b5563', fontFamily: 'monospace' }}>IFT画像</span>
+          <canvas
+            ref={iftCanvasRef}
+            width={IFT_SIZE}
+            height={IFT_SIZE}
+            style={{
+              display: 'block',
+              width: 128,
+              height: 128,
+              border: '1px solid #252525',
+              imageRendering: 'pixelated',
+              filter: blurPx > 0 ? `blur(${blurPx}px)` : 'none',
+            }}
+          />
+          <div style={{ width: 128, fontSize: '8px', color: '#374151', textAlign: 'center', lineHeight: 1.3 }}>
+            {fillRatio < 0.15
+              ? 'k空間中心のみ: ぼやけ'
+              : fillRatio < 0.7
+              ? '取得中: 解像度上昇'
+              : '完全取得: 鮮明'}
+          </div>
+        </div>
       </div>
 
       {/* 凡例 */}
@@ -258,16 +521,26 @@ function KSpaceVisualizerInner({
         style={{ borderBottom: '1px solid #1a1a1a', background: '#0e0e0e' }}
       >
         {[
-          { color: 'rgb(20,160,200)', label: '充填済' },
+          { color: 'rgb(120,200,220)', label: '充填(中心)', gradient: 'linear-gradient(90deg, rgb(20,100,180), rgb(255,255,255))' },
           { color: '#f97316', label: 'ACS' },
           { color: '#3f0d0d', label: 'スキップ' },
           { color: '#141414', label: 'PF省略', border: '1px solid #2a2a2a' },
-        ].map(({ color, label, border }) => (
+        ].map(({ color, label, border, gradient }) => (
           <span key={label} className="flex items-center gap-1" style={{ fontSize: '9px', color: '#6b7280' }}>
-            <span style={{ display: 'inline-block', width: 10, height: 4, background: color, border, borderRadius: 1 }} />
+            <span style={{
+              display: 'inline-block', width: 24, height: 4,
+              background: gradient ?? color,
+              border, borderRadius: 1,
+            }} />
             {label}
           </span>
         ))}
+        {seqType === 'TSE' && (
+          <span className="flex items-center gap-1" style={{ fontSize: '9px', color: '#6b7280' }}>
+            <span style={{ display: 'inline-block', width: 10, height: 4, background: 'rgba(255,255,255,0.5)', borderRadius: 1 }} />
+            主エコー
+          </span>
+        )}
       </div>
 
       {/* Controls */}
@@ -353,6 +626,48 @@ function KSpaceVisualizerInner({
             </div>
             <div className="text-xs mt-0.5" style={{ color: '#9a3412', fontSize: '9px' }}>
               暗赤: スキップライン（間引き取得）
+            </div>
+          </div>
+        )}
+
+        {seqType === 'TSE' && (
+          <div className="rounded p-2.5" style={{ background: '#0f1a0f', border: '1px solid #1a3a1a' }}>
+            <div className="text-xs" style={{ color: '#4ade80', fontSize: '10px' }}>
+              TSE エコートレイン
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#2d6a2d', fontSize: '9px' }}>
+              白オーバーレイ: echoIndex=0（スピンエコー主エコー）
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#2d6a2d', fontSize: '9px' }}>
+              同一TR内の複数エコーがグループを形成
+            </div>
+          </div>
+        )}
+
+        {seqType === 'EPI' && (
+          <div className="rounded p-2.5" style={{ background: '#0f0f1a', border: '1px solid #1a1a3a' }}>
+            <div className="text-xs" style={{ color: '#818cf8', fontSize: '10px' }}>
+              EPI Zigzag
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#2d2d6a', fontSize: '9px' }}>
+              黄色矢印: 現在取得中ラインの読み出し方向
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#2d2d6a', fontSize: '9px' }}>
+              偶数echo: 左→右 / 奇数echo: 右→左
+            </div>
+          </div>
+        )}
+
+        {seqType === 'BLADE' && (
+          <div className="rounded p-2.5" style={{ background: '#1a0f0f', border: '1px solid #3a1a1a' }}>
+            <div className="text-xs" style={{ color: '#f87171', fontSize: '10px' }}>
+              BLADE 回転ブレード
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#6a2d2d', fontSize: '9px' }}>
+              各TRで30°ずつ回転する矩形ブレード
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#6a2d2d', fontSize: '9px' }}>
+              中心部は毎回取得→モーション補正に活用
             </div>
           </div>
         )}
