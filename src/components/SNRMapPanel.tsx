@@ -11,14 +11,16 @@ import {
 } from '../data/coilProfiles'
 
 const CANVAS_SIZE = 256
-const GRID = 32
+const GRID = 64
+const MAP_SIZE = 64  // coilProfiles sensitivity map size
+
+type ViewMode = 'snr' | 'coil'
 
 function snrToRgb(snr: number, maxSnr: number): [number, number, number] {
   if (maxSnr <= 0) return [30, 64, 175]
   const t = Math.max(0, Math.min(1, snr / maxSnr))
 
   if (t < 0.33) {
-    // blue -> green
     const s = t / 0.33
     return [
       Math.round(30 + (22 - 30) * s),
@@ -26,7 +28,6 @@ function snrToRgb(snr: number, maxSnr: number): [number, number, number] {
       Math.round(175 + (74 - 175) * s),
     ]
   } else if (t < 0.66) {
-    // green -> yellow
     const s = (t - 0.33) / 0.33
     return [
       Math.round(22 + (202 - 22) * s),
@@ -34,12 +35,31 @@ function snrToRgb(snr: number, maxSnr: number): [number, number, number] {
       Math.round(74 + (4 - 74) * s),
     ]
   } else {
-    // yellow -> red
     const s = (t - 0.66) / 0.34
     return [
       Math.round(202 + (220 - 202) * s),
       Math.round(138 + (38 - 138) * s),
       Math.round(4 + (38 - 4) * s),
+    ]
+  }
+}
+
+function coilSensToRgb(s: number): [number, number, number] {
+  // Cool to warm: dark blue → cyan → yellow → red
+  const t = Math.max(0, Math.min(1, s))
+  if (t < 0.5) {
+    const u = t / 0.5
+    return [
+      Math.round(0 + 0 * u),
+      Math.round(0 + 200 * u),
+      Math.round(128 + (255 - 128) * u),
+    ]
+  } else {
+    const u = (t - 0.5) / 0.5
+    return [
+      Math.round(0 + 220 * u),
+      Math.round(200 + (200 - 200) * u),
+      Math.round(255 + (0 - 255) * u),
     ]
   }
 }
@@ -54,64 +74,149 @@ function isInsideEllipse(
   return (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1
 }
 
-function drawSNRMap(
-  ctx: CanvasRenderingContext2D,
+/** Bilinear interpolation from 64x64 grid at normalized coords (gx,gy in 0..63) */
+function bilinearSample(map: number[][], gx: number, gy: number): number {
+  const x0 = Math.floor(gx)
+  const y0 = Math.floor(gy)
+  const x1 = Math.min(x0 + 1, MAP_SIZE - 1)
+  const y1 = Math.min(y0 + 1, MAP_SIZE - 1)
+  const fx = gx - x0
+  const fy = gy - y0
+  const x0c = Math.max(0, Math.min(MAP_SIZE - 1, x0))
+  const y0c = Math.max(0, Math.min(MAP_SIZE - 1, y0))
+  const v00 = map[y0c][x0c]
+  const v10 = map[y0c][x1]
+  const v01 = map[y1][x0c]
+  const v11 = map[y1][x1]
+  return v00 * (1 - fx) * (1 - fy) +
+    v10 * fx * (1 - fy) +
+    v01 * (1 - fx) * fy +
+    v11 * fx * fy
+}
+
+/** Build 64x64 SNR grid, returns [snrGrid, maxSnr] */
+function buildSNRGrid(
   section: CrossSectionConfig,
   coil: CoilProfile,
   globalSNR: number,
   ipatMode: string,
   ipatFactor: number,
-): void {
-  const cellSize = CANVAS_SIZE / GRID
+  fieldStrength: number,
+): [number[][], number] {
   const gFactorPenalty = 1.15
-  const gFactor =
-    ipatMode !== 'Off'
-      ? Math.sqrt(ipatFactor) * gFactorPenalty
-      : 1.0
-
-  // Find max SNR for normalization
+  const gFactor = ipatMode !== 'Off' ? Math.sqrt(ipatFactor) * gFactorPenalty : 1.0
+  const o = section.outline
   let maxSnr = 0
+
   const snrGrid: number[][] = []
   for (let row = 0; row < GRID; row++) {
     const rowArr: number[] = []
     for (let col = 0; col < GRID; col++) {
-      const nx = (col + 0.5) / GRID  // 0-1
+      const nx = (col + 0.5) / GRID  // 0-1 canvas-space
       const ny = (row + 0.5) / GRID
 
-      const o = section.outline
       const inside = isInsideEllipse(nx, ny, o.cx, o.cy, o.rx, o.ry)
       if (!inside) {
         rowArr.push(0)
         continue
       }
 
-      const sx = Math.min(GRID - 1, Math.floor((col / GRID) * GRID))
-      const sy = Math.min(GRID - 1, Math.floor((row / GRID) * GRID))
-      const sensitivity = coil.sensitivityMap[sy][sx]
+      // Sample sensitivity from 64x64 coil map via bilinear interpolation
+      const gx = (col / (GRID - 1)) * (MAP_SIZE - 1)
+      const gy = (row / (GRID - 1)) * (MAP_SIZE - 1)
+      let sensitivity = bilinearSample(coil.sensitivityMap, gx, gy)
+
+      // 3T dielectric effect: abdominal center enhancement
+      if (fieldStrength === 3.0 && section.id === 'abdomen_axial') {
+        const distFromCenter = Math.sqrt((nx - 0.5) ** 2 + (ny - 0.5) ** 2)
+        sensitivity *= 1 + 0.4 * Math.exp(-(distFromCenter ** 2) / 0.05)
+        sensitivity = Math.min(sensitivity, 1.5)
+      }
+
       const snr = (globalSNR * sensitivity) / gFactor
       if (snr > maxSnr) maxSnr = snr
       rowArr.push(snr)
     }
     snrGrid.push(rowArr)
   }
+  return [snrGrid, maxSnr]
+}
 
-  // Draw background
+/** Draw smooth SNR heatmap using ImageData (pixel-level bilinear upscale) */
+function drawSNRMapSmooth(
+  ctx: CanvasRenderingContext2D,
+  section: CrossSectionConfig,
+  coil: CoilProfile,
+  globalSNR: number,
+  ipatMode: string,
+  ipatFactor: number,
+  fieldStrength: number,
+  showContours: boolean,
+  viewMode: ViewMode,
+): void {
+  const o = section.outline
+  const imageData = ctx.createImageData(CANVAS_SIZE, CANVAS_SIZE)
+  const data = imageData.data
+
+  // Build SNR grid
+  const [snrGrid, maxSnr] = buildSNRGrid(section, coil, globalSNR, ipatMode, ipatFactor, fieldStrength)
+
+  // Fill background
   ctx.fillStyle = '#0a0a0a'
   ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
-  // Draw SNR heatmap
-  for (let row = 0; row < GRID; row++) {
-    for (let col = 0; col < GRID; col++) {
-      const snr = snrGrid[row][col]
-      if (snr <= 0) continue
-      const [r, g, b] = snrToRgb(snr, maxSnr)
-      ctx.fillStyle = `rgba(${r},${g},${b},0.85)`
-      ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize)
+  // Pixel-level rendering via ImageData
+  for (let py = 0; py < CANVAS_SIZE; py++) {
+    for (let px = 0; px < CANVAS_SIZE; px++) {
+      const nx = (px + 0.5) / CANVAS_SIZE
+      const ny = (py + 0.5) / CANVAS_SIZE
+
+      const inside = isInsideEllipse(nx, ny, o.cx, o.cy, o.rx, o.ry)
+      if (!inside) continue
+
+      // Map pixel to grid space with bilinear interpolation
+      const gx = (px / (CANVAS_SIZE - 1)) * (GRID - 1)
+      const gy = (py / (CANVAS_SIZE - 1)) * (GRID - 1)
+      const gx0 = Math.floor(gx)
+      const gy0 = Math.floor(gy)
+      const gx1 = Math.min(gx0 + 1, GRID - 1)
+      const gy1 = Math.min(gy0 + 1, GRID - 1)
+      const fx = gx - gx0
+      const fy = gy - gy0
+
+      const v00 = snrGrid[gy0][gx0]
+      const v10 = snrGrid[gy0][gx1]
+      const v01 = snrGrid[gy1][gx0]
+      const v11 = snrGrid[gy1][gx1]
+      const snrVal = v00 * (1 - fx) * (1 - fy) + v10 * fx * (1 - fy) + v01 * (1 - fx) * fy + v11 * fx * fy
+
+      if (snrVal <= 0) continue
+
+      const idx = (py * CANVAS_SIZE + px) * 4
+
+      if (viewMode === 'coil') {
+        // Show raw coil sensitivity
+        const coilGx = (px / (CANVAS_SIZE - 1)) * (MAP_SIZE - 1)
+        const coilGy = (py / (CANVAS_SIZE - 1)) * (MAP_SIZE - 1)
+        const sens = bilinearSample(coil.sensitivityMap, coilGx, coilGy)
+        const [r, g, b] = coilSensToRgb(sens)
+        data[idx] = r
+        data[idx + 1] = g
+        data[idx + 2] = b
+        data[idx + 3] = 220
+      } else {
+        const [r, g, b] = snrToRgb(snrVal, maxSnr)
+        data[idx] = r
+        data[idx + 1] = g
+        data[idx + 2] = b
+        data[idx + 3] = 217
+      }
     }
   }
 
-  // Draw body outline (ellipse)
-  const o = section.outline
+  ctx.putImageData(imageData, 0, 0)
+
+  // Draw body outline
   ctx.beginPath()
   ctx.ellipse(
     o.cx * CANVAS_SIZE,
@@ -135,50 +240,180 @@ function drawSNRMap(
       0, 0, Math.PI * 2,
     )
     ctx.setLineDash([3, 3])
-    ctx.strokeStyle = 'rgba(180,180,180,0.5)'
+    ctx.strokeStyle = 'rgba(180,180,180,0.45)'
     ctx.lineWidth = 1
     ctx.stroke()
     ctx.setLineDash([])
   }
 
-  // Draw tissue labels (only for tissues large enough)
+  // Tissue labels
   ctx.font = '8px monospace'
   ctx.fillStyle = 'rgba(200,200,200,0.9)'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   for (const tissue of section.tissues) {
-    // Only label if tissue is wide enough
     if (tissue.rx * CANVAS_SIZE > 18) {
-      ctx.fillText(
-        tissue.label,
-        tissue.cx * CANVAS_SIZE,
-        tissue.cy * CANVAS_SIZE,
-      )
+      ctx.fillText(tissue.label, tissue.cx * CANVAS_SIZE, tissue.cy * CANVAS_SIZE)
     }
   }
+
+  // Contour lines (only in SNR mode)
+  if (showContours && viewMode === 'snr' && maxSnr > 0) {
+    drawContours(ctx, snrGrid, maxSnr)
+  }
+}
+
+/** Simple Marching-Squares-style contour drawing at 25%, 50%, 75% of maxSNR */
+function drawContours(
+  ctx: CanvasRenderingContext2D,
+  snrGrid: number[][],
+  maxSnr: number,
+): void {
+  const levels = [0.25, 0.5, 0.75]
+  const cellW = CANVAS_SIZE / GRID
+  const cellH = CANVAS_SIZE / GRID
+
+  ctx.save()
+  ctx.lineWidth = 0.8
+
+  for (const level of levels) {
+    const threshold = level * maxSnr
+    ctx.beginPath()
+
+    for (let row = 0; row < GRID - 1; row++) {
+      for (let col = 0; col < GRID - 1; col++) {
+        const v00 = snrGrid[row][col]
+        const v10 = snrGrid[row][col + 1]
+        const v01 = snrGrid[row + 1][col]
+        const v11 = snrGrid[row + 1][col + 1]
+
+        // Check transitions for each of the 4 edges
+        // Top edge: between (row, col) and (row, col+1)
+        if ((v00 > threshold) !== (v10 > threshold)) {
+          const t = (threshold - v00) / (v10 - v00)
+          const x1 = (col + t) * cellW
+          const y1 = row * cellH
+          // Bottom edge: between (row+1, col) and (row+1, col+1)
+          if ((v01 > threshold) !== (v11 > threshold)) {
+            const t2 = (threshold - v01) / (v11 - v01)
+            const x2 = (col + t2) * cellW
+            const y2 = (row + 1) * cellH
+            ctx.moveTo(x1, y1)
+            ctx.lineTo(x2, y2)
+          }
+          // Right edge: between (row, col+1) and (row+1, col+1)
+          if ((v10 > threshold) !== (v11 > threshold)) {
+            const t2 = (threshold - v10) / (v11 - v10)
+            const x2 = (col + 1) * cellW
+            const y2 = (row + t2) * cellH
+            ctx.moveTo(x1, y1)
+            ctx.lineTo(x2, y2)
+          }
+        }
+        // Left edge: between (row, col) and (row+1, col)
+        if ((v00 > threshold) !== (v01 > threshold)) {
+          const t = (threshold - v00) / (v01 - v00)
+          const x1 = col * cellW
+          const y1 = (row + t) * cellH
+          // Bottom edge
+          if ((v01 > threshold) !== (v11 > threshold)) {
+            const t2 = (threshold - v01) / (v11 - v01)
+            const x2 = (col + t2) * cellW
+            const y2 = (row + 1) * cellH
+            ctx.moveTo(x1, y1)
+            ctx.lineTo(x2, y2)
+          }
+          // Right edge
+          if ((v10 > threshold) !== (v11 > threshold)) {
+            const t2 = (threshold - v10) / (v11 - v10)
+            const x2 = (col + 1) * cellW
+            const y2 = (row + t2) * cellH
+            ctx.moveTo(x1, y1)
+            ctx.lineTo(x2, y2)
+          }
+        }
+      }
+    }
+
+    // Color-code levels
+    const alpha = 0.55
+    if (level === 0.25) ctx.strokeStyle = `rgba(100,180,255,${alpha})`
+    else if (level === 0.50) ctx.strokeStyle = `rgba(255,255,255,${alpha})`
+    else ctx.strokeStyle = `rgba(255,160,60,${alpha})`
+
+    ctx.stroke()
+  }
+  ctx.restore()
 }
 
 export function SNRMapPanel() {
   const { params } = useProtocolStore()
   const [activeSectionId, setActiveSectionId] = useState<BodyCrossSection>('head_axial')
+  const [showContours, setShowContours] = useState(true)
+  const [viewMode, setViewMode] = useState<ViewMode>('snr')
+  const [hoverSNR, setHoverSNR] = useState<number | null>(null)
+  const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const section = crossSections.find(s => s.id === activeSectionId)!
-  // Use params.coil if it matches a known coil, otherwise fall back to section default
   const coilFromParams = getCoilProfile(params.coil)
-  // For display: prefer section-matching coil if params.coil is generic 'Body'
   const displayCoil =
     params.coil === 'Body' ? getCoilForSection(activeSectionId) : coilFromParams
 
   const globalSNR = calcSNR(params)
+
+  // Cache the snrGrid for hover SNR lookup
+  const snrGridRef = useRef<number[][] | null>(null)
+  const maxSnrRef = useRef<number>(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    drawSNRMap(ctx, section, displayCoil, globalSNR, params.ipatMode, params.ipatFactor)
-  }, [params, section, displayCoil, globalSNR])
+
+    const [grid, maxSnr] = buildSNRGrid(
+      section, displayCoil, globalSNR,
+      params.ipatMode, params.ipatFactor, params.fieldStrength,
+    )
+    snrGridRef.current = grid
+    maxSnrRef.current = maxSnr
+
+    drawSNRMapSmooth(
+      ctx, section, displayCoil, globalSNR,
+      params.ipatMode, params.ipatFactor, params.fieldStrength,
+      showContours, viewMode,
+    )
+  }, [params, section, displayCoil, globalSNR, showContours, viewMode])
+
+  // Mouse hover handler
+  function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current
+    if (!canvas || !snrGridRef.current) return
+    const rect = canvas.getBoundingClientRect()
+    const px = e.clientX - rect.left
+    const py = e.clientY - rect.top
+    const nx = px / CANVAS_SIZE
+    const ny = py / CANVAS_SIZE
+
+    const o = section.outline
+    if (!isInsideEllipse(nx, ny, o.cx, o.cy, o.rx, o.ry)) {
+      setHoverSNR(null)
+      setHoverPos(null)
+      return
+    }
+
+    const gx = Math.max(0, Math.min(GRID - 1, Math.floor(nx * GRID)))
+    const gy = Math.max(0, Math.min(GRID - 1, Math.floor(ny * GRID)))
+    const snrVal = snrGridRef.current[gy][gx]
+    setHoverSNR(Math.round(snrVal))
+    setHoverPos({ x: px, y: py })
+  }
+
+  function handleMouseLeave() {
+    setHoverSNR(null)
+    setHoverPos(null)
+  }
 
   const ipatReduction =
     params.ipatMode !== 'Off'
@@ -215,29 +450,144 @@ export function SNRMapPanel() {
         ))}
       </div>
 
+      {/* View mode + contour controls */}
+      <div
+        className="flex items-center justify-between px-2 py-1 shrink-0"
+        style={{ borderBottom: '1px solid #1a1a1a', background: '#0e0e0e' }}
+      >
+        {/* View mode tabs */}
+        <div className="flex gap-1">
+          {([['snr', 'SNR'], ['coil', 'コイル感度']] as [ViewMode, string][]).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setViewMode(id)}
+              style={{
+                fontSize: '9px',
+                padding: '2px 7px',
+                borderRadius: '3px',
+                background: viewMode === id ? '#2a1800' : 'transparent',
+                color: viewMode === id ? '#e88b00' : '#4b5563',
+                border: `1px solid ${viewMode === id ? '#e88b00' : '#333'}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Contour toggle (only in SNR mode) */}
+        {viewMode === 'snr' && (
+          <button
+            onClick={() => setShowContours(v => !v)}
+            style={{
+              fontSize: '9px',
+              padding: '2px 7px',
+              borderRadius: '3px',
+              background: showContours ? '#001a2a' : 'transparent',
+              color: showContours ? '#60b8ff' : '#4b5563',
+              border: `1px solid ${showContours ? '#60b8ff' : '#333'}`,
+            }}
+          >
+            等高線
+          </button>
+        )}
+      </div>
+
       {/* Canvas */}
       <div
         className="flex items-center justify-center shrink-0 py-2"
-        style={{ background: '#0a0a0a', borderBottom: '1px solid #252525' }}
+        style={{ background: '#0a0a0a', borderBottom: '1px solid #252525', position: 'relative' }}
       >
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
-          style={{ display: 'block', border: '1px solid #252525' }}
-        />
+        <div style={{ position: 'relative', display: 'inline-block' }}>
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_SIZE}
+            height={CANVAS_SIZE}
+            style={{ display: 'block', border: '1px solid #252525', cursor: 'crosshair' }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          />
+          {/* Crosshair + tooltip */}
+          {hoverPos && hoverSNR !== null && (
+            <>
+              {/* Crosshair lines */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: hoverPos.x,
+                  top: 0,
+                  width: '1px',
+                  height: CANVAS_SIZE,
+                  background: 'rgba(255,255,255,0.25)',
+                  pointerEvents: 'none',
+                }}
+              />
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: hoverPos.y,
+                  width: CANVAS_SIZE,
+                  height: '1px',
+                  background: 'rgba(255,255,255,0.25)',
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* Tooltip */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: hoverPos.x + 8,
+                  top: hoverPos.y - 22,
+                  background: 'rgba(0,0,0,0.85)',
+                  border: '1px solid #e88b00',
+                  borderRadius: '3px',
+                  padding: '2px 6px',
+                  fontSize: '10px',
+                  color: '#e88b00',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                  zIndex: 10,
+                }}
+              >
+                SNR: {hoverSNR}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Color scale legend */}
       <div className="px-3 py-1.5 shrink-0 flex items-center gap-2" style={{ borderBottom: '1px solid #1a1a1a' }}>
-        <span className="text-xs" style={{ color: '#4b5563', fontSize: '9px' }}>SNR低</span>
+        <span className="text-xs" style={{ color: '#4b5563', fontSize: '9px' }}>
+          {viewMode === 'snr' ? 'SNR低' : '感度低'}
+        </span>
         <div
           className="flex-1 h-2 rounded"
           style={{
-            background: 'linear-gradient(to right, #1e40af, #16a34a, #ca8a04, #dc2626)',
+            background: viewMode === 'snr'
+              ? 'linear-gradient(to right, #1e40af, #16a34a, #ca8a04, #dc2626)'
+              : 'linear-gradient(to right, #008080, #00c8ff, #dc2626)',
           }}
         />
         <span className="text-xs" style={{ color: '#4b5563', fontSize: '9px' }}>高</span>
+
+        {/* Contour legend */}
+        {showContours && viewMode === 'snr' && (
+          <div className="flex items-center gap-1.5 ml-2">
+            {[
+              { color: 'rgba(100,180,255,0.9)', label: '25%' },
+              { color: 'rgba(255,255,255,0.9)', label: '50%' },
+              { color: 'rgba(255,160,60,0.9)', label: '75%' },
+            ].map(({ color, label }) => (
+              <div key={label} className="flex items-center gap-0.5">
+                <div style={{ width: 12, height: 1.5, background: color }} />
+                <span style={{ fontSize: '8px', color: '#5a5a5a' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Info panel */}
@@ -271,8 +621,6 @@ export function SNRMapPanel() {
             </span>
             <span className="text-xs" style={{ color: '#4b5563' }}>/200</span>
           </div>
-
-          {/* SNR bar */}
           <div className="mt-1.5 h-1.5 rounded overflow-hidden" style={{ background: '#252525' }}>
             <div
               className="h-full rounded transition-all duration-300"
@@ -283,6 +631,21 @@ export function SNRMapPanel() {
             />
           </div>
         </div>
+
+        {/* 3T Dielectric effect note */}
+        {params.fieldStrength === 3.0 && activeSectionId === 'abdomen_axial' && (
+          <div
+            className="rounded p-2.5"
+            style={{ background: '#001620', border: '1px solid #0e4c6a' }}
+          >
+            <div className="text-xs" style={{ color: '#60b8ff', fontSize: '10px' }}>
+              3T Dielectric Effect
+            </div>
+            <div className="text-xs mt-0.5" style={{ color: '#2a6a8a', fontSize: '9px' }}>
+              腹部中央のSNR強調表示中（誘電体効果）
+            </div>
+          </div>
+        )}
 
         {/* iPAT note */}
         {params.ipatMode !== 'Off' && (
@@ -315,6 +678,7 @@ export function SNRMapPanel() {
             現在のパラメータ
           </div>
           {[
+            { label: 'Field', value: `${params.fieldStrength}T` },
             { label: 'FOV', value: `${params.fov} mm` },
             { label: 'Matrix', value: `${params.matrixFreq}×${params.matrixPhase}` },
             { label: 'Thickness', value: `${params.sliceThickness} mm` },
