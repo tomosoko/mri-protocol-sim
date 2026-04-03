@@ -19,12 +19,15 @@ import { QuizPanel } from './components/QuizPanel'
 import { DiffPanel } from './components/DiffPanel'
 import { ScenarioExercisePanel } from './components/ScenarioExercisePanel'
 import { SNRMapPanel } from './components/SNRMapPanel'
+import { ArtifactSimPanel } from './components/ArtifactSimPanel'
+import { CaseTrainingPanel } from './components/CaseTrainingPanel'
+import { KSpaceVisualizer } from './components/KSpaceVisualizer'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
@@ -72,6 +75,39 @@ export default function App() {
           >
             <Zap size={11} />
             アーチファクト対策
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'case' ? null : 'case')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'case' ? '#0f1a0f' : '#252525',
+              color: rightPanel === 'case' ? '#86efac' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'case' ? '#15803d' : '#374151'}`,
+            }}
+          >
+            症例訓練
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'kspace' ? null : 'kspace')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'kspace' ? '#1a1500' : '#252525',
+              color: rightPanel === 'kspace' ? '#fde047' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'kspace' ? '#a16207' : '#374151'}`,
+            }}
+          >
+            k空間
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'artifactsim' ? null : 'artifactsim')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'artifactsim' ? '#1f0a0a' : '#252525',
+              color: rightPanel === 'artifactsim' ? '#f87171' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'artifactsim' ? '#991b1b' : '#374151'}`,
+            }}
+          >
+            ArtSim
           </button>
           <button
             onClick={() => setRightPanel(rightPanel === 'snrmap' ? null : 'snrmap')}
@@ -184,6 +220,9 @@ export default function App() {
             {rightPanel === 'diff' && <DiffPanel />}
             {rightPanel === 'scenario' && <ScenarioExercisePanel />}
             {rightPanel === 'snrmap' && <SNRMapPanel />}
+            {rightPanel === 'artifactsim' && <ArtifactSimPanel onShowArtifactGuide={() => setRightPanel('artifact')} />}
+            {rightPanel === 'case' && <CaseTrainingPanel />}
+            {rightPanel === 'kspace' && <KSpaceVisualizer />}
           </div>
         )}
       </div>
