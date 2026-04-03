@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { quizQuestions, type QuizQuestion } from '../data/quizData'
 import { CheckCircle, XCircle, RefreshCw, ChevronRight } from 'lucide-react'
-import { addQuizToAnki, addAllQuizToAnki } from '../utils/ankiConnect'
+import { addAllQuizToAnki } from '../utils/ankiConnect'
 
 type Category = QuizQuestion['category'] | 'すべて'
 type Difficulty = 1 | 2 | 3 | 0
@@ -20,6 +20,59 @@ const CATEGORY_COLOR: Record<QuizQuestion['category'], string> = {
 
 const DIFF_LABEL = ['', '★', '★★', '★★★']
 const DIFF_COLOR = ['', '#6b7280', '#f59e0b', '#ef4444']
+
+type AnkiStatus = 'idle' | 'sending' | 'ok' | 'dup' | 'err'
+
+function AnkiButton({ questions }: { questions: QuizQuestion[] }) {
+  const [status, setStatus] = useState<AnkiStatus>('idle')
+  const [result, setResult] = useState<{ added: number; skipped: number } | null>(null)
+
+  async function handleAddAll() {
+    setStatus('sending')
+    setResult(null)
+    try {
+      const res = await addAllQuizToAnki(questions)
+      setResult(res)
+      setStatus(res.added > 0 ? 'ok' : 'dup')
+      setTimeout(() => setStatus('idle'), 4000)
+    } catch {
+      setStatus('err')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
+  }
+
+  const label = status === 'sending' ? '送信中...'
+    : status === 'ok' ? `追加完了 +${result?.added}件`
+    : status === 'dup' ? `重複のみ (${result?.skipped}件スキップ)`
+    : status === 'err' ? 'Anki未起動?'
+    : `全${questions.length}問をAnkiへ`
+
+  const color = status === 'ok' ? '#4ade80'
+    : status === 'dup' ? '#fbbf24'
+    : status === 'err' ? '#f87171'
+    : '#a78bfa'
+
+  const bg = status === 'ok' ? '#052e16'
+    : status === 'dup' ? '#2d1f00'
+    : status === 'err' ? '#2d1515'
+    : '#1e1535'
+
+  const border = status === 'ok' ? '#166534'
+    : status === 'dup' ? '#78350f'
+    : status === 'err' ? '#7f1d1d'
+    : '#5b21b6'
+
+  return (
+    <button
+      onClick={handleAddAll}
+      disabled={status === 'sending'}
+      className="w-full py-1.5 rounded text-xs font-semibold transition-all"
+      style={{ background: bg, color, border: `1px solid ${border}`, opacity: status === 'sending' ? 0.7 : 1 }}
+    >
+      {label}
+    </button>
+  )
+}
 
 export function QuizPanel() {
   const [category, setCategory] = useState<Category>('すべて')
@@ -105,7 +158,7 @@ export function QuizPanel() {
         <button
           onClick={handleReset}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs"
-          style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #2563eb' }}
+          style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #7c4700' }}
         >
           <RefreshCw size={11} />
           もう一度
@@ -118,6 +171,8 @@ export function QuizPanel() {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Filter bar */}
       <div className="shrink-0 px-3 py-2 space-y-1.5" style={{ borderBottom: '1px solid #252525' }}>
+        {/* Anki export button */}
+        <AnkiButton questions={quizQuestions} />
         {/* Category */}
         <div className="flex flex-wrap gap-1">
           {categories.map(c => (
@@ -253,7 +308,7 @@ export function QuizPanel() {
           <button
             onClick={handleNext}
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold"
-            style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #2563eb' }}
+            style={{ background: '#2a1200', color: '#e88b00', border: '1px solid #7c4700' }}
           >
             {currentIndex + 1 >= filtered.length ? '結果を見る' : '次の問題'}
             <ChevronRight size={12} />
