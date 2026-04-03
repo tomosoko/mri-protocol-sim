@@ -17,7 +17,7 @@ import { SequenceQueue } from './components/SequenceQueue'
 import { getSeqClinical } from './data/sequenceClinicalData'
 import { QuizPanel } from './components/QuizPanel'
 import { DiffPanel } from './components/DiffPanel'
-import { ScenarioPanel } from './components/ScenarioPanel'
+import { ScenarioExercisePanel } from './components/ScenarioExercisePanel'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
@@ -170,7 +170,7 @@ export default function App() {
             {rightPanel === 'artifact' && <ArtifactGuide />}
             {rightPanel === 'learn' && <LearnPanel />}
             {rightPanel === 'diff' && <DiffPanel />}
-            {rightPanel === 'scenario' && <ScenarioPanel />}
+            {rightPanel === 'scenario' && <ScenarioExercisePanel />}
           </div>
         )}
       </div>
