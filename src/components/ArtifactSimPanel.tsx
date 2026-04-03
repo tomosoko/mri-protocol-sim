@@ -499,10 +499,12 @@ interface InfluenceListProps {
     matrixPhase: number
     bandwidth: number
     phaseOversampling: number
+    phaseEncDir: string
     respTrigger: string
     fieldStrength: number
     fatSat: string
     turboFactor: number
+    ipatFactor: number
   }
 }
 
