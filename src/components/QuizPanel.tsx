@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { quizQuestions, type QuizQuestion } from '../data/quizData'
+import { choiceExplanations } from '../data/quizChoiceExplanations'
 import { CheckCircle, XCircle, RefreshCw, ChevronRight } from 'lucide-react'
 import { addAllQuizToAnki } from '../utils/ankiConnect'
 
@@ -276,6 +277,8 @@ export function QuizPanel() {
               textColor = '#9ca3af'
             }
 
+            const choiceExp = choiceExplanations[current.id]?.[i]
+
             return (
               <button
                 key={i}
@@ -286,7 +289,14 @@ export function QuizPanel() {
               >
                 <div className="flex items-start gap-2">
                   <span className="shrink-0 font-mono">{String.fromCharCode(65 + i)}.</span>
-                  <span>{choice}</span>
+                  <span className="flex-1">
+                    <span>{choice}</span>
+                    {selected !== null && choiceExp && (
+                      <span className="block mt-1" style={{ fontSize: '10px', color: '#9ca3af' }}>
+                        {choiceExp}
+                      </span>
+                    )}
+                  </span>
                   {selected !== null && isCorrect && <CheckCircle size={12} className="shrink-0 ml-auto mt-0.5" style={{ color: '#4ade80' }} />}
                   {selected !== null && isSelected && !isCorrect && <XCircle size={12} className="shrink-0 ml-auto mt-0.5" style={{ color: '#f87171' }} />}
                 </div>
@@ -298,7 +308,7 @@ export function QuizPanel() {
         {/* Explanation */}
         {showExplanation && (
           <div className="p-3 rounded text-xs leading-relaxed" style={{ background: '#0d1117', border: '1px solid #3a1a00' }}>
-            <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>解説</div>
+            <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>総合解説</div>
             <div style={{ color: '#9ca3af' }}>{current.explanation}</div>
           </div>
         )}
