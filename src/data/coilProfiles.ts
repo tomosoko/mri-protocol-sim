@@ -1,7 +1,7 @@
 export interface CoilProfile {
   id: string
   label: string
-  sensitivityMap: number[][]  // 32x32 normalized sensitivity map (0.0-1.0)
+  sensitivityMap: number[][]  // 64x64 normalized sensitivity map (0.0-1.0)
   channels: number
   description: string
 }
@@ -16,14 +16,16 @@ export interface CrossSectionConfig {
   tissues: { cx: number; cy: number; rx: number; ry: number; intensity: number; label: string }[]
 }
 
-/** Generate a 32x32 sensitivity map using a radial falloff function */
+const MAP_SIZE = 64
+
+/** Generate a 64x64 sensitivity map using a given function */
 function makeSensitivityMap(fn: (nx: number, ny: number) => number): number[][] {
   const map: number[][] = []
-  for (let row = 0; row < 32; row++) {
+  for (let row = 0; row < MAP_SIZE; row++) {
     const rowArr: number[] = []
-    for (let col = 0; col < 32; col++) {
-      const nx = (col - 15.5) / 15.5  // -1.0 to +1.0
-      const ny = (row - 15.5) / 15.5
+    for (let col = 0; col < MAP_SIZE; col++) {
+      const nx = (col - (MAP_SIZE - 1) / 2) / ((MAP_SIZE - 1) / 2)  // -1.0 to +1.0
+      const ny = (row - (MAP_SIZE - 1) / 2) / ((MAP_SIZE - 1) / 2)
       const val = Math.max(0, Math.min(1, fn(nx, ny)))
       rowArr.push(val)
     }
@@ -32,33 +34,124 @@ function makeSensitivityMap(fn: (nx: number, ny: number) => number): number[][] 
   return map
 }
 
-// Head_20ch: high sensitivity at center, falls off toward periphery
-const head20chMap = makeSensitivityMap((nx, ny) => {
-  const r = Math.sqrt(nx * nx + ny * ny)
-  return 1.0 - 0.5 * r - 0.3 * r * r
-})
+// Head_20ch: 16-channel phased array arranged in a circle
+// Each channel sensitivity = 1/(1 + dist^2), combined as RSS, normalized
+const head20chMap = (() => {
+  // Place 16 channels in a circle of radius 1.1 (outside the head)
+  const NUM_CH = 16
+  const RING_R = 1.1
+  const channels: [number, number][] = []
+  for (let i = 0; i < NUM_CH; i++) {
+    const angle = (2 * Math.PI * i) / NUM_CH
+    channels.push([Math.cos(angle) * RING_R, Math.sin(angle) * RING_R])
+  }
 
-// Body_18ch: high sensitivity anterior and posterior, lower at center
-const body18chMap = makeSensitivityMap((nx, ny) => {
-  const absFront = Math.abs(ny + 0.5)  // front surface
-  const absBack = Math.abs(ny - 0.5)   // back surface
-  const peripheralBoost = Math.min(absFront, absBack) < 0.3 ? 0.3 : 0.0
-  const centerDip = 1.0 - 0.3 * Math.exp(-ny * ny * 2)
-  return 0.6 + peripheralBoost + 0.1 * centerDip - 0.2 * Math.abs(nx)
-})
+  const raw = makeSensitivityMap((nx, ny) => {
+    // RSS combination of channel sensitivities
+    let rss = 0
+    for (const [cx, cy] of channels) {
+      const dist2 = (nx - cx) ** 2 + (ny - cy) ** 2
+      const s = 1 / (1 + dist2 * 6)
+      rss += s * s
+    }
+    return Math.sqrt(rss)
+  })
 
-// Spine_32ch: high sensitivity posterior (top in sagittal map), falls off anteriorly
-const spine32chMap = makeSensitivityMap((nx, ny) => {
-  // ny=-1 is top (posterior in sagittal view)
-  const posteriorFactor = (1 - ny) / 2  // 1.0 at top, 0.0 at bottom
-  return 0.4 + 0.6 * posteriorFactor - 0.15 * Math.abs(nx)
-})
+  // Normalize so the max = 1.0
+  let maxVal = 0
+  for (const row of raw) for (const v of row) if (v > maxVal) maxVal = v
+  return raw.map(row => row.map(v => maxVal > 0 ? v / maxVal : v))
+})()
 
-// Knee_15ch: relatively uniform (small FOV dedicated coil)
-const knee15chMap = makeSensitivityMap((nx, ny) => {
-  const r = Math.sqrt(nx * nx + ny * ny)
-  return 0.85 + 0.15 * (1 - r)
-})
+// Body_18ch: anterior + posterior arrays
+// Anterior channels: row at y = -1.0 (top of normalized space)
+// Posterior channels: row at y = +1.0 (bottom)
+// Left-right falloff for lateral elements
+const body18chMap = (() => {
+  // 9 anterior channels at y=-1.1 spread across x, 9 posterior at y=+1.1
+  const ANTERIOR_Y = -1.1
+  const POSTERIOR_Y = 1.1
+  const N_SIDE = 9
+  const anChannels: [number, number][] = []
+  const poChannels: [number, number][] = []
+  for (let i = 0; i < N_SIDE; i++) {
+    const x = -1.0 + (2.0 * i) / (N_SIDE - 1)
+    anChannels.push([x, ANTERIOR_Y])
+    poChannels.push([x, POSTERIOR_Y])
+  }
+
+  const raw = makeSensitivityMap((nx, ny) => {
+    let rss = 0
+    for (const [cx, cy] of [...anChannels, ...poChannels]) {
+      const dist2 = (nx - cx) ** 2 + (ny - cy) ** 2
+      const s = 1 / (1 + dist2 * 3)
+      rss += s * s
+    }
+    return Math.sqrt(rss)
+  })
+
+  let maxVal = 0
+  for (const row of raw) for (const v of row) if (v > maxVal) maxVal = v
+  return raw.map(row => row.map(v => maxVal > 0 ? v / maxVal : v))
+})()
+
+// Spine_32ch: posterior-only array
+// Strong sensitivity at posterior (ny > 0.4 in 0-1 space = ny > -0.2 in -1 to 1)
+// Falls off anteriorly
+const spine32chMap = (() => {
+  // 32 channels arranged in a grid at posterior wall
+  const N_COL = 8
+  const N_ROW = 4
+  const POSTERIOR_Y = 1.15
+  const channels: [number, number][] = []
+  for (let r = 0; r < N_ROW; r++) {
+    for (let c = 0; c < N_COL; c++) {
+      const x = -0.7 + (1.4 * c) / (N_COL - 1)
+      const y = POSTERIOR_Y - 0.1 * r
+      channels.push([x, y])
+    }
+  }
+
+  const raw = makeSensitivityMap((nx, ny) => {
+    let rss = 0
+    for (const [cx, cy] of channels) {
+      const dist2 = (nx - cx) ** 2 + (ny - cy) ** 2
+      const s = 1 / (1 + dist2 * 5)
+      rss += s * s
+    }
+    return Math.sqrt(rss)
+  })
+
+  let maxVal = 0
+  for (const row of raw) for (const v of row) if (v > maxVal) maxVal = v
+  return raw.map(row => row.map(v => maxVal > 0 ? v / maxVal : v))
+})()
+
+// Knee_15ch: dedicated wrap-around coil, relatively uniform small FOV
+const knee15chMap = (() => {
+  // 15 channels uniformly distributed around a small ring
+  const NUM_CH = 15
+  const RING_R = 1.05
+  const channels: [number, number][] = []
+  for (let i = 0; i < NUM_CH; i++) {
+    const angle = (2 * Math.PI * i) / NUM_CH
+    channels.push([Math.cos(angle) * RING_R, Math.sin(angle) * RING_R])
+  }
+
+  const raw = makeSensitivityMap((nx, ny) => {
+    let rss = 0
+    for (const [cx, cy] of channels) {
+      const dist2 = (nx - cx) ** 2 + (ny - cy) ** 2
+      const s = 1 / (1 + dist2 * 8)
+      rss += s * s
+    }
+    return Math.sqrt(rss)
+  })
+
+  let maxVal = 0
+  for (const row of raw) for (const v of row) if (v > maxVal) maxVal = v
+  return raw.map(row => row.map(v => maxVal > 0 ? v / maxVal : v))
+})()
 
 export const coilProfiles: CoilProfile[] = [
   {
@@ -66,28 +159,28 @@ export const coilProfiles: CoilProfile[] = [
     label: 'Head 20ch',
     sensitivityMap: head20chMap,
     channels: 20,
-    description: '頭部専用20チャンネルコイル。中心部で高感度、周辺に向けて感度低下。',
+    description: '頭部専用20chフェーズドアレイ。外周高感度・中央やや低め（実臨床特性）',
   },
   {
     id: 'Body_18ch',
     label: 'Body 18ch',
     sensitivityMap: body18chMap,
     channels: 18,
-    description: '体幹部18チャンネルコイル。前後方向から高感度、中心部はやや低め。',
+    description: '体幹部18ch。前後アレイ合成。前後方向高感度・左右端で低下',
   },
   {
     id: 'Spine_32ch',
     label: 'Spine 32ch',
     sensitivityMap: spine32chMap,
     channels: 32,
-    description: '脊椎専用32チャンネルコイル。後方から前方に向けて感度低下。',
+    description: '脊椎専用32ch。後方アレイのみ。前方は感度が非常に低い',
   },
   {
     id: 'Knee_15ch',
     label: 'Knee 15ch',
     sensitivityMap: knee15chMap,
     channels: 15,
-    description: '膝関節専用15チャンネルコイル。小FOV向けで全体的に均一な感度分布。',
+    description: '膝関節専用15ch。ラップアラウンドコイルで全体均一',
   },
 ]
 

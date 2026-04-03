@@ -6,6 +6,7 @@ export interface KSpaceLine {
   echoIndex: number // TR内の何番目のエコーか（0始まり）
   isACS: boolean    // iPATのACS（calibration）ライン
   isSkipped: boolean // iPATでスキップされたライン
+  bladeAngleDeg?: number // BLADEの回転角度（deg）
 }
 
 export interface KSpacePattern {
@@ -134,11 +135,9 @@ function generateEPI(params: {
   const ACS_LINES = 16
 
   const result: KSpaceLine[] = []
-  // EPIは通常linear順（-half〜+half）でzigzag
   const trIndex = 0
 
   for (let ky = -half + 1; ky <= half; ky++) {
-    // zigzag: kyインデックス（0始まり）が奇数のラインは右→左（視覚的に区別のみ）
     const kyIndex = ky + half - 1
     const echoIndex = kyIndex
 
@@ -176,7 +175,7 @@ function generateGRE(params: {
   return result
 }
 
-// BLADEパターン: 複数回転ブレード（4ブレード簡略）
+// BLADEパターン: 回転する矩形ブレード（各TRで30°ずつ回転）
 function generateBLADE(params: {
   matrixPhase: number
   turboFactor: number
@@ -186,18 +185,17 @@ function generateBLADE(params: {
 }): KSpaceLine[] {
   const { matrixPhase } = params
   const half = Math.floor(matrixPhase / 2)
-  const NUM_BLADES = 4
-  const linesPerBlade = Math.max(4, Math.floor(matrixPhase / NUM_BLADES))
+  const NUM_BLADES = 6
+  const linesPerBlade = Math.max(4, Math.floor(matrixPhase / 4))
+  const ANGLE_STEP_DEG = 30
 
   const result: KSpaceLine[] = []
 
   for (let blade = 0; blade < NUM_BLADES; blade++) {
-    // 各ブレードの中心ky（回転を模倣するためオフセット）
-    const offset = Math.round((blade / NUM_BLADES) * half)
+    const angleDeg = blade * ANGLE_STEP_DEG
 
     for (let i = 0; i < linesPerBlade; i++) {
-      const ky = -Math.floor(linesPerBlade / 2) + i + offset
-      // 範囲内にクランプ
+      const ky = -Math.floor(linesPerBlade / 2) + i
       const clampedKy = Math.max(-half + 1, Math.min(half, ky))
 
       result.push({
@@ -206,6 +204,7 @@ function generateBLADE(params: {
         echoIndex: i,
         isACS: false,
         isSkipped: false,
+        bladeAngleDeg: angleDeg,
       })
     }
   }
@@ -241,7 +240,7 @@ export const kSpacePatterns: KSpacePattern[] = [
   {
     sequenceType: 'BLADE',
     label: 'BLADE',
-    description: '放射状k空間充填。モーションアーチファクトに強い。肩関節等に使用。',
+    description: '放射状k空間充填。30°ずつ回転する矩形ブレード。モーションに強い。',
     generate: generateBLADE,
   },
 ]
