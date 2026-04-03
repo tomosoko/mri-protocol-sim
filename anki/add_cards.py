@@ -17,7 +17,7 @@ import os
 
 ANKI_CONNECT_URL = "http://localhost:8765"
 DECK_NAME = "MRI Protocol Simulator"
-MODEL_NAME = "Basic"
+MODEL_NAME = "基本"
 QUIZ_FILE = os.path.join(os.path.dirname(__file__), "mri_quiz.txt")
 
 
@@ -65,7 +65,7 @@ def build_note(front: str, back: str, tags: list[str]) -> dict:
     return {
         "deckName": DECK_NAME,
         "modelName": MODEL_NAME,
-        "fields": {"Front": front, "Back": back},
+        "fields": {"表面": front, "裏面": back},
         "options": {"allowDuplicate": False, "duplicateScope": "deck"},
         "tags": tags,
     }
@@ -101,7 +101,9 @@ def main():
         note_ids = anki_request("findNotes", query=f'deck:"{DECK_NAME}"')
         if note_ids:
             existing_notes = anki_request("notesInfo", notes=note_ids)
-            existing_fronts = {n["fields"]["Front"]["value"] for n in existing_notes}
+            # フィールド名はモデルによって "Front"/"Back" または "表面"/"裏面" が異なる
+            front_key = "表面" if "表面" in existing_notes[0]["fields"] else "Front"
+            existing_fronts = {n["fields"][front_key]["value"] for n in existing_notes}
         else:
             existing_fronts = set()
         notes = [n for n in all_notes if n["front"] not in existing_fronts]
