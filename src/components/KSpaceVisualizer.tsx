@@ -473,24 +473,24 @@ function KSpaceVisualizerInner({
 
   return (
     <>
-      {/* k空間 + IFTプレビュー 横並び */}
+      {/* k空間 + IFTプレビュー 縦並び */}
       <div
-        className="flex items-start justify-center gap-2 shrink-0 py-2 px-2"
+        className="flex flex-col items-center shrink-0 py-2 px-2 gap-2"
         style={{ background: '#0a0a0a', borderBottom: '1px solid #252525' }}
       >
         {/* k空間Canvas */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 w-full">
           <span style={{ fontSize: '8px', color: '#4b5563', fontFamily: 'monospace' }}>k空間</span>
           <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            style={{ display: 'block', border: '1px solid #252525' }}
+            style={{ display: 'block', border: '1px solid #252525', width: '100%', height: 'auto', maxWidth: CANVAS_SIZE }}
           />
         </div>
 
         {/* IFTプレビュー */}
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1 w-full">
           <span style={{ fontSize: '8px', color: '#4b5563', fontFamily: 'monospace' }}>IFT画像</span>
           <canvas
             ref={iftCanvasRef}
@@ -498,14 +498,14 @@ function KSpaceVisualizerInner({
             height={IFT_SIZE}
             style={{
               display: 'block',
-              width: 128,
-              height: 128,
+              width: CANVAS_SIZE,
+              height: CANVAS_SIZE,
               border: '1px solid #252525',
               imageRendering: 'pixelated',
               filter: blurPx > 0 ? `blur(${blurPx}px)` : 'none',
             }}
           />
-          <div style={{ width: 128, fontSize: '8px', color: '#374151', textAlign: 'center', lineHeight: 1.3 }}>
+          <div style={{ width: CANVAS_SIZE, fontSize: '8px', color: '#374151', textAlign: 'center', lineHeight: 1.3 }}>
             {fillRatio < 0.15
               ? 'k空間中心のみ: ぼやけ'
               : fillRatio < 0.7

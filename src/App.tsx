@@ -51,111 +51,127 @@ export default function App() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setRightPanel(rightPanel === 'learn' ? null : 'learn')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'learn' ? '#2a1200' : '#252525',
-              color: rightPanel === 'learn' ? '#e88b00' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'learn' ? '#c47400' : '#374151'}`,
-            }}
-          >
-            <BookOpen size={11} />
-            学習ガイド
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'artifact' ? null : 'artifact')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'artifact' ? '#2a1200' : '#252525',
-              color: rightPanel === 'artifact' ? '#e88b00' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'artifact' ? '#c47400' : '#374151'}`,
-            }}
-          >
-            <Zap size={11} />
-            アーチファクト対策
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'case' ? null : 'case')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'case' ? '#0f1a0f' : '#252525',
-              color: rightPanel === 'case' ? '#86efac' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'case' ? '#15803d' : '#374151'}`,
-            }}
-          >
-            症例訓練
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'kspace' ? null : 'kspace')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'kspace' ? '#1a1500' : '#252525',
-              color: rightPanel === 'kspace' ? '#fde047' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'kspace' ? '#a16207' : '#374151'}`,
-            }}
-          >
-            k空間
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'artifactsim' ? null : 'artifactsim')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'artifactsim' ? '#1f0a0a' : '#252525',
-              color: rightPanel === 'artifactsim' ? '#f87171' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'artifactsim' ? '#991b1b' : '#374151'}`,
-            }}
-          >
-            ArtSim
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'snrmap' ? null : 'snrmap')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'snrmap' ? '#0f1e2e' : '#252525',
-              color: rightPanel === 'snrmap' ? '#38bdf8' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'snrmap' ? '#0369a1' : '#374151'}`,
-            }}
-          >
-            SNR
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'diff' ? null : 'diff')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'diff' ? '#0a1f0a' : '#252525',
-              color: rightPanel === 'diff' ? '#4ade80' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'diff' ? '#166534' : '#374151'}`,
-            }}
-          >
-            <GitCompare size={11} />
-            変更diff
-          </button>
-          <button
-            onClick={() => setRightPanel(rightPanel === 'scenario' ? null : 'scenario')}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: rightPanel === 'scenario' ? '#0f172a' : '#252525',
-              color: rightPanel === 'scenario' ? '#60a5fa' : '#5a5a5a',
-              border: `1px solid ${rightPanel === 'scenario' ? '#1d4ed8' : '#374151'}`,
-            }}
-          >
-            <Stethoscope size={11} />
-            シナリオ
-          </button>
-          <button
-            onClick={() => setQuizMode(m => !m)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
-            style={{
-              background: quizMode ? '#2d1f5e' : '#252525',
-              color: quizMode ? '#a78bfa' : '#6b7280',
-              border: `1px solid ${quizMode ? '#7c3aed' : '#374151'}`,
-            }}
-          >
-            <GraduationCap size={11} />
-            クイズ
-          </button>
+        {/* ヘッダーボタン: 2行グループ */}
+        <div className="flex flex-col gap-1">
+          {/* 学習系 */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setRightPanel(rightPanel === 'learn' ? null : 'learn')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'learn' ? '#2a1200' : '#252525',
+                color: rightPanel === 'learn' ? '#e88b00' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'learn' ? '#c47400' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              <BookOpen size={10} />
+              学習ガイド
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'artifact' ? null : 'artifact')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'artifact' ? '#2a1200' : '#252525',
+                color: rightPanel === 'artifact' ? '#e88b00' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'artifact' ? '#c47400' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              <Zap size={10} />
+              対策
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'case' ? null : 'case')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'case' ? '#0f1a0f' : '#252525',
+                color: rightPanel === 'case' ? '#86efac' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'case' ? '#15803d' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              症例訓練
+            </button>
+            <button
+              onClick={() => setQuizMode(m => !m)}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: quizMode ? '#2d1f5e' : '#252525',
+                color: quizMode ? '#a78bfa' : '#6b7280',
+                border: `1px solid ${quizMode ? '#7c3aed' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              <GraduationCap size={10} />
+              クイズ
+            </button>
+          </div>
+          {/* ビジュアル系 */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setRightPanel(rightPanel === 'kspace' ? null : 'kspace')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'kspace' ? '#1a1500' : '#252525',
+                color: rightPanel === 'kspace' ? '#fde047' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'kspace' ? '#a16207' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              k空間
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'artifactsim' ? null : 'artifactsim')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'artifactsim' ? '#1f0a0a' : '#252525',
+                color: rightPanel === 'artifactsim' ? '#f87171' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'artifactsim' ? '#991b1b' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              ArtSim
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'snrmap' ? null : 'snrmap')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'snrmap' ? '#0f1e2e' : '#252525',
+                color: rightPanel === 'snrmap' ? '#38bdf8' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'snrmap' ? '#0369a1' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              SNR
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'diff' ? null : 'diff')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'diff' ? '#0a1f0a' : '#252525',
+                color: rightPanel === 'diff' ? '#4ade80' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'diff' ? '#166534' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              <GitCompare size={10} />
+              Diff
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'scenario' ? null : 'scenario')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'scenario' ? '#0f172a' : '#252525',
+                color: rightPanel === 'scenario' ? '#60a5fa' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'scenario' ? '#1d4ed8' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              <Stethoscope size={10} />
+              シナリオ
+            </button>
+          </div>
         </div>
       </div>
 
@@ -214,7 +230,7 @@ export default function App() {
 
         {/* Right: Panel */}
         {rightPanel && (
-          <div className="shrink-0 overflow-hidden" style={{ width: '300px', borderLeft: '1px solid #252525' }}>
+          <div className="shrink-0 overflow-hidden" style={{ width: '400px', borderLeft: '1px solid #252525' }}>
             {rightPanel === 'artifact' && <ArtifactGuide />}
             {rightPanel === 'learn' && <LearnPanel />}
             {rightPanel === 'diff' && <DiffPanel />}

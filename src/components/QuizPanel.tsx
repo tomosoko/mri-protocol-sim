@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { quizQuestions, type QuizQuestion } from '../data/quizData'
 import { CheckCircle, XCircle, RefreshCw, ChevronRight } from 'lucide-react'
+import { addQuizToAnki, addAllQuizToAnki } from '../utils/ankiConnect'
 
 type Category = QuizQuestion['category'] | 'すべて'
 type Difficulty = 1 | 2 | 3 | 0

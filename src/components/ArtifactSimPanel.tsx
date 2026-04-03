@@ -6,7 +6,7 @@ import {
   type ArtifactType,
 } from '../data/artifactModels'
 
-const CANVAS_SIZE = 96
+const CANVAS_SIZE = 240
 const IMG_SIZE = 128
 
 interface ArtifactSimPanelProps {
@@ -189,6 +189,7 @@ export function ArtifactSimPanel({ onShowArtifactGuide }: ArtifactSimPanelProps)
   const { params } = useProtocolStore()
   const [activeArtifact, setActiveArtifact] = useState<ArtifactType>('aliasing')
   const [phantomType, setPhantomType] = useState<'head' | 'abdomen'>('head')
+  const [activeView, setActiveView] = useState<'normal' | 'artifact' | 'diff'>('artifact')
 
   // デモスライダー用ローカルstate（storeを更新しない）
   const [demoSliderValue, setDemoSliderValue] = useState<number | null>(null)
@@ -318,37 +319,76 @@ export function ArtifactSimPanel({ onShowArtifactGuide }: ArtifactSimPanelProps)
         ))}
       </div>
 
-      {/* Canvas 3枚: 正常 / アーチファクト / 差分 */}
+      {/* Canvas タブ切替式 */}
       <div
-        className="shrink-0 flex justify-around items-end px-1 py-2"
+        className="shrink-0 flex flex-col"
         style={{ background: '#0a0a0a', borderBottom: '1px solid #252525' }}
       >
-        <div className="flex flex-col items-center gap-1">
+        {/* タブボタン */}
+        <div className="flex shrink-0">
+          {(['normal', 'artifact', 'diff'] as const).map(view => (
+            <button
+              key={view}
+              onClick={() => setActiveView(view)}
+              style={{
+                flex: 1,
+                padding: '4px',
+                fontSize: '10px',
+                background: activeView === view ? '#1e1200' : 'transparent',
+                color: activeView === view ? '#e88b00' : '#5a5a5a',
+                borderBottom: activeView === view ? '2px solid #e88b00' : '2px solid transparent',
+                cursor: 'pointer',
+              }}
+            >
+              {view === 'normal' ? '正常' : view === 'artifact' ? 'アーチファクト' : '差分 ×3'}
+            </button>
+          ))}
+        </div>
+
+        {/* キャンバス表示エリア（非表示のものも描画維持のため visibility で制御） */}
+        <div style={{ position: 'relative', width: CANVAS_SIZE, height: CANVAS_SIZE, margin: '8px auto' }}>
           <canvas
             ref={normalCanvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            style={{ display: 'block', border: '1px solid #252525' }}
+            style={{
+              display: 'block',
+              border: '1px solid #252525',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              opacity: activeView === 'normal' ? 1 : 0,
+              pointerEvents: activeView === 'normal' ? 'auto' : 'none',
+            }}
           />
-          <span style={{ color: '#4b5563', fontSize: '8px' }}>正常</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
           <canvas
             ref={artifactCanvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            style={{ display: 'block', border: '1px solid #3d2200' }}
+            style={{
+              display: 'block',
+              border: '1px solid #3d2200',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              opacity: activeView === 'artifact' ? 1 : 0,
+              pointerEvents: activeView === 'artifact' ? 'auto' : 'none',
+            }}
           />
-          <span style={{ color: '#e88b00', fontSize: '8px' }}>アーチファクト</span>
-        </div>
-        <div className="flex flex-col items-center gap-1">
           <canvas
             ref={diffCanvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
-            style={{ display: 'block', border: '1px solid #1a2a3a' }}
+            style={{
+              display: 'block',
+              border: '1px solid #1a2a3a',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              opacity: activeView === 'diff' ? 1 : 0,
+              pointerEvents: activeView === 'diff' ? 'auto' : 'none',
+            }}
           />
-          <span style={{ color: '#60a5fa', fontSize: '8px' }}>差分 ×3</span>
         </div>
       </div>
 
