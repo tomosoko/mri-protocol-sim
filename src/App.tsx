@@ -12,16 +12,18 @@ import { PhysioTab } from './components/tabs/PhysioTab'
 import { InlineTab } from './components/tabs/InlineTab'
 import { SequenceTab } from './components/tabs/SequenceTab'
 import { presets } from './data/presets'
-import { Zap, BookOpen, ChevronDown, GraduationCap } from 'lucide-react'
+import { Zap, BookOpen, ChevronDown, GraduationCap, GitCompare, Stethoscope } from 'lucide-react'
 import { SequenceQueue } from './components/SequenceQueue'
 import { getSeqClinical } from './data/sequenceClinicalData'
 import { QuizPanel } from './components/QuizPanel'
+import { DiffPanel } from './components/DiffPanel'
+import { ScenarioPanel } from './components/ScenarioPanel'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
@@ -69,6 +71,30 @@ export default function App() {
           >
             <Zap size={11} />
             アーチファクト対策
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'diff' ? null : 'diff')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'diff' ? '#0a1f0a' : '#252525',
+              color: rightPanel === 'diff' ? '#4ade80' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'diff' ? '#166534' : '#374151'}`,
+            }}
+          >
+            <GitCompare size={11} />
+            変更diff
+          </button>
+          <button
+            onClick={() => setRightPanel(rightPanel === 'scenario' ? null : 'scenario')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded text-xs transition-colors"
+            style={{
+              background: rightPanel === 'scenario' ? '#0f172a' : '#252525',
+              color: rightPanel === 'scenario' ? '#60a5fa' : '#5a5a5a',
+              border: `1px solid ${rightPanel === 'scenario' ? '#1d4ed8' : '#374151'}`,
+            }}
+          >
+            <Stethoscope size={11} />
+            シナリオ
           </button>
           <button
             onClick={() => setQuizMode(m => !m)}
@@ -143,6 +169,8 @@ export default function App() {
           <div className="shrink-0 overflow-hidden" style={{ width: '300px', borderLeft: '1px solid #252525' }}>
             {rightPanel === 'artifact' && <ArtifactGuide />}
             {rightPanel === 'learn' && <LearnPanel />}
+            {rightPanel === 'diff' && <DiffPanel />}
+            {rightPanel === 'scenario' && <ScenarioPanel />}
           </div>
         )}
       </div>

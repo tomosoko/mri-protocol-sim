@@ -15,6 +15,11 @@ interface ProtocolStore {
   activeVariantId: string | null
   activeColumnIndex: number
   activeSequenceName: string | null
+  // History / diff
+  baseline: ProtocolParams
+  history: ProtocolParams[]
+  historyIndex: number
+  comparePresetId: string | null
 
   setParam: <K extends keyof ProtocolParams>(key: K, value: ProtocolParams[K]) => void
   loadPreset: (id: string) => void
@@ -24,7 +29,13 @@ interface ProtocolStore {
   setHintParam: (param: string | null) => void
   setActiveProtocol: (bodyPartId: string, groupId: string, variantId: string, columnIndex?: number) => void
   setActiveSequence: (name: string, presetId?: string) => void
+  undo: () => void
+  redo: () => void
+  resetToBaseline: () => void
+  setComparePreset: (id: string | null) => void
 }
+
+const MAX_HISTORY = 50
 
 export const useProtocolStore = create<ProtocolStore>((set) => ({
   params: presets[0].params,
@@ -38,13 +49,38 @@ export const useProtocolStore = create<ProtocolStore>((set) => ({
   activeVariantId: 'brain_routine_dot',
   activeColumnIndex: 0,
   activeSequenceName: null,
+  baseline: presets[0].params,
+  history: [],
+  historyIndex: -1,
+  comparePresetId: null,
 
   setParam: (key, value) =>
-    set((state) => ({ params: { ...state.params, [key]: value } })),
+    set((state) => {
+      const newHistory = [
+        ...state.history.slice(0, state.historyIndex + 1),
+        state.params,
+      ]
+      const trimmed = newHistory.length > MAX_HISTORY
+        ? newHistory.slice(newHistory.length - MAX_HISTORY)
+        : newHistory
+      return {
+        params: { ...state.params, [key]: value },
+        history: trimmed,
+        historyIndex: trimmed.length - 1,
+      }
+    }),
 
   loadPreset: (id) => {
     const preset = presets.find((p) => p.id === id)
-    if (preset) set({ params: preset.params, activePresetId: id })
+    if (preset) {
+      set({
+        params: preset.params,
+        activePresetId: id,
+        baseline: preset.params,
+        history: [],
+        historyIndex: -1,
+      })
+    }
   },
 
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -57,10 +93,46 @@ export const useProtocolStore = create<ProtocolStore>((set) => ({
     if (presetId) {
       const preset = presets.find(p => p.id === presetId)
       if (preset) {
-        set({ activeSequenceName: name, params: preset.params, activePresetId: presetId })
+        set({
+          activeSequenceName: name,
+          params: preset.params,
+          activePresetId: presetId,
+          baseline: preset.params,
+          history: [],
+          historyIndex: -1,
+        })
         return
       }
     }
     set({ activeSequenceName: name })
   },
+
+  undo: () =>
+    set((state) => {
+      if (state.historyIndex < 0) return state
+      // history[historyIndex] is the snapshot BEFORE the current params
+      return {
+        params: state.history[state.historyIndex],
+        historyIndex: state.historyIndex - 1,
+      }
+    }),
+
+  redo: () =>
+    set((state) => {
+      if (state.historyIndex >= state.history.length - 1) return state
+      const newIndex = state.historyIndex + 1
+      return {
+        params: state.history[newIndex],
+        historyIndex: newIndex,
+      }
+    }),
+
+  resetToBaseline: () =>
+    set((state) => ({
+      params: state.baseline,
+      history: [],
+      historyIndex: -1,
+    })),
+
+  setComparePreset: (id) => set({ comparePresetId: id }),
 }))
