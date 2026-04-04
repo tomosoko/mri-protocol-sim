@@ -1,5 +1,5 @@
 import { useProtocolStore } from '../store/protocolStore'
-import { calcTissueContrast, ernstAngle, calcT2Blur, TISSUES } from '../store/calculators'
+import { calcTissueContrast, ernstAngle, calcT2Blur, TISSUES, calcSNR } from '../store/calculators'
 import { chemShift } from '../store/calculators'
 
 export function TissueContrastPanel() {
@@ -7,6 +7,7 @@ export function TissueContrastPanel() {
   const signals = calcTissueContrast(params)
   const cs = chemShift(params)
   const t2blur = calcT2Blur(params)
+  const snr = calcSNR(params)
 
   // コントラスト種別の推定
   const isIR = params.TI > 0
@@ -83,8 +84,8 @@ export function TissueContrastPanel() {
           ))}
         </div>
 
-        {/* Contrast ratios */}
-        <ContrastRatios signals={signals} />
+        {/* Contrast ratios + CNR */}
+        <ContrastRatios signals={signals} snr={snr} />
 
         {/* Ernst angle */}
         {isGRE && (
@@ -167,43 +168,70 @@ export function TissueContrastPanel() {
   )
 }
 
-// コントラスト比の計算・表示
-function ContrastRatios({ signals }: { signals: ReturnType<typeof calcTissueContrast> }) {
+// コントラスト比 + CNR の計算・表示
+function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissueContrast>; snr: number }) {
   const find = (label: string) => signals.find(s => s.tissue.label === label)
   const gm = find('GM')?.signal ?? 0
   const wm = find('WM')?.signal ?? 0
   const csf = find('CSF')?.signal ?? 0
   const fat = find('Fat')?.signal ?? 0
+  const liver = find('Liver')?.signal ?? 0
+  const muscle = find('Muscle')?.signal ?? 0
 
-  const pairs: { a: string; b: string; ratio: number; ideal: string }[] = [
-    { a: 'GM', b: 'WM', ratio: wm > 0.01 ? gm / wm : 0, ideal: 'T2: GM > WM' },
-    { a: 'CSF', b: 'GM', ratio: gm > 0.01 ? csf / gm : 0, ideal: 'T2: CSF >> GM' },
-    { a: 'Fat', b: 'GM', ratio: gm > 0.01 ? fat / gm : 0, ideal: 'T1: Fat > GM' },
+  // CNR = |S_A - S_B| × SNR_relative (normalized)
+  const cnr = (a: number, b: number) => Math.round(Math.abs(a - b) * snr * 10) / 10
+
+  const pairs: { a: string; b: string; sigA: number; sigB: number; ideal: string }[] = [
+    { a: 'GM',     b: 'WM',     sigA: gm,    sigB: wm,     ideal: 'T2: >1.0' },
+    { a: 'CSF',    b: 'GM',     sigA: csf,   sigB: gm,     ideal: 'T2: >>1.0' },
+    { a: 'Fat',    b: 'GM',     sigA: fat,   sigB: gm,     ideal: 'T1: >1.0' },
+    { a: 'Liver',  b: 'Muscle', sigA: liver, sigB: muscle, ideal: '腹部' },
   ]
 
   return (
     <div className="p-2 rounded" style={{ background: '#111', border: '1px solid #1a1520' }}>
-      <div className="font-semibold mb-1" style={{ color: '#a78bfa' }}>コントラスト比</div>
-      <div className="space-y-1">
-        {pairs.map(({ a, b, ratio, ideal }) => {
-          const gmTissue = TISSUES.find(t => t.label === a)
-          const wmTissue = TISSUES.find(t => t.label === b)
-          return (
-            <div key={`${a}/${b}`} className="flex items-center justify-between">
-              <div className="flex items-center gap-1">
-                <span style={{ color: gmTissue?.color }}>{a}</span>
-                <span style={{ color: '#4b5563' }}>/</span>
-                <span style={{ color: wmTissue?.color }}>{b}</span>
-              </div>
-              <span className="font-mono" style={{
-                color: ratio > 1.2 ? '#34d399' : ratio < 0.8 ? '#f87171' : '#fbbf24'
-              }}>
-                {ratio.toFixed(2)}
-              </span>
-              <span style={{ color: '#374151' }}>{ideal}</span>
-            </div>
-          )
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#a78bfa' }}>コントラスト比 / CNR</span>
+        <span style={{ color: '#4b5563', fontSize: '8px' }}>CNR = ΔS × SNR</span>
+      </div>
+      <div className="grid gap-px" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
+        {/* Header */}
+        <span style={{ color: '#4b5563', fontSize: '8px' }}>組織ペア</span>
+        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>比</span>
+        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>CNR</span>
+        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>参考</span>
+        {pairs.map(({ a, b, sigA, sigB, ideal }) => {
+          const aT = TISSUES.find(t => t.label === a)
+          const bT = TISSUES.find(t => t.label === b)
+          const ratio = sigB > 0.01 ? sigA / sigB : 0
+          const cnrVal = cnr(sigA, sigB)
+          const cnrColor = cnrVal > 15 ? '#34d399' : cnrVal > 5 ? '#fbbf24' : '#f87171'
+          return [
+            <div key={`${a}${b}_label`} className="flex items-center gap-0.5 py-0.5">
+              <span style={{ color: aT?.color, fontSize: '9px' }}>{a}</span>
+              <span style={{ color: '#374151', fontSize: '8px' }}>/</span>
+              <span style={{ color: bT?.color, fontSize: '9px' }}>{b}</span>
+            </div>,
+            <span key={`${a}${b}_ratio`} className="font-mono text-center py-0.5" style={{
+              color: ratio > 1.2 ? '#34d399' : ratio < 0.8 ? '#f87171' : '#fbbf24',
+              fontSize: '9px',
+            }}>
+              {ratio.toFixed(2)}
+            </span>,
+            <span key={`${a}${b}_cnr`} className="font-mono text-center py-0.5" style={{ color: cnrColor, fontSize: '9px' }}>
+              {cnrVal}
+            </span>,
+            <span key={`${a}${b}_ideal`} className="text-center py-0.5" style={{ color: '#374151', fontSize: '8px' }}>
+              {ideal}
+            </span>,
+          ]
         })}
+      </div>
+      <div className="mt-1.5 pt-1.5" style={{ borderTop: '1px solid #1a1a1a' }}>
+        <div className="flex justify-between" style={{ color: '#4b5563', fontSize: '8px' }}>
+          <span>CNR基準: &gt;15◎ &gt;5○ &lt;5△</span>
+          <span>SNR: {snr}</span>
+        </div>
       </div>
     </div>
   )

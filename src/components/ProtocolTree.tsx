@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useProtocolStore } from '../store/protocolStore'
 import { protocolTree } from '../data/protocols'
@@ -19,6 +19,7 @@ const initExpanded = (): Record<string, boolean> => {
 export function ProtocolTree() {
   const { activeVariantId, setActiveProtocol, loadPreset } = useProtocolStore()
   const [expanded, setExpanded] = useState<Record<string, boolean>>(initExpanded)
+  const [search, setSearch] = useState('')
 
   const toggle = (key: string) => setExpanded(e => ({ ...e, [key]: !e[key] }))
 
@@ -30,12 +31,61 @@ export function ProtocolTree() {
     }
   }
 
+  // Search results: flatten all presets matching the query
+  const searchResults = useMemo(() => {
+    if (!search.trim()) return []
+    const q = search.toLowerCase()
+    return presets.filter(p =>
+      p.label.toLowerCase().includes(q) ||
+      (p.description && p.description.toLowerCase().includes(q)) ||
+      p.category.toLowerCase().includes(q)
+    ).slice(0, 10)
+  }, [search])
+
   return (
-    <div className="h-full overflow-y-auto select-none" style={{ background: '#0a0a0a', fontSize: '11px' }}>
+    <div className="h-full overflow-y-auto select-none flex flex-col" style={{ background: '#0a0a0a', fontSize: '11px' }}>
       {/* Header */}
-      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest" style={{ color: '#e88b00', borderBottom: '1px solid #2a1200' }}>
+      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: '#e88b00', borderBottom: '1px solid #2a1200' }}>
         Protocol
       </div>
+
+      {/* Search */}
+      <div className="px-2 py-1 shrink-0" style={{ borderBottom: '1px solid #1a1a1a' }}>
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="検索..."
+          className="w-full px-1.5 py-0.5 text-xs rounded outline-none"
+          style={{ background: '#111', border: '1px solid #252525', color: '#c8ccd6', fontSize: '10px' }}
+        />
+      </div>
+
+      {/* Search results */}
+      {search.trim() && (
+        <div className="flex-1 overflow-y-auto">
+          {searchResults.length === 0 && (
+            <div className="px-2 py-2 text-xs" style={{ color: '#4b5563' }}>見つかりません</div>
+          )}
+          {searchResults.map(p => (
+            <div
+              key={p.id}
+              className="px-2 py-1 cursor-pointer"
+              style={{ borderBottom: '1px solid #111' }}
+              onClick={() => { loadPreset(p.id); setSearch('') }}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1c1c1c')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+            >
+              <div style={{ color: '#e88b00', fontSize: '10px', fontWeight: 600 }}>{p.label}</div>
+              <div style={{ color: '#4b5563', fontSize: '9px' }}>{p.category}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Normal tree (hidden when searching) */}
+      {!search.trim() && (
+      <div className="flex-1 overflow-y-auto">
 
       {/* SYSTEM / INSTITUTION (decorative) */}
       <div className="px-2 py-0.5 flex items-center gap-1" style={{ color: '#1e2d3d' }}>
@@ -125,6 +175,8 @@ export function ProtocolTree() {
           </div>
         )
       })}
+      </div>
+      )}
     </div>
   )
 }

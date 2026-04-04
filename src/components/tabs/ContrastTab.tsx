@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { TISSUES } from '../../store/calculators'
@@ -173,6 +173,90 @@ export function ContrastTab() {
   )
 }
 
+// ── IR Mz 回復カーブ ──────────────────────────────────────────────────────────
+function IRCurveChart({ fieldStrength, TI }: { fieldStrength: number; TI: number }) {
+  const W = 310, H = 110
+  const PAD = { l: 28, r: 10, t: 10, b: 18 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+  const maxT = 5000  // ms
+
+  const tx = (t: number) => PAD.l + (t / maxT) * innerW
+  // Y: Mz range -1 to +1 — map 1 → top, -1 → bottom
+  const ty = (mz: number) => PAD.t + ((1 - mz) / 2) * innerH
+
+  // Tissues to show in IR chart
+  const SHOW = ['CSF', 'Fat', 'WM', 'GM', 'Liver']
+  const tissues = TISSUES.filter(t => SHOW.includes(t.label))
+
+  const curves = useMemo(() => {
+    const N = 120
+    return tissues.map(tissue => {
+      const T1 = fieldStrength >= 2.5 ? tissue.T1_30 : tissue.T1_15
+      const nullTI = Math.round(T1 * Math.log(2))
+      const pts = Array.from({ length: N + 1 }, (_, i) => {
+        const t = (i / N) * maxT
+        const mz = 1 - 2 * Math.exp(-t / T1)
+        return { t, mz }
+      })
+      return { tissue, T1, nullTI, pts }
+    })
+  }, [fieldStrength])
+
+  const zeroY = ty(0)
+  const tiX = tx(Math.min(TI, maxT))
+
+  return (
+    <div className="mt-2 rounded overflow-hidden" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
+      <div className="px-2 pt-1.5 text-xs font-semibold" style={{ color: '#4b5563' }}>Mz 回復曲線 (反転回復)</div>
+      <svg width={W} height={H}>
+        {/* Y=0 line */}
+        <line x1={PAD.l} y1={zeroY} x2={PAD.l + innerW} y2={zeroY} stroke="#252525" strokeWidth={1} />
+        {/* Y-axis labels */}
+        <text x={PAD.l - 3} y={ty(1) + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>+1</text>
+        <text x={PAD.l - 3} y={zeroY + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+        <text x={PAD.l - 3} y={ty(-1) + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>-1</text>
+
+        {/* Tissue curves */}
+        {curves.map(({ tissue, pts, nullTI }) => {
+          const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${tx(p.t).toFixed(1)},${ty(p.mz).toFixed(1)}`).join(' ')
+          return (
+            <g key={tissue.label}>
+              <path d={d} fill="none" stroke={tissue.color} strokeWidth={1} opacity={0.7} />
+              {/* Null point dot */}
+              {nullTI < maxT && (
+                <circle cx={tx(nullTI)} cy={zeroY} r={2} fill={tissue.color} />
+              )}
+            </g>
+          )
+        })}
+
+        {/* Current TI marker */}
+        {TI > 0 && TI <= maxT && (
+          <>
+            <line x1={tiX} y1={PAD.t} x2={tiX} y2={H - PAD.b} stroke="#e88b00" strokeWidth={1} strokeDasharray="3,2" />
+            <text x={tiX + 2} y={PAD.t + 8} fill="#e88b00" style={{ fontSize: '7px' }}>TI={TI}</text>
+          </>
+        )}
+
+        {/* X-axis labels */}
+        {[0, 1000, 2000, 3000, 4000, 5000].map(t => (
+          <text key={t} x={tx(t)} y={H - 4} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>{t}</text>
+        ))}
+        <text x={PAD.l + innerW / 2} y={H - 0} textAnchor="middle" fill="#252525" style={{ fontSize: '7px' }}>Time (ms)</text>
+      </svg>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-2 px-2 pb-1.5" style={{ fontSize: '7px' }}>
+        {curves.map(({ tissue, nullTI }) => (
+          <span key={tissue.label} style={{ color: tissue.color }}>
+            {tissue.label} null={nullTI}ms
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // TI 自動計算器コンポーネント
 function TICalculator() {
   const { params, setParam } = useProtocolStore()
@@ -246,6 +330,9 @@ function TICalculator() {
           ))}
         </div>
       </div>
+
+      {/* IR Signal Evolution curve */}
+      <IRCurveChart fieldStrength={params.fieldStrength} TI={params.TI} />
 
       {params.TI > 0 && (
         <div className="mt-2 pt-1.5 flex justify-between items-center" style={{ borderTop: '1px solid #252525' }}>

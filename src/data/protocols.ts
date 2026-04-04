@@ -1097,4 +1097,90 @@ export const protocolTree: BodyPart[] = [
       },
     ],
   },
+
+  // ── 四肢 ─────────────────────────────────────────────────────────────────
+  {
+    id: 'extremity',
+    label: '四肢',
+    groups: [
+      {
+        id: 'wrist',
+        label: '手関節',
+        variants: [
+          {
+            id: 'wrist_pd_routine',
+            label: 'TFCC/靭帯',
+            presetId: 'wrist_pd',
+            columns: [
+              {
+                label: 'Routine',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'pd_tse_spair_cor', duration: '4:30', reason: 'TFCC主体・冠状断' },
+                  { name: 'pd_tse_spair_sag', duration: '4:30', reason: '腱・靭帯矢状断' },
+                  { name: 'pd_tse_spair_tra', duration: '3:30', reason: '横断面追加評価' },
+                  { name: 't1_tse_cor', duration: '3:00', reason: '骨髄病変・骨折' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'ankle',
+        label: '足関節',
+        variants: [
+          {
+            id: 'ankle_pd_routine',
+            label: '腱・靭帯',
+            presetId: 'ankle_pd',
+            columns: [
+              {
+                label: 'Routine',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'pd_tse_spair_sag', duration: '4:30', reason: 'アキレス腱全長・矢状断' },
+                  { name: 'pd_tse_spair_cor', duration: '4:30', reason: '外側靭帯・冠状断' },
+                  { name: 'pd_tse_spair_tra', duration: '3:30', reason: '腓骨筋腱・横断' },
+                  { name: 't1_tse_cor', duration: '3:00', reason: '骨髄評価' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── 頸部 ─────────────────────────────────────────────────────────────────
+  {
+    id: 'neck_extra',
+    label: '頸部 拡張',
+    groups: [
+      {
+        id: 'neck_tumor',
+        label: '頸部腫瘤',
+        variants: [
+          {
+            id: 'neck_lymph_routine',
+            label: 'リンパ節',
+            presetId: 'neck_lymph',
+            columns: [
+              {
+                label: 'STIR+DWI',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_stir_cor', duration: '5:00', reason: 'リンパ節全体像・STIR' },
+                  { name: 't2_tse_tra', duration: '4:00', reason: '詳細解剖・横断' },
+                  { name: 'dwi_bssfp_tra', duration: '6:00', reason: 'ADC低値: 悪性判定' },
+                  { name: 'CE_Injection', isCE: true, reason: '造影追加時' },
+                  { name: 't1_vibe_ce_tra', duration: '3:00', isOptional: true, isCE: true, reason: '造影T1 VIBE' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ]

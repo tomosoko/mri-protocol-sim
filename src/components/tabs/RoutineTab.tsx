@@ -1,6 +1,291 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField, SectionHeader as SH } from '../ParamField'
+import { TISSUES } from '../../store/calculators'
+
+// ── Ernst 角インジケーター ────────────────────────────────────────────────────
+function ErnstAngleIndicator() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // Only show for GRE-like sequences (short TR)
+  const isGRE = params.turboFactor <= 2 && params.TR < 500
+
+  const tissues = TISSUES.filter(t => ['WM', 'GM', 'Fat', 'Liver'].includes(t.label))
+
+  const ernstAngles = tissues.map(t => {
+    const T1 = is3T ? t.T1_30 : t.T1_15
+    const ea = Math.round((Math.acos(Math.exp(-params.TR / T1)) * 180) / Math.PI)
+    return { label: t.label, color: t.color, ea, T1 }
+  })
+
+  if (!isGRE) return null
+
+  return (
+    <div className="mx-3 mb-1 px-2 py-1.5 rounded" style={{ background: '#111', border: '1px solid #1a2820' }}>
+      <div className="flex items-center gap-2 mb-1">
+        <span style={{ color: '#34d399', fontSize: '9px', fontWeight: 600 }}>Ernst Angle (GRE最適FA)</span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>= arccos(e^(-TR/T1))</span>
+      </div>
+      <div className="flex gap-2 flex-wrap">
+        {ernstAngles.map(({ label, color, ea }) => {
+          const diff = Math.abs(params.flipAngle - ea)
+          const close = diff <= 5
+          return (
+            <div key={label} className="flex items-center gap-1">
+              <span style={{ color, fontSize: '8px' }}>{label}:</span>
+              <span className="font-mono" style={{ color: close ? '#34d399' : diff <= 15 ? '#fbbf24' : '#6b7280', fontSize: '9px', fontWeight: 600 }}>
+                {ea}°
+              </span>
+              {close && <span style={{ color: '#34d399', fontSize: '8px' }}>✓</span>}
+            </div>
+          )
+        })}
+        <span style={{ color: '#374151', fontSize: '8px' }}>現在={params.flipAngle}°</span>
+      </div>
+    </div>
+  )
+}
+
+// ── T1/T2 信号曲線 ──────────────────────────────────────────────────────────
+function SignalCurveChart() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+  const W = 340
+  const H = 80
+  const PAD = { l: 30, r: 8, t: 6, b: 18 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+
+  // 3組織のみ (WM, GM, Fat) + CSF
+  const tissues = TISSUES.filter(t => ['WM', 'GM', 'Fat', 'CSF'].includes(t.label))
+
+  // T1 recovery: normalized to max = 1 at TR=10000ms
+  const maxTR = 10000
+
+  // T2 decay: normalized to max = 1 at TE=0
+  const maxTE = 300
+
+  const nPts = 80
+  // log scale for TR (0-10000ms)
+  const trPoints = Array.from({ length: nPts }, (_, i) => {
+    const t = Math.exp(i / (nPts - 1) * Math.log(maxTR + 1)) - 1
+    return t
+  })
+  const tePoints = Array.from({ length: nPts }, (_, i) => i / (nPts - 1) * maxTE)
+
+  const trPathForTissue = (T1: number) => {
+    return trPoints.map((t, i) => {
+      const s = 1 - Math.exp(-t / T1)
+      const x = PAD.l + (Math.log(t + 1) / Math.log(maxTR + 1)) * innerW
+      const y = PAD.t + innerH - s * innerH
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+    }).join(' ')
+  }
+
+  const tePathForTissue = (T2: number) => {
+    return tePoints.map((t, i) => {
+      const s = Math.exp(-t / T2)
+      const x = PAD.l + (t / maxTE) * innerW
+      const y = PAD.t + innerH - s * innerH
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+    }).join(' ')
+  }
+
+  // Current TR/TE marker positions
+  const trMarkerX = PAD.l + (Math.log(params.TR + 1) / Math.log(maxTR + 1)) * innerW
+  const teMarkerX = PAD.l + Math.min(1, params.TE / maxTE) * innerW
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
+      <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>T1回復・T2減衰曲線</div>
+      <div className="flex gap-2">
+        {/* T1 Recovery */}
+        <div className="flex-1">
+          <div style={{ fontSize: '8px', color: '#374151', marginBottom: '2px' }}>T1 回復 (log TR)</div>
+          <svg width={W / 2 - 4} height={H}>
+            {/* Grid lines */}
+            {[0, 0.5, 1].map(v => (
+              <line key={v} x1={PAD.l} y1={PAD.t + innerH - v * innerH}
+                x2={PAD.l + innerW} y2={PAD.t + innerH - v * innerH}
+                stroke="#1a1a1a" strokeWidth={1} />
+            ))}
+            {/* Y-axis */}
+            <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
+            <text x={PAD.l - 2} y={PAD.t + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>1.0</text>
+            <text x={PAD.l - 2} y={PAD.t + innerH} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+            {/* X-axis label */}
+            <text x={PAD.l + innerW / 2} y={H - 2} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>TR (ms)</text>
+
+            {/* Tissue curves */}
+            {tissues.map(t => {
+              const T1 = is3T ? t.T1_30 : t.T1_15
+              return (
+                <path key={t.label} d={trPathForTissue(T1)} fill="none"
+                  stroke={t.color} strokeWidth={1} opacity={0.7} />
+              )
+            })}
+
+            {/* TR marker */}
+            <line x1={trMarkerX} y1={PAD.t} x2={trMarkerX} y2={PAD.t + innerH}
+              stroke="#e88b00" strokeWidth={1.5} strokeDasharray="3,2" />
+            <text x={trMarkerX + 2} y={PAD.t + 8} fill="#e88b00" style={{ fontSize: '7px' }}>TR</text>
+          </svg>
+        </div>
+
+        {/* T2 Decay */}
+        <div className="flex-1">
+          <div style={{ fontSize: '8px', color: '#374151', marginBottom: '2px' }}>T2 減衰 (TE)</div>
+          <svg width={W / 2 - 4} height={H}>
+            {/* Grid lines */}
+            {[0, 0.5, 1].map(v => (
+              <line key={v} x1={PAD.l} y1={PAD.t + innerH - v * innerH}
+                x2={PAD.l + innerW} y2={PAD.t + innerH - v * innerH}
+                stroke="#1a1a1a" strokeWidth={1} />
+            ))}
+            <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
+            <text x={PAD.l - 2} y={PAD.t + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>1.0</text>
+            <text x={PAD.l - 2} y={PAD.t + innerH} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+            <text x={PAD.l + innerW / 2} y={H - 2} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>TE (ms, 0-300)</text>
+
+            {/* Tissue curves */}
+            {tissues.map(t => {
+              const T2 = is3T ? t.T2_30 : t.T2_15
+              return (
+                <path key={t.label} d={tePathForTissue(T2)} fill="none"
+                  stroke={t.color} strokeWidth={1} opacity={0.7} />
+              )
+            })}
+
+            {/* TE marker */}
+            <line x1={teMarkerX} y1={PAD.t} x2={teMarkerX} y2={PAD.t + innerH}
+              stroke="#e88b00" strokeWidth={1.5} strokeDasharray="3,2" />
+            <text x={teMarkerX + 2} y={PAD.t + 8} fill="#e88b00" style={{ fontSize: '7px' }}>TE</text>
+          </svg>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-3 mt-1 flex-wrap" style={{ fontSize: '8px' }}>
+        {tissues.map(t => (
+          <span key={t.label} style={{ color: t.color }}>● {t.label}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── GM/WM コントラスト TR-TE ヒートマップ ────────────────────────────────────
+function ContrastHeatmap() {
+  const { params, setParam } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  const GM = TISSUES.find(t => t.label === 'GM')!
+  const WM = TISSUES.find(t => t.label === 'WM')!
+  const gmT1 = is3T ? GM.T1_30 : GM.T1_15
+  const wmT1 = is3T ? WM.T1_30 : WM.T1_15
+  const gmT2 = is3T ? GM.T2_30 : GM.T2_15
+  const wmT2 = is3T ? WM.T2_30 : WM.T2_15
+
+  const COLS = 16  // TR steps
+  const ROWS = 12  // TE steps
+  const trRange = [200, 6000]
+  const teRange = [5, 200]
+
+  const trVals = Array.from({ length: COLS }, (_, i) => Math.round(trRange[0] + (trRange[1] - trRange[0]) * (i / (COLS - 1))))
+  const teVals = Array.from({ length: ROWS }, (_, i) => Math.round(teRange[0] + (teRange[1] - teRange[0]) * (i / (ROWS - 1))))
+
+  // Compute GM-WM contrast at each TR/TE: |S_GM - S_WM|
+  const grid = useMemo(() => {
+    return teVals.map(te =>
+      trVals.map(tr => {
+        const sgm = (1 - Math.exp(-tr / gmT1)) * Math.exp(-te / gmT2)
+        const swm = (1 - Math.exp(-tr / wmT1)) * Math.exp(-te / wmT2)
+        return Math.abs(sgm - swm)
+      })
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [is3T, gmT1, wmT1, gmT2, wmT2])
+
+  const maxContrast = Math.max(...grid.flat())
+  const W = 340
+  const H = 100
+  const PAD = { l: 28, r: 4, t: 4, b: 20 }
+  const cellW = (W - PAD.l - PAD.r) / COLS
+  const cellH = (H - PAD.t - PAD.b) / ROWS
+
+  // Current TR/TE cell
+  const trIdx = trVals.reduce((best, tr, i) => Math.abs(tr - params.TR) < Math.abs(trVals[best] - params.TR) ? i : best, 0)
+  const teIdx = teVals.reduce((best, te, i) => Math.abs(te - params.TE) < Math.abs(teVals[best] - params.TE) ? i : best, 0)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
+      <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>
+        GM/WM コントラスト マップ ({params.fieldStrength}T)
+        <span className="ml-2 font-normal" style={{ color: '#374151', fontSize: '8px' }}>暗→高コントラスト</span>
+      </div>
+      <svg width={W} height={H} style={{ display: 'block', cursor: 'crosshair' }}
+        onClick={(e) => {
+          const rect = (e.target as SVGElement).closest('svg')!.getBoundingClientRect()
+          const x = e.clientX - rect.left - PAD.l
+          const y = e.clientY - rect.top - PAD.t
+          const ci = Math.max(0, Math.min(COLS - 1, Math.floor(x / cellW)))
+          const ri = Math.max(0, Math.min(ROWS - 1, Math.floor(y / cellH)))
+          setParam('TR', trVals[ci])
+          setParam('TE', teVals[ri])
+        }}>
+        {/* Cells */}
+        {grid.map((row, ri) =>
+          row.map((val, ci) => {
+            const t = val / maxContrast
+            const isCurrent = ci === trIdx && ri === teIdx
+            // Colormap: black → blue → cyan → green → yellow → white
+            const r = Math.round(t < 0.5 ? 0 : (t - 0.5) * 2 * 255)
+            const g = Math.round(t < 0.25 ? 0 : t < 0.75 ? (t - 0.25) * 2 * 255 : 255)
+            const b = Math.round(t < 0.5 ? t * 2 * 255 : (1 - (t - 0.5) * 2) * 255)
+            return (
+              <rect
+                key={`${ri}_${ci}`}
+                x={PAD.l + ci * cellW}
+                y={PAD.t + ri * cellH}
+                width={cellW}
+                height={cellH}
+                fill={`rgb(${r},${g},${b})`}
+                stroke={isCurrent ? '#e88b00' : 'none'}
+                strokeWidth={isCurrent ? 1.5 : 0}
+              />
+            )
+          })
+        )}
+        {/* Y axis labels */}
+        {[0, ROWS - 1].map(ri => (
+          <text key={ri} x={PAD.l - 2} y={PAD.t + ri * cellH + cellH / 2 + 3}
+            textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>
+            {teVals[ri]}
+          </text>
+        ))}
+        {/* Y axis label */}
+        <text x={8} y={H / 2} textAnchor="middle" fill="#374151"
+          transform={`rotate(-90, 8, ${H / 2})`} style={{ fontSize: '7px' }}>
+          TE
+        </text>
+        {/* X axis labels */}
+        {[0, Math.floor(COLS / 2), COLS - 1].map(ci => (
+          <text key={ci} x={PAD.l + ci * cellW + cellW / 2} y={H - 4}
+            textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>
+            {trVals[ci] >= 1000 ? `${(trVals[ci] / 1000).toFixed(1)}k` : trVals[ci]}
+          </text>
+        ))}
+        <text x={PAD.l + (W - PAD.l - PAD.r) / 2} y={H} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>
+          TR (ms)
+        </text>
+      </svg>
+      <div style={{ fontSize: '8px', color: '#374151', marginTop: '2px' }}>
+        クリックで TR/TE を変更。現在: TR={params.TR}ms TE={params.TE}ms (オレンジ枠)
+      </div>
+    </div>
+  )
+}
 
 export function RoutineTab() {
   const { params, setParam, activeRoutineTab, setActiveRoutineTab, highlightedParams } = useProtocolStore()
@@ -95,6 +380,10 @@ export function RoutineTab() {
           <ParamField label="Flip Angle" hintKey="flipAngle" value={params.flipAngle} type="range"
             min={5} max={180} step={5} unit="°"
             onChange={v => setParam('flipAngle', v as number)} highlight={hl('flipAngle')} />
+          <ErnstAngleIndicator />
+
+          <SignalCurveChart />
+          <ContrastHeatmap />
 
           <SH label="Averages" />
           <ParamField label="Averages" hintKey="averages" value={params.averages} type="number"

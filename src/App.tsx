@@ -25,6 +25,10 @@ import { KSpaceVisualizer } from './components/KSpaceVisualizer'
 import { TissueContrastPanel } from './components/TissueContrastPanel'
 import { ValidationPanel } from './components/ValidationPanel'
 import { ProtocolSummaryPanel } from './components/ProtocolSummaryPanel'
+import { ClinicalIndicationPanel } from './components/ClinicalIndicationPanel'
+import { WhatIfPanel } from './components/WhatIfPanel'
+import { ProtocolOptimizerPanel } from './components/ProtocolOptimizerPanel'
+import { ProtocolExportPanel } from './components/ProtocolExportPanel'
 import { validateProtocol } from './utils/protocolValidator'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
@@ -43,7 +47,7 @@ const TAB_PARAMS: Record<string, string[]> = {
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId, params } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | 'summary' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | 'summary' | 'clinical' | 'whatif' | 'optimizer' | 'export' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
@@ -137,6 +141,43 @@ export default function App() {
           </div>
           {/* 解析系 */}
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setRightPanel(rightPanel === 'whatif' ? null : 'whatif')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'whatif' ? '#1a1500' : '#252525',
+                color: rightPanel === 'whatif' ? '#fde047' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'whatif' ? '#a16207' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              What-if
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'optimizer' ? null : 'optimizer')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'optimizer' ? '#1a1500' : '#252525',
+                color: rightPanel === 'optimizer' ? '#fbbf24' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'optimizer' ? '#a16207' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              <Zap size={10} />
+              Optimize
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'clinical' ? null : 'clinical')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'clinical' ? '#0f1a2e' : '#252525',
+                color: rightPanel === 'clinical' ? '#60a5fa' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'clinical' ? '#1d4ed8' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              Clinical
+            </button>
             <button
               onClick={() => setRightPanel(rightPanel === 'validate' ? null : 'validate')}
               className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
@@ -238,6 +279,18 @@ export default function App() {
               <Stethoscope size={10} />
               シナリオ
             </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'export' ? null : 'export')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'export' ? '#0d1520' : '#252525',
+                color: rightPanel === 'export' ? '#60a5fa' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'export' ? '#1d4ed8' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              Export
+            </button>
           </div>
         </div>
       </div>
@@ -291,6 +344,17 @@ export default function App() {
             })}
           </div>
 
+          {/* Inline error banner */}
+          {allIssues.filter(i => i.severity === 'error').length > 0 && (
+            <div className="shrink-0 px-3 py-1.5 flex items-center gap-2"
+              style={{ background: '#1a0505', borderBottom: '1px solid #7f1d1d' }}>
+              <span style={{ color: '#f87171', fontSize: '9px', fontWeight: 700 }}>✕ エラー</span>
+              <span style={{ color: '#fca5a5', fontSize: '9px' }}>
+                {allIssues.filter(i => i.severity === 'error').map(i => i.title).join(' / ')}
+              </span>
+            </div>
+          )}
+
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto" style={{ background: '#111111' }}>
             {activeTab === 'Routine' && <RoutineTab />}
@@ -318,6 +382,10 @@ export default function App() {
             {rightPanel === 'tissue' && <TissueContrastPanel />}
             {rightPanel === 'validate' && <ValidationPanel />}
             {rightPanel === 'summary' && <ProtocolSummaryPanel />}
+            {rightPanel === 'clinical' && <ClinicalIndicationPanel />}
+            {rightPanel === 'whatif' && <WhatIfPanel />}
+            {rightPanel === 'optimizer' && <ProtocolOptimizerPanel />}
+            {rightPanel === 'export' && <ProtocolExportPanel />}
           </div>
         )}
       </div>

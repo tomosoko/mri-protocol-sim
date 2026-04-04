@@ -2,6 +2,336 @@ import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcT2Blur } from '../../store/calculators'
 
+// ── TE 物理計算 ──────────────────────────────────────────────────────────────
+function MinTECalculator() {
+  const { params } = useProtocolStore()
+
+  // TSE 最小TE推定: minTE ≈ N/2 × ES + RF_dur (≈2ms)
+  const minTEtse = params.turboFactor > 1
+    ? Math.ceil(Math.floor(params.turboFactor / 2) * params.echoSpacing + 2)
+    : null
+
+  // EPI 最小TE: N_phase × ES (N_phase = matrix/iPAT)
+  const isDWI = params.bValues.length > 1 && params.turboFactor <= 2
+  const epiPhaseLines = isDWI ? Math.round(params.matrixPhase / Math.max(params.ipatMode !== 'Off' ? params.ipatFactor : 1, 1)) : 0
+  const epiMinTE = isDWI ? Math.ceil(epiPhaseLines * (1 / params.bandwidth * 1000) / 2 + 5) : null
+
+  // EPI 幾何学的歪み (voxel shift in phase dir)
+  const epiDistortion = isDWI
+    ? Math.round((params.fieldStrength === 3.0 ? 2.0 : 1.0) * epiPhaseLines / (params.bandwidth * 2) * 1000 * 10) / 10
+    : null
+
+  // 読み取り時間 (ADC window duration)
+  const readoutTime = Math.round((params.matrixFreq / params.bandwidth) * 1000 * 10) / 10  // ms
+
+  if (!minTEtse && !epiMinTE) return null
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded text-xs" style={{ background: '#111', border: '1px solid #1a1a2a' }}>
+      <div className="font-semibold mb-1.5" style={{ color: '#a78bfa' }}>TE 物理計算</div>
+      <div className="space-y-1" style={{ color: '#9ca3af' }}>
+        <div className="flex justify-between">
+          <span>Readout 時間 (1 line)</span>
+          <span className="font-mono text-white">{readoutTime}ms</span>
+        </div>
+        {minTEtse !== null && (
+          <div className="flex justify-between">
+            <span>TSE 最小TE推定</span>
+            <span className={`font-mono ${params.TE < minTEtse ? 'text-red-400' : 'text-green-400'}`}>
+              {minTEtse}ms {params.TE < minTEtse ? '⚠ 設定値不足' : '✓'}
+            </span>
+          </div>
+        )}
+        {epiMinTE !== null && (
+          <>
+            <div className="flex justify-between">
+              <span>EPI 最小TE推定</span>
+              <span className={`font-mono ${params.TE < epiMinTE ? 'text-red-400' : 'text-green-400'}`}>
+                {epiMinTE}ms {params.TE < epiMinTE ? '⚠' : '✓'}
+              </span>
+            </div>
+            {epiDistortion !== null && (
+              <div className="flex justify-between">
+                <span>EPI 幾何学的歪み</span>
+                <span className={`font-mono ${epiDistortion > 2 ? 'text-red-400' : epiDistortion > 1 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  ~{epiDistortion}px {epiDistortion > 2 ? '歪み大' : epiDistortion > 1 ? '中程度' : '小'}
+                </span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── パルスシーケンス タイミングダイアグラム ─────────────────────────────────
+function PulseSequenceDiagram() {
+  const { params } = useProtocolStore()
+
+  const W = 340
+  const H = 130
+  const rowH = 18
+  const ROWS = ['RF', 'Gss', 'Gpe', 'Gfe', 'ADC']
+  const PAD = { l: 32, r: 8, t: 8 }
+  const innerW = W - PAD.l - PAD.r
+
+  // Normalize time axis: 0 ~ TR (capped at 1000ms for display)
+  const displayTR = Math.min(params.TR, 1000)
+  const scale = innerW / displayTR
+
+  const tx = (t: number) => PAD.l + Math.min(t, displayTR) * scale
+
+  // Key timing events
+  const rfStart = 0
+  const rfEnd   = 8  // 90° pulse duration ~8ms (simplified)
+  const teHalf  = params.TE / 2
+  const tePos   = params.TE
+
+  // Phase encode: happens after RF
+  const gpeStart = rfEnd + 2
+
+  // Freq encode: centered at TE
+  const gfeStart = teHalf - 4
+  const gfeEnd   = tePos + params.echoSpacing
+
+  // ADC window
+  const adcStart = teHalf
+  const adcEnd   = tePos + params.echoSpacing * Math.min(4, params.turboFactor - 1) * 0.5
+
+  const isDWI = params.turboFactor <= 1 && params.bValues.length > 1
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>
+      <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>
+        パルスシーケンス タイミング図 (簡略版)
+      </div>
+      <svg width={W} height={H}>
+        {/* Row backgrounds alternating */}
+        {ROWS.map((_, i) => (
+          <rect key={i} x={0} y={PAD.t + i * rowH} width={W} height={rowH}
+            fill={i % 2 === 0 ? '#0a0a0a' : '#080808'} />
+        ))}
+
+        {/* Row labels */}
+        {ROWS.map((label, i) => (
+          <text key={label} x={PAD.l - 4} y={PAD.t + i * rowH + rowH * 0.65}
+            textAnchor="end" fill="#4b5563" style={{ fontSize: '8px', fontFamily: 'monospace' }}>
+            {label}
+          </text>
+        ))}
+
+        {/* Baseline lines */}
+        {ROWS.map((_, i) => (
+          <line key={i} x1={PAD.l} y1={PAD.t + i * rowH + rowH * 0.5}
+            x2={PAD.l + innerW} y2={PAD.t + i * rowH + rowH * 0.5}
+            stroke="#1a1a1a" strokeWidth={1} />
+        ))}
+
+        {/* RF: 90° pulse (square pulse) */}
+        {(() => {
+          const y0 = PAD.t + 0 * rowH + rowH * 0.5
+          const amp = rowH * 0.38
+          const x1 = tx(rfStart), x2 = tx(rfEnd)
+          return <path d={`M${x1},${y0} L${x1},${y0 - amp} L${x2},${y0 - amp} L${x2},${y0}`}
+            fill="#a78bfa40" stroke="#a78bfa" strokeWidth={1} />
+        })()}
+        {/* RF: 180° refocusing pulse (TSE) if ETL > 1 */}
+        {params.turboFactor > 1 && (() => {
+          const y0 = PAD.t + 0 * rowH + rowH * 0.5
+          const amp = rowH * 0.42
+          Array.from({ length: Math.min(3, params.turboFactor) }, (_, ei) => {
+            const tRef = rfEnd + params.TE / 2 + ei * params.echoSpacing
+            if (tRef >= displayTR) return null
+            const x = tx(tRef), w = 3
+            return <path key={ei} d={`M${x},${y0 + amp} L${x},${y0 - amp} L${x + w},${y0 - amp} L${x + w},${y0 + amp}`}
+              fill="#c084fc40" stroke="#c084fc" strokeWidth={1} />
+          })
+          return (
+            <>
+              {Array.from({ length: Math.min(3, params.turboFactor) }, (_, ei) => {
+                const tRef = rfEnd + params.echoSpacing * ei
+                const x = tx(tRef + teHalf - 4)
+                const w = Math.max(3, (8 * scale))
+                if (x + w > PAD.l + innerW) return null
+                return <path key={ei} d={`M${x},${PAD.t + amp * 0.3} L${x},${PAD.t + rowH - amp * 0.3} L${x + w},${PAD.t + rowH - amp * 0.3} L${x + w},${PAD.t + amp * 0.3}`}
+                  fill="#c084fc28" stroke="#c084fc" strokeWidth={0.8} />
+              })}
+            </>
+          )
+        })()}
+
+        {/* Gss: slice select gradient */}
+        {(() => {
+          const y0 = PAD.t + 1 * rowH + rowH * 0.5
+          const amp = rowH * 0.38
+          const x1 = tx(rfStart), x2 = tx(rfEnd + 3)
+          const xr1 = tx(rfEnd + 3), xr2 = tx(rfEnd + 6)  // rephase lobe
+          return <>
+            <path d={`M${x1},${y0} L${x1},${y0 - amp} L${x2},${y0 - amp} L${x2},${y0}`}
+              fill="#60a5fa28" stroke="#60a5fa" strokeWidth={1} />
+            <path d={`M${xr1},${y0} L${xr1},${y0 + amp * 0.5} L${xr2},${y0 + amp * 0.5} L${xr2},${y0}`}
+              fill="#60a5fa18" stroke="#60a5fa" strokeWidth={0.8} />
+          </>
+        })()}
+
+        {/* Gpe: phase encode gradient */}
+        {(() => {
+          const y0 = PAD.t + 2 * rowH + rowH * 0.5
+          const steps = [0.38, 0.2, 0, -0.2, -0.38]
+          return (
+            <>
+              {steps.map((amp, i) => {
+                const x1 = tx(gpeStart + i * 1.5)
+                const x2 = tx(gpeStart + i * 1.5 + 1)
+                if (x1 >= PAD.l + innerW) return null
+                return <path key={i} d={`M${x1},${y0} L${x1},${y0 - amp * rowH} L${x2},${y0 - amp * rowH} L${x2},${y0}`}
+                  fill="#34d39928" stroke="#34d399" strokeWidth={0.8} />
+              })}
+            </>
+          )
+        })()}
+
+        {/* Gfe: frequency encode + dephase + rephase */}
+        {(() => {
+          const y0 = PAD.t + 3 * rowH + rowH * 0.5
+          const amp = rowH * 0.38
+          const xd1 = tx(gpeStart + 8), xd2 = tx(gpeStart + 14)  // dephase
+          const xr1 = tx(Math.max(gfeStart, gpeStart + 14))
+          const xr2 = tx(Math.min(gfeEnd, displayTR - 2))
+          return <>
+            <path d={`M${xd1},${y0} L${xd1},${y0 + amp * 0.5} L${xd2},${y0 + amp * 0.5} L${xd2},${y0}`}
+              fill="#fbbf2428" stroke="#fbbf24" strokeWidth={0.8} />
+            <path d={`M${xr1},${y0} L${xr1},${y0 - amp} L${xr2},${y0 - amp} L${xr2},${y0}`}
+              fill="#fbbf2428" stroke="#fbbf24" strokeWidth={1} />
+          </>
+        })()}
+
+        {/* ADC window */}
+        {(() => {
+          const y0 = PAD.t + 4 * rowH + rowH * 0.5
+          const amp = rowH * 0.3
+          const x1 = tx(adcStart)
+          const x2 = Math.min(tx(adcEnd), PAD.l + innerW - 2)
+          if (x2 <= x1) return null
+          return <rect x={x1} y={y0 - amp} width={x2 - x1} height={amp * 2}
+            fill="#e88b0030" stroke="#e88b00" strokeWidth={1} />
+        })()}
+
+        {/* TE marker */}
+        {(() => {
+          const x = tx(tePos)
+          if (x > PAD.l + innerW - 4) return null
+          return <>
+            <line x1={x} y1={PAD.t} x2={x} y2={PAD.t + ROWS.length * rowH}
+              stroke="#e88b00" strokeWidth={0.8} strokeDasharray="2,2" />
+            <text x={x + 2} y={PAD.t + ROWS.length * rowH + 10}
+              fill="#e88b00" style={{ fontSize: '8px' }}>TE={params.TE}ms</text>
+          </>
+        })()}
+
+        {/* TR marker */}
+        {displayTR < params.TR && (
+          <text x={PAD.l + innerW - 2} y={PAD.t + ROWS.length * rowH + 10}
+            textAnchor="end" fill="#4b5563" style={{ fontSize: '7px' }}>
+            …TR={params.TR}ms
+          </text>
+        )}
+
+        {/* DWI: diffusion gradients */}
+        {isDWI && (
+          <>
+            <text x={PAD.l + 4} y={PAD.t + 3 * rowH + 8}
+              fill="#f87171" style={{ fontSize: '7px' }}>DWI Gd</text>
+          </>
+        )}
+      </svg>
+      <div style={{ fontSize: '7px', color: '#374151' }}>
+        <span style={{ color: '#a78bfa' }}>■RF</span>{' '}
+        <span style={{ color: '#60a5fa' }}>■Gss</span>{' '}
+        <span style={{ color: '#34d399' }}>■Gpe</span>{' '}
+        <span style={{ color: '#fbbf24' }}>■Gfe</span>{' '}
+        <span style={{ color: '#e88b00' }}>■ADC</span>
+        {' '}| 簡略図（時間軸は対数表示でありません）
+      </div>
+    </div>
+  )
+}
+
+// ── k空間エコー並びビジュアライザー ─────────────────────────────────────────
+function KSpaceEchoTrainViz() {
+  const { params } = useProtocolStore()
+  const etl = Math.min(params.turboFactor, 40)  // 表示上限40
+
+  if (etl <= 1) return null
+
+  const W = 330
+  const H = 54
+  const PAD = { l: 14, r: 14, t: 8, b: 22 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+
+  // リニア順 (echo 1 = k端, echo ETL/2 = k中心)
+  // Siemens TSEはリニア順をデフォルトとする
+  // k中心のエコー番号 (0-indexed): effEchoIdx = floor(ETL / 2)
+  const effEchoIdx = Math.floor(etl / 2)
+
+  // k空間ライン位置: -1(端) ~ 0(中心) ~ +1(端)
+  // リニア順: echo i → kLine = ((i - effEchoIdx) / (etl / 2))
+  const kLines = Array.from({ length: etl }, (_, i) => {
+    return (i - effEchoIdx) / (etl / 2)
+  })
+
+  // T2 減衰重み: w(i) = exp(-TE_i / T2) normalized
+  const T2 = params.fieldStrength >= 2.5 ? 69 : 75  // WM T2
+  const weights = Array.from({ length: etl }, (_, i) => {
+    const te_i = params.TE + i * params.echoSpacing
+    return Math.exp(-te_i / T2)
+  })
+  const maxW = Math.max(...weights)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
+      <div className="text-xs mb-1 font-semibold" style={{ color: '#4b5563' }}>k空間エコー配置 (Linear Ordering)</div>
+      <svg width={W} height={H}>
+        {/* k-space axis */}
+        <line x1={PAD.l} y1={PAD.t + innerH + 2} x2={PAD.l + innerW} y2={PAD.t + innerH + 2}
+          stroke="#252525" strokeWidth={1} />
+        {/* k-center marker */}
+        <line x1={PAD.l + innerW / 2} y1={PAD.t} x2={PAD.l + innerW / 2} y2={PAD.t + innerH + 4}
+          stroke="#374151" strokeWidth={1} strokeDasharray="2,2" />
+        <text x={PAD.l + innerW / 2} y={H - 4} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>k=0</text>
+        <text x={PAD.l} y={H - 4} textAnchor="start" fill="#374151" style={{ fontSize: '7px' }}>-kmax</text>
+        <text x={PAD.l + innerW} y={H - 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>+kmax</text>
+
+        {/* Echo bars */}
+        {kLines.map((kLine, i) => {
+          const x = PAD.l + ((kLine + 1) / 2) * innerW
+          const barH = Math.max(3, weights[i] / maxW * innerH)
+          const isCenter = i === effEchoIdx
+          const color = isCenter ? '#e88b00' : `rgba(96, 165, 250, ${0.3 + weights[i] / maxW * 0.6})`
+          return (
+            <rect key={i}
+              x={x - 1} y={PAD.t + innerH - barH}
+              width={Math.max(2, innerW / etl - 1)} height={barH}
+              fill={color}
+            />
+          )
+        })}
+
+        {/* Effective TE label */}
+        <text x={PAD.l + innerW / 2 + 3} y={PAD.t + 8}
+          fill="#e88b00" style={{ fontSize: '7px' }}>
+          effTE={Math.round(params.TE + effEchoIdx * params.echoSpacing)}ms
+        </text>
+      </svg>
+      <div style={{ fontSize: '7px', color: '#374151' }}>
+        バーの高さ = T2減衰重み (WM T2={T2}ms) | 橙 = k中心エコー (Effective TE)
+      </div>
+    </div>
+  )
+}
+
 // 臨床用 b値プリセット
 const B_VALUE_PRESETS: { label: string; values: number[]; hint: string }[] = [
   { label: '脳梗塞', values: [0, 1000], hint: 'b=0+1000 | 急性期梗塞の標準' },
@@ -36,6 +366,15 @@ export function SequenceTab() {
       <ParamField label="Partial Fourier" hintKey="PartialFourier" value={params.partialFourier} type="select"
         options={['Off', '7/8', '6/8', '5/8', '4/8']}
         onChange={v => setParam('partialFourier', v as typeof params.partialFourier)} highlight={hl('partialFourier')} />
+
+      {/* TE 関連の物理パラメータ */}
+      <MinTECalculator />
+
+      {/* Pulse sequence timing diagram */}
+      <PulseSequenceDiagram />
+
+      {/* k-space echo train visualization */}
+      <KSpaceEchoTrainViz />
 
       {/* ETL 計算インジケーター */}
       {params.turboFactor > 1 && (

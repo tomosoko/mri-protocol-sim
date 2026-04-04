@@ -19,6 +19,12 @@ export function StatusBar() {
   const counts = issueCount(issues)
 
   const seqId = identifySequence(params)
+  // SNR効率 = SNR / √(スキャン時間[s]) — 単位時間あたりのSNR効率
+  const snrEff = scanTime > 0 ? Math.round(snr / Math.sqrt(scanTime) * 10) / 10 : 0
+  const isEPI = params.bValues.length > 1 && params.turboFactor <= 2
+  const epiReadoutMs = isEPI
+    ? Math.round((params.matrixPhase / (params.ipatMode !== 'Off' ? params.ipatFactor : 1)) * (1000 / params.bandwidth) * 10) / 10
+    : null
   const sarColor = sl === 'low' ? '#34d399' : sl === 'medium' ? '#fbbf24' : sl === 'high' ? '#fb923c' : '#ef4444'
   const snrColor = snr > 80 ? '#34d399' : snr > 40 ? '#fbbf24' : '#f87171'
   const pnsColor = pns === 'none' ? '#34d399' : pns === 'low' ? '#fbbf24' : pns === 'moderate' ? '#fb923c' : '#ef4444'
@@ -61,6 +67,16 @@ export function StatusBar() {
 
       {/* SNR */}
       <Metric label="SNR" value={String(snr)} valueColor={snrColor} />
+
+      <Sep />
+
+      {/* SNR効率 */}
+      <Metric
+        label="EFF"
+        value={String(snrEff)}
+        valueColor={snrEff > 8 ? '#34d399' : snrEff > 4 ? '#fbbf24' : '#9ca3af'}
+        title={`SNR効率 = SNR/√時間 = ${snrEff} — 値が高いほど時間対SNRが優秀`}
+      />
 
       <Sep />
 
@@ -121,6 +137,19 @@ export function StatusBar() {
       {params.respTrigger !== 'Off' && (
         <>
           <Metric label="RESP" value={params.respTrigger} valueColor="#a78bfa" />
+          <Sep />
+        </>
+      )}
+
+      {/* EPI readout time */}
+      {epiReadoutMs !== null && (
+        <>
+          <Metric
+            label="ROUT"
+            value={`${epiReadoutMs}ms`}
+            valueColor={epiReadoutMs > 60 ? '#f87171' : epiReadoutMs > 30 ? '#fbbf24' : '#34d399'}
+            title={`EPI エコートレイン長 ${epiReadoutMs}ms — 幾何歪みに直結`}
+          />
           <Sep />
         </>
       )}

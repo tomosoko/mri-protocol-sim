@@ -295,6 +295,283 @@ const rules: Rule[] = [
     return null
   },
 
+  // ── T1 TSE: ETL 長すぎ ────────────────────────────────────────────
+  p => {
+    if (p.TR < 1000 && p.turboFactor > 10) return {
+      id: 't1_tse_etl_long', severity: 'warning', category: 'コントラスト',
+      title: 'T1強調 TSE で ETL が長い',
+      detail: `TR=${p.TR}ms (T1強調域) で ETL=${p.turboFactor} は過大です。T2 ぼけが生じ T1コントラストが損なわれます。ETL≤5 を推奨。`,
+      params: ['turboFactor', 'TR'],
+      quickFixes: [
+        { label: 'ETL を 5 に設定', apply: () => ({ turboFactor: 5 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── TR < ETL × ES (TRが足りない) ─────────────────────────────────
+  p => {
+    const minTR = p.turboFactor * p.echoSpacing + 50
+    if (p.turboFactor > 1 && p.TR < minTR) return {
+      id: 'tr_too_short_for_etl', severity: 'error', category: 'Sequence',
+      title: 'TR がエコートレインを収容できません',
+      detail: `ETL=${p.turboFactor} × ES=${p.echoSpacing}ms = ${(p.turboFactor * p.echoSpacing).toFixed(0)}ms。TR=${p.TR}ms では全エコーを収容できません。TR≥${Math.ceil(minTR)}ms が必要です。`,
+      params: ['TR', 'turboFactor', 'echoSpacing'],
+      quickFixes: [
+        { label: `TR を ${Math.ceil(minTR)}ms に延長`, apply: () => ({ TR: Math.ceil(minTR) }) },
+        { label: 'ETL を短縮', apply: (p) => ({ turboFactor: Math.max(1, Math.floor((p.TR - 50) / p.echoSpacing)) }) },
+      ],
+    }
+    return null
+  },
+
+  // ── Phase Resolution 低い → 異方性ボクセル ────────────────────────
+  p => {
+    if (p.phaseResolution < 60) return {
+      id: 'phase_res_low', severity: 'info', category: 'Resolution',
+      title: '位相分解能が低く異方性ボクセルになります',
+      detail: `phaseResolution=${p.phaseResolution}% → 位相方向ボクセルは読取方向の ${(100 / p.phaseResolution * 100).toFixed(0)}% 大きい。脊椎・神経など長軸方向以外では歪みが目立ちます。`,
+      params: ['phaseResolution'],
+    }
+    return null
+  },
+
+  // ── MT + STIR は競合 ─────────────────────────────────────────────
+  p => {
+    if (p.mt && p.fatSat === 'STIR') return {
+      id: 'mt_stir_conflict', severity: 'warning', category: 'コントラスト',
+      title: 'MT と STIR は競合します',
+      detail: 'MT（磁化移動）と STIR を同時に使用すると組織信号が過剰に抑制されます。通常は MT を Off にしてください。',
+      params: ['mt', 'fatSat'],
+      quickFixes: [
+        { label: 'MT を Off に', apply: () => ({ mt: false }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 息止め撮像: スキャン時間>25s ─────────────────────────────────
+  p => {
+    const t = Math.round((p.TR * p.matrixPhase * (p.phaseResolution / 100) * p.averages) /
+      p.turboFactor / Math.max(p.ipatMode !== 'Off' ? p.ipatFactor : 1, 1) / 1000)
+    if (p.respTrigger === 'BH' && t > 25) return {
+      id: 'bh_too_long', severity: 'warning', category: '生体信号',
+      title: '息止め時間が長すぎます',
+      detail: `推定スキャン時間 ${t}s。息止め耐容時間は通常 15-20s です。ETL短縮・iPAT増加・PF設定を検討してください。`,
+      params: ['respTrigger', 'turboFactor', 'ipatFactor'],
+      quickFixes: [
+        { label: 'iPAT GRAPPA×2 を有効化', apply: () => ({ ipatMode: 'GRAPPA' as const, ipatFactor: 2 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── Knee コイル + FOV 大 ──────────────────────────────────────────
+  p => {
+    if ((p.coilType === 'Knee' || p.coilType === 'Shoulder') && p.fov > 250) return {
+      id: 'knee_fov_large', severity: 'info', category: 'コイル',
+      title: '小部位コイルなのに FOV が大きい',
+      detail: `${p.coilType} コイルはFOV ${p.fov}mm ではコイル感度域外となりSNRが低下します。FOV≤200mm を推奨。`,
+      params: ['fov', 'coilType'],
+      quickFixes: [
+        { label: 'FOV を 180mm に設定', apply: () => ({ fov: 180 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── DWI: b値が少なく ADC精度不足 ─────────────────────────────────
+  p => {
+    if (p.turboFactor <= 2 && p.bValues.length === 2 && Math.max(...p.bValues) < 800) return {
+      id: 'dwi_b_low', severity: 'info', category: 'DWI',
+      title: 'b値最大値が低い',
+      detail: `最大 b値=${Math.max(...p.bValues)} s/mm² は通常の拡散強調に不十分です。脳・前立腺では b≥800-1000 s/mm² を推奨します。`,
+      params: ['bValues'],
+    }
+    return null
+  },
+
+  // ── DWI: 脂肪抑制なし ─────────────────────────────────────────────
+  p => {
+    if (p.turboFactor <= 2 && p.bValues.length > 1 && p.fatSat === 'None') return {
+      id: 'dwi_no_fatsat', severity: 'warning', category: 'DWI',
+      title: 'DWI で脂肪抑制がオフです',
+      detail: 'EPI-DWI では位相エンコード方向に脂肪のケミカルシフトゴーストが生じます。SPAIR または CHESS を使用してください。',
+      params: ['fatSat', 'bValues'],
+      quickFixes: [
+        { label: 'SPAIR 脂肪抑制を追加', apply: () => ({ fatSat: 'SPAIR' as const }) },
+        { label: 'CHESS 脂肪抑制を追加', apply: () => ({ fatSat: 'CHESS' as const }) },
+      ],
+    }
+    return null
+  },
+
+  // ── VIBE/3D GRE: FA が高い ────────────────────────────────────────
+  p => {
+    const isVIBE = p.turboFactor <= 2 && p.flipAngle >= 6 && p.flipAngle <= 30 && p.TR < 15
+    if (isVIBE && p.flipAngle > 25) return {
+      id: 'vibe_fa_high', severity: 'info', category: 'コントラスト',
+      title: 'VIBE/3D GRE で FA が高すぎます',
+      detail: `VIBE (TR=${p.TR}ms) で FA=${p.flipAngle}° は T1 飽和が強くなります。一般的な VIBE では FA=5-15° を使用します。`,
+      params: ['flipAngle', 'TR'],
+      quickFixes: [
+        { label: 'FA を 12° に設定', apply: () => ({ flipAngle: 12 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── ECG + 心臓: LGE に TI が必要 ─────────────────────────────────
+  p => {
+    if (p.ecgTrigger && p.TR < 15 && p.flipAngle > 15 && p.TI === 0) return {
+      id: 'lge_no_ti', severity: 'warning', category: '心臓',
+      title: 'LGE/心臓 GRE で TI が設定されていません',
+      detail: `ECG同期 GRE (TR=${p.TR}ms, FA=${p.flipAngle}°) は LGE 遅延造影と推定されます。正常心筋を抑制するための TI (通常 250-350ms) の設定が必要です。`,
+      params: ['TI', 'ecgTrigger'],
+      quickFixes: [
+        { label: 'TI を 300ms (LGE標準) に設定', apply: () => ({ TI: 300 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── スライス数 vs TR: マルチスライス制限 ─────────────────────────
+  p => {
+    // 1TRで収容できる最大スライス数 ≈ TR / (RF_dur + readout_dur) ≈ TR / 30ms
+    const maxSlicesPerTR = Math.floor(p.TR / 30)
+    if (p.turboFactor <= 2 && p.slices > maxSlicesPerTR * 1.2 && p.TR < 2000) return {
+      id: 'slices_exceed_tr', severity: 'warning', category: 'Routine',
+      title: 'TR に対してスライス数が多すぎる可能性があります',
+      detail: `TR=${p.TR}ms で ${p.slices} スライスは収容困難な場合があります。目安: TR/30ms ≈ ${maxSlicesPerTR}スライス。TR 延長またはスライス数削減を検討してください。`,
+      params: ['slices', 'TR'],
+    }
+    return null
+  },
+
+  // ── 3D 高分解能: スライス厚が厚い ────────────────────────────────
+  p => {
+    if (p.turboFactor >= 100 && p.sliceThickness > 4) return {
+      id: 'haste_thick_slice', severity: 'info', category: 'Resolution',
+      title: 'HASTE でスライス厚が厚い',
+      detail: `HASTE (単発取得) で sliceThickness=${p.sliceThickness}mm。部分容積効果が生じます。消化管・胆管では 4mm 以下を推奨します。`,
+      params: ['sliceThickness', 'turboFactor'],
+    }
+    return null
+  },
+
+  // ── iPAT 有効時: 参照ライン確認 ──────────────────────────────────
+  p => {
+    if (p.ipatMode !== 'Off' && p.ipatFactor >= 2 && p.matrixPhase >= 256 && p.averages === 1) return null
+    if (p.ipatMode !== 'Off' && p.ipatFactor >= 3 && p.averages === 1) return {
+      id: 'ipat_low_avg', severity: 'info', category: 'iPAT',
+      title: 'iPAT AF≥3 + NEX=1: SNR が低下します',
+      detail: `iPAT factor ${p.ipatFactor} × g-factor によって SNR が著しく低下します。加算回数の増加 (NEX≥2) を検討してください。`,
+      params: ['ipatFactor', 'averages'],
+      quickFixes: [
+        { label: 'NEX を 2 に増加', apply: () => ({ averages: 2 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── ECG トリガー + 高TR: 非効率 ───────────────────────────────────
+  p => {
+    if (p.ecgTrigger && p.TR > 3000) return {
+      id: 'ecg_high_tr', severity: 'info', category: 'Physio',
+      title: 'ECG同期でTRが長すぎます',
+      detail: `ECG同期時のTRはRR間隔（通常600-1000ms）に依存します。TR=${p.TR}ms は心周期を超えており非効率です。TR を RR 間隔(800ms目安)に合わせてください。`,
+      params: ['TR', 'ecgTrigger'],
+      quickFixes: [
+        { label: 'TR を 800ms に設定', apply: () => ({ TR: 800 }) },
+        { label: 'TR を 1000ms に設定', apply: () => ({ TR: 1000 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── TOF MRA: 脂肪抑制なし ─────────────────────────────────────────
+  p => {
+    const isTOF = p.turboFactor <= 2 && p.TR < 40 && p.flipAngle >= 15 && p.flipAngle <= 35
+    if (isTOF && p.fatSat === 'None') return {
+      id: 'tof_no_fatsat', severity: 'info', category: 'Contrast',
+      title: 'TOF-MRA で脂肪抑制なし',
+      detail: '頭蓋底などの脂肪組織が血管信号に重なり描出が困難になります。SPAIRまたはMTCの追加を推奨します。',
+      params: ['fatSat'],
+      quickFixes: [
+        { label: 'SPAIR を追加', apply: () => ({ fatSat: 'SPAIR' as const }) },
+        { label: 'MT を追加', apply: () => ({ mt: true }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 3D VIBE/GRE: 呼吸同期なし（腹部FOV） ────────────────────────
+  p => {
+    const isVIBE = p.turboFactor <= 2 && p.TR < 15
+    const isAbdomen = p.fov >= 300 && p.slices >= 40
+    if (isVIBE && isAbdomen && p.respTrigger === 'Off' && p.ecgTrigger === false) return {
+      id: 'vibe_no_resp', severity: 'info', category: 'Physio',
+      title: '腹部VIBE で呼吸制御なし',
+      detail: '腹部の3D収集では呼吸によるモーションアーチファクトが生じます。息止め（BH）または PACE 同期を推奨します。',
+      params: ['respTrigger'],
+      quickFixes: [
+        { label: '息止め (BH) に設定', apply: () => ({ respTrigger: 'BH' as const }) },
+        { label: 'PACE 同期に設定', apply: () => ({ respTrigger: 'PACE' as const }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 非常に短いTE: GRE で化学シフト位相 ───────────────────────────
+  p => {
+    const isGRE = p.turboFactor <= 2 && p.TR < 200
+    if (isGRE && p.fieldStrength === 3.0) {
+      // 3T: in-phase TE = 2.3, 4.6, 6.9ms / opposed = 1.15, 3.45, 5.75ms
+      const oppTE = [1.15, 3.45, 5.75, 8.05]
+      const nearOpp   = oppTE.some(t => Math.abs(p.TE - t) < 0.3)
+      if (nearOpp) return {
+        id: 'gre_opposed_phase_3t', severity: 'info', category: 'Contrast',
+        title: `TE≈${p.TE}ms は 3T opposed-phase 付近です`,
+        detail: `3T でのopposed-phase TE は約 1.15, 3.45, 5.75ms です。現在のTE${p.TE}ms は水脂肪の opposed-phase に近く、境界部に信号低下が生じます。Dixon や in-phase TE (2.3, 4.6ms) への変更を検討してください。`,
+        params: ['TE'],
+      }
+    }
+    return null
+  },
+
+  // ── MRCP/HASTE + 造影剤 ───────────────────────────────────────────
+  p => {
+    const isHASTE = p.turboFactor >= 80
+    // STIR fat sat + HASTE は矛盾（STIR の TI が HASTE の長い TE に影響）
+    if (isHASTE && p.fatSat === 'STIR') return {
+      id: 'haste_stir', severity: 'warning', category: 'Contrast',
+      title: 'HASTE + STIR の組み合わせは非推奨',
+      detail: 'HASTEの長いエコートレインとSTIRの反転回復パルスの組み合わせはSAR増大とコントラスト劣化を招きます。脂肪抑制が必要な場合はSPAIRを使用してください。',
+      params: ['fatSat', 'turboFactor'],
+      quickFixes: [
+        { label: 'SPAIR に変更', apply: () => ({ fatSat: 'SPAIR' as const, TI: 0 }) },
+        { label: '脂肪抑制なしに変更', apply: () => ({ fatSat: 'None' as const, TI: 0 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 高分解能 3D + partial Fourier なし: 収集時間過大 ──────────────
+  p => {
+    const is3D = p.turboFactor >= 30 && p.slices >= 60
+    const longScan = p.slices * p.matrixPhase / (p.turboFactor * Math.max(p.ipatFactor, 1)) > 600
+    if (is3D && longScan && p.partialFourier === 'Off') return {
+      id: '3d_no_pf', severity: 'info', category: 'Sequence',
+      title: '3D高分解能収集: Partial Fourier の適用を検討',
+      detail: 'スライス数・マトリックスに対してETLが少なく収集効率が低くなっています。Partial Fourier (6/8) の適用でスキャン時間を短縮できます。',
+      params: ['partialFourier', 'turboFactor'],
+      quickFixes: [
+        { label: 'Partial Fourier 6/8 を適用', apply: () => ({ partialFourier: '6/8' as const }) },
+      ],
+    }
+    return null
+  },
+
 ]
 
 // ────────────────────────────────────────────────────────────────────────────

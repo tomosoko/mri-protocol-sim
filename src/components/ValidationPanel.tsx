@@ -181,7 +181,28 @@ export function ValidationPanel() {
             )}
           </div>
         </div>
-        <div style={{ color: '#4b5563' }}>臨床ルールに基づくリアルタイム検証</div>
+        <div className="flex items-center justify-between mt-1">
+          <div style={{ color: '#4b5563' }}>臨床ルールに基づくリアルタイム検証</div>
+          {counts.errors > 0 && (
+            <button
+              onClick={() => {
+                const errorIssues = issues.filter(i => i.severity === 'error' && i.quickFixes && i.quickFixes.length > 0)
+                errorIssues.forEach(issue => {
+                  if (issue.quickFixes && issue.quickFixes[0]) {
+                    const changes = issue.quickFixes[0].apply(params)
+                    Object.entries(changes).forEach(([key, value]) => {
+                      setParam(key as keyof ProtocolParams, value as ProtocolParams[keyof ProtocolParams])
+                    })
+                  }
+                })
+              }}
+              className="px-2 py-0.5 rounded text-xs transition-colors"
+              style={{ background: '#1a0505', color: '#fca5a5', border: '1px solid #7f1d1d', fontSize: '9px' }}
+            >
+              Fix Errors
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter tabs */}

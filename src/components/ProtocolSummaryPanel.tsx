@@ -1,7 +1,52 @@
 import { useProtocolStore } from '../store/protocolStore'
-import { calcScanTime, calcSARLevel, calcSNR, voxelStr, chemShift, identifySequence, sarLevel } from '../store/calculators'
+import { calcScanTime, calcSARLevel, calcSNR, voxelStr, chemShift, identifySequence, sarLevel, calcT2Blur, ernstAngle } from '../store/calculators'
 import { validateProtocol } from '../utils/protocolValidator'
 import { presets } from '../data/presets'
+
+// ── プロトコル品質スコア ─────────────────────────────────────────────────────
+interface ScoreDimension {
+  label: string
+  score: number   // 0-100
+  color: string
+  note: string
+}
+
+import type { ProtocolParams } from '../data/presets'
+
+function calcProtocolScore(params: ProtocolParams): ScoreDimension[] {
+  const issues = validateProtocol(params)
+  const errors = issues.filter(i => i.severity === 'error').length
+  const warnings = issues.filter(i => i.severity === 'warning').length
+  const snr = calcSNR(params)
+  const sar = calcSARLevel(params)
+  const blur = calcT2Blur(params)
+  const cs = chemShift(params)
+
+  // SNR スコア (snr=80→100点)
+  const snrScore = Math.min(100, Math.round((snr / 80) * 100))
+
+  // SAR スコア (低いほど高点)
+  const sarScore = Math.max(0, 100 - sar)
+
+  // T2ぼけスコア (blur=1→100, blur=0.3→30)
+  const blurScore = Math.round(blur * 100)
+
+  // 化学シフトスコア (cs=0→100, cs=5→0)
+  const csScore = Math.max(0, Math.round(100 - cs * 18))
+
+  // 臨床整合性スコア
+  const validScore = Math.max(0, 100 - errors * 30 - warnings * 10)
+
+  const score = (s: number) => s <= 30 ? '#f87171' : s <= 60 ? '#fbbf24' : '#34d399'
+
+  return [
+    { label: 'SNR',    score: snrScore,   color: score(snrScore),   note: `${snr}` },
+    { label: 'SAR',    score: sarScore,   color: score(sarScore),   note: `${sar}%` },
+    { label: 'T2Blur', score: blurScore,  color: score(blurScore),  note: blur.toFixed(2) },
+    { label: 'ChmShft', score: csScore,  color: score(csScore),   note: `${cs}px` },
+    { label: '臨床整合', score: validScore, color: score(validScore), note: `E${errors}W${warnings}` },
+  ]
+}
 
 function SummaryRow({ label, value, unit, highlight }: { label: string; value: string | number; unit?: string; highlight?: boolean }) {
   return (
@@ -21,6 +66,98 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {title}
       </div>
       <div className="px-1">{children}</div>
+    </div>
+  )
+}
+
+function ScoreCard({ params }: { params: ProtocolParams }) {
+  const dims = calcProtocolScore(params)
+  const avgScore = Math.round(dims.reduce((s, d) => s + d.score, 0) / dims.length)
+  const overallColor = avgScore >= 70 ? '#34d399' : avgScore >= 40 ? '#fbbf24' : '#f87171'
+  const grade = avgScore >= 85 ? 'A' : avgScore >= 70 ? 'B' : avgScore >= 55 ? 'C' : avgScore >= 40 ? 'D' : 'F'
+
+  return (
+    <div className="p-2 rounded mb-3" style={{ background: '#111', border: '1px solid #252525' }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-semibold" style={{ color: '#e88b00', fontSize: '10px' }}>Protocol Quality Score</div>
+        <div className="flex items-center gap-1">
+          <span className="font-mono font-bold" style={{ color: overallColor, fontSize: '18px' }}>{grade}</span>
+          <span style={{ color: overallColor, fontSize: '10px' }}>{avgScore}pts</span>
+        </div>
+      </div>
+      {dims.map(d => (
+        <div key={d.label} className="mb-1">
+          <div className="flex justify-between mb-0.5" style={{ fontSize: '9px' }}>
+            <span style={{ color: '#6b7280' }}>{d.label}</span>
+            <span style={{ color: d.color, fontFamily: 'monospace' }}>{d.score} ({d.note})</span>
+          </div>
+          <div className="h-1 rounded overflow-hidden" style={{ background: '#1a1a1a' }}>
+            <div className="h-full rounded transition-all"
+              style={{ width: `${d.score}%`, background: d.color }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── シーケンス別ベストプラクティス ──────────────────────────────────────────────
+function SequenceBestPractices({ seqType, params }: { seqType: string; params: ProtocolParams }) {
+  const is3T = params.fieldStrength === 3.0
+  const tips: { text: string; ok: boolean }[] = []
+
+  if (seqType.includes('FLAIR')) {
+    tips.push({ text: `TI: ${params.TI}ms ${is3T ? '(3T推奨: 2400-2500ms)' : '(1.5T推奨: 2100-2200ms)'}`, ok: is3T ? params.TI >= 2300 && params.TI <= 2600 : params.TI >= 2000 && params.TI <= 2300 })
+    tips.push({ text: `TR: ${params.TR}ms (>8000ms 必須)`, ok: params.TR >= 8000 })
+    tips.push({ text: `TE: ${params.TE}ms (>80ms 推奨)`, ok: params.TE >= 80 })
+  }
+  else if (seqType.includes('STIR')) {
+    tips.push({ text: `TI: ${params.TI}ms ${is3T ? '(3T: 160-180ms)' : '(1.5T: 145-160ms)'}`, ok: is3T ? params.TI >= 150 && params.TI <= 200 : params.TI >= 130 && params.TI <= 170 })
+    tips.push({ text: `磁場強度: ${params.fieldStrength}T (1.5T推奨)`, ok: !is3T })
+  }
+  else if (seqType.includes('DWI')) {
+    tips.push({ text: `脂肪抑制: ${params.fatSat} (SPAIR/CHESS推奨)`, ok: params.fatSat !== 'None' })
+    tips.push({ text: `BW: ${params.bandwidth}Hz/px (≥1000推奨)`, ok: params.bandwidth >= 1000 })
+    tips.push({ text: `Inline ADC: ${params.inlineADC ? 'ON' : 'OFF'}`, ok: params.inlineADC })
+    tips.push({ text: `b値最大: ${Math.max(...params.bValues)}s/mm² (≥800推奨)`, ok: Math.max(...params.bValues) >= 800 })
+  }
+  else if (seqType.includes('T1w TSE') || seqType.includes('T1 TSE')) {
+    tips.push({ text: `TR: ${params.TR}ms (400-800ms推奨)`, ok: params.TR >= 400 && params.TR <= 800 })
+    tips.push({ text: `ETL: ${params.turboFactor} (≤5推奨)`, ok: params.turboFactor <= 5 })
+    tips.push({ text: `TE: ${params.TE}ms (≤15ms推奨)`, ok: params.TE <= 15 })
+  }
+  else if (seqType.includes('T2w TSE')) {
+    tips.push({ text: `TR: ${params.TR}ms (≥3000ms推奨)`, ok: params.TR >= 3000 })
+    tips.push({ text: `ETL: ${params.turboFactor} (12-25推奨)`, ok: params.turboFactor >= 10 && params.turboFactor <= 30 })
+    tips.push({ text: `T2ブラー係数: ${calcT2Blur(params).toFixed(2)} (>0.5推奨)`, ok: calcT2Blur(params) > 0.5 })
+  }
+  else if (seqType.includes('GRE') || seqType.includes('VIBE')) {
+    const wmT1 = is3T ? 1084 : 1080
+    const ernst = ernstAngle(wmT1, params.TR)
+    tips.push({ text: `FA: ${params.flipAngle}° (Ernst角≈${ernst.toFixed(0)}°)`, ok: Math.abs(params.flipAngle - ernst) <= 10 })
+    tips.push({ text: `SAR: ${calcSARLevel(params)}% (FA²に比例)`, ok: calcSARLevel(params) < 70 })
+  }
+  else if (seqType.includes('TOF')) {
+    tips.push({ text: `TR: ${params.TR}ms (推奨: <30ms)`, ok: params.TR < 30 })
+    tips.push({ text: `FA: ${params.flipAngle}° (推奨: 15-25°)`, ok: params.flipAngle >= 15 && params.flipAngle <= 25 })
+    tips.push({ text: `脂肪抑制: ${params.fatSat !== 'None' ? 'あり' : 'なし'}`, ok: params.fatSat !== 'None' })
+  }
+
+  if (tips.length === 0) return null
+
+  return (
+    <div className="p-2 rounded mb-3" style={{ background: '#0e1620', border: '1px solid #1e3a5f' }}>
+      <div className="font-semibold mb-1.5" style={{ color: '#60a5fa', fontSize: '10px' }}>
+        {seqType} — ベストプラクティス
+      </div>
+      <div className="space-y-0.5">
+        {tips.map((t, i) => (
+          <div key={i} className="flex items-center gap-1.5" style={{ fontSize: '9px' }}>
+            <span style={{ color: t.ok ? '#34d399' : '#f87171', flexShrink: 0 }}>{t.ok ? '✓' : '✕'}</span>
+            <span style={{ color: t.ok ? '#6b7280' : '#9ca3af' }}>{t.text}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -125,6 +262,9 @@ export function ProtocolSummaryPanel() {
 
       <div className="flex-1 overflow-y-auto px-3 py-2">
 
+        {/* Quality Score */}
+        <ScoreCard params={params} />
+
         {/* Preset / Sequence */}
         <div className="p-2 rounded mb-3" style={{ background: '#111', border: '1px solid #252525' }}>
           <div className="flex items-center justify-between mb-1">
@@ -200,6 +340,9 @@ export function ProtocolSummaryPanel() {
           <SummaryRow label="SAR" value={`${sarPct}% (${sl})`} highlight={sarPct > 70} />
           <SummaryRow label="Relative SNR" value={snr} highlight={snr < 30} />
         </Section>
+
+        {/* Sequence-specific best practices */}
+        <SequenceBestPractices seqType={seqId.type} params={params} />
 
         {/* Validation summary */}
         <div className="p-2 rounded mt-1" style={{

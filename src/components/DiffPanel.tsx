@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { GitCompare, Undo2, Redo2, RotateCcw } from 'lucide-react'
+import { GitCompare, Undo2, Redo2, RotateCcw, BarChart2 } from 'lucide-react'
 import { useProtocolStore } from '../store/protocolStore'
 import { presets } from '../data/presets'
 import type { ProtocolParams } from '../data/presets'
+import { calcSNR, calcSARLevel, calcScanTime, calcT2Blur, chemShift, identifySequence } from '../store/calculators'
+import { validateProtocol, issueCount } from '../utils/protocolValidator'
 
 const PARAM_LABELS: Record<string, string> = {
   TR: 'TR (ms)',
@@ -61,7 +63,70 @@ function getChangeColor(prev: ProtocolParams[keyof ProtocolParams], curr: Protoc
   return '#fbbf24'
 }
 
-type DiffMode = 'baseline' | 'preset'
+type DiffMode = 'baseline' | 'preset' | 'metrics'
+
+interface MetricRow {
+  label: string
+  current: string
+  compare: string
+  delta: number   // positive = current is better or higher
+  unit: string
+  lowerIsBetter: boolean
+}
+
+function buildMetricRows(current: ProtocolParams, compare: ProtocolParams): MetricRow[] {
+  const fmt = (s: number) => {
+    if (s < 60) return `${s}s`
+    const m = Math.floor(s / 60); const sec = s % 60
+    return sec === 0 ? `${m}min` : `${m}m${sec}s`
+  }
+  const snrC = calcSNR(current), snrP = calcSNR(compare)
+  const sarC = calcSARLevel(current), sarP = calcSARLevel(compare)
+  const timeC = calcScanTime(current), timeP = calcScanTime(compare)
+  const blurC = calcT2Blur(current), blurP = calcT2Blur(compare)
+  const csC = chemShift(current), csP = chemShift(compare)
+  const issC = issueCount(validateProtocol(current)), issP = issueCount(validateProtocol(compare))
+  const seqC = identifySequence(current), seqP = identifySequence(compare)
+
+  return [
+    { label: 'シーケンス', current: seqC.type, compare: seqP.type, delta: 0, unit: '', lowerIsBetter: false },
+    { label: 'SNR', current: String(snrC), compare: String(snrP), delta: snrC - snrP, unit: '', lowerIsBetter: false },
+    { label: 'SAR', current: `${sarC}%`, compare: `${sarP}%`, delta: sarP - sarC, unit: '', lowerIsBetter: true },
+    { label: 'スキャン時間', current: fmt(timeC), compare: fmt(timeP), delta: timeP - timeC, unit: '', lowerIsBetter: true },
+    { label: 'T2ブラー', current: blurC.toFixed(2), compare: blurP.toFixed(2), delta: blurC - blurP, unit: '', lowerIsBetter: false },
+    { label: '化学シフト', current: `${csC}px`, compare: `${csP}px`, delta: csP - csC, unit: '', lowerIsBetter: true },
+    { label: 'エラー数', current: String(issC.errors), compare: String(issP.errors), delta: issP.errors - issC.errors, unit: '', lowerIsBetter: true },
+    { label: '警告数', current: String(issC.warnings), compare: String(issP.warnings), delta: issP.warnings - issC.warnings, unit: '', lowerIsBetter: true },
+  ]
+}
+
+function MetricComparison({ current, compare }: { current: ProtocolParams; compare: { label: string; params: ProtocolParams } }) {
+  const rows = buildMetricRows(current, compare.params)
+  return (
+    <div className="p-2 space-y-1">
+      <div className="grid grid-cols-3 gap-1 px-1 pb-1" style={{ borderBottom: '1px solid #252525' }}>
+        <span style={{ color: '#4b5563', fontSize: '9px' }}>指標</span>
+        <span style={{ color: '#fbbf24', fontSize: '9px' }}>現在</span>
+        <span style={{ color: '#9ca3af', fontSize: '9px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={compare.label}>{compare.label.slice(0, 12)}</span>
+      </div>
+      {rows.map(row => {
+        const better = row.delta > 0
+        const neutral = row.delta === 0 || row.label === 'シーケンス'
+        const currentColor = neutral ? '#e2e8f0' : better ? '#4ade80' : '#f87171'
+        return (
+          <div key={row.label} className="grid grid-cols-3 gap-1 px-1 py-0.5 rounded" style={{ background: '#1a1a1a' }}>
+            <span style={{ color: '#6b7280', fontSize: '9px' }}>{row.label}</span>
+            <span className="font-mono" style={{ color: currentColor, fontSize: '9px' }}>{row.current}</span>
+            <span className="font-mono" style={{ color: '#9ca3af', fontSize: '9px' }}>{row.compare}</span>
+          </div>
+        )
+      })}
+      <p style={{ color: '#374151', fontSize: '8px', paddingTop: '4px' }}>
+        緑 = 現在のプロトコルが優位、赤 = 比較先が優位
+      </p>
+    </div>
+  )
+}
 
 export function DiffPanel() {
   const [mode, setMode] = useState<DiffMode>('baseline')
@@ -112,25 +177,68 @@ export function DiffPanel() {
 
       {/* タブ切替 */}
       <div className="flex flex-shrink-0" style={{ borderBottom: '1px solid #252525' }}>
-        {(['baseline', 'preset'] as DiffMode[]).map((m) => (
+        {([['baseline', 'ベースライン'], ['preset', 'パラメータ比較'], ['metrics', 'メトリクス比較']] as [DiffMode, string][]).map(([m, label]) => (
           <button
             key={m}
             onClick={() => setMode(m)}
-            className="flex-1 py-1.5 text-xs font-medium transition-colors"
+            className="flex-1 py-1.5 font-medium transition-colors"
             style={{
               background: mode === m ? '#1e1e1e' : 'transparent',
               color: mode === m ? '#e88b00' : '#6b7280',
               borderBottom: mode === m ? '2px solid #e88b00' : '2px solid transparent',
+              fontSize: '9px',
             }}
           >
-            {m === 'baseline' ? 'ベースライン差分' : 'プリセット比較'}
+            {label}
           </button>
         ))}
       </div>
 
       {/* コンテンツ */}
       <div className="flex-1 overflow-y-auto">
-        {mode === 'baseline' ? (
+        {mode === 'metrics' ? (
+          <div>
+            {!comparePreset ? (
+              <div className="p-2 space-y-2">
+                <p className="text-xs text-center py-6" style={{ color: '#4b5563' }}>
+                  比較先プリセットを選択してください
+                </p>
+                <select
+                  value={comparePresetId ?? ''}
+                  onChange={(e) => setComparePreset(e.target.value || null)}
+                  className="w-full px-2 py-1.5 rounded text-xs"
+                  style={{ background: '#252525', color: '#d1d5db', border: '1px solid #3a3a3a', outline: 'none' }}
+                >
+                  <option value="">比較先を選択...</option>
+                  {presets.map((p) => (
+                    <option key={p.id} value={p.id}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <div className="px-2 pt-2 pb-1">
+                  <select
+                    value={comparePresetId ?? ''}
+                    onChange={(e) => setComparePreset(e.target.value || null)}
+                    className="w-full px-2 py-1 rounded text-xs"
+                    style={{ background: '#252525', color: '#d1d5db', border: '1px solid #3a3a3a', outline: 'none', fontSize: '10px' }}
+                  >
+                    <option value="">比較先を選択...</option>
+                    {presets.map((p) => (
+                      <option key={p.id} value={p.id}>{p.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex items-center gap-1 px-2 pb-2">
+                  <BarChart2 size={10} style={{ color: '#60a5fa' }} />
+                  <span style={{ color: '#60a5fa', fontSize: '9px' }}>主要指標の比較</span>
+                </div>
+                <MetricComparison current={params} compare={comparePreset} />
+              </div>
+            )}
+          </div>
+        ) : mode === 'baseline' ? (
           <div className="p-2 space-y-2">
             {/* Undo/Redo/Reset ボタン */}
             <div className="flex items-center gap-1.5">
