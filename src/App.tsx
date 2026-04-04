@@ -29,6 +29,7 @@ import { ClinicalIndicationPanel } from './components/ClinicalIndicationPanel'
 import { WhatIfPanel } from './components/WhatIfPanel'
 import { ProtocolOptimizerPanel } from './components/ProtocolOptimizerPanel'
 import { ProtocolExportPanel } from './components/ProtocolExportPanel'
+import { QuantitativeMRIPanel } from './components/QuantitativeMRIPanel'
 import { validateProtocol } from './utils/protocolValidator'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
@@ -47,7 +48,7 @@ const TAB_PARAMS: Record<string, string[]> = {
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId, params, undo, redo } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | 'summary' | 'clinical' | 'whatif' | 'optimizer' | 'export' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | 'summary' | 'clinical' | 'whatif' | 'optimizer' | 'export' | 'qmri' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
@@ -332,6 +333,18 @@ export default function App() {
               シナリオ
             </button>
             <button
+              onClick={() => setRightPanel(rightPanel === 'qmri' ? null : 'qmri')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'qmri' ? '#0d1520' : '#252525',
+                color: rightPanel === 'qmri' ? '#38bdf8' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'qmri' ? '#0369a1' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              qMRI
+            </button>
+            <button
               onClick={() => setRightPanel(rightPanel === 'export' ? null : 'export')}
               className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
               style={{
@@ -438,6 +451,7 @@ export default function App() {
             {rightPanel === 'whatif' && <WhatIfPanel />}
             {rightPanel === 'optimizer' && <ProtocolOptimizerPanel />}
             {rightPanel === 'export' && <ProtocolExportPanel />}
+            {rightPanel === 'qmri' && <QuantitativeMRIPanel />}
           </div>
         )}
       </div>
