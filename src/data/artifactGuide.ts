@@ -90,4 +90,28 @@ export const artifacts: ArtifactInfo[] = [
     ],
     example: '3T腹部T1: 肝臓中央が明るく周辺が暗い信号むら。',
   },
+  {
+    id: 'zipper',
+    name: 'ジッパーアーチファクト（RF干渉）',
+    cause: 'ファラデーシールド不良や室内の無線機器からRFが混入し、周波数エンコード方向と垂直な輝線（ジッパー）として現れる。',
+    params: ['fieldStrength', 'turboFactor'],
+    solutions: [
+      { param: 'シールド点検', action: 'RFケージの密閉確認', detail: 'ドア・ペネトレーションパネルの密閉不良を確認・修理。' },
+      { param: '干渉源除去', action: '室内機器の確認', detail: '携帯電話・無線デバイスを撮像室外へ。インバータ照明も要確認。' },
+      { param: 'fieldStrength', action: '1.5T装置での再撮像', detail: '3T（127MHz）は外部干渉を受けやすいため1.5T（64MHz）で回避できることも。' },
+    ],
+    example: '脳MRI: 眼球位置に水平輝線が走り、脳梁部が偽病変に見える。',
+  },
+  {
+    id: 'gfactor_noise',
+    name: 'g-factorノイズ（並列撮像）',
+    cause: 'GRAPPA/SENSEで欠損k空間を補間する際の局所的なノイズ増幅。加速係数↑・コイル要素数不足でg-factor↑。画像中央部で特に顕著。',
+    params: ['ipatFactor', 'coil'],
+    solutions: [
+      { param: 'ipatFactor', action: 'AF を2以下に低減', detail: 'AF=2ではg-factorの影響が比較的軽微。AF=3-4は必要な場合のみ。' },
+      { param: 'coil', action: '多チャンネルコイルに変更', detail: '32ch/64chコイルはg-factorが低く高AF使用時のノイズが少ない。' },
+      { param: 'averages', action: '加算回数を増加', detail: 'SNR低下をNSA増加で補う。撮像時間は延長。' },
+    ],
+    example: 'DWI GRAPPA AF=3: 脳中央部に粒状ノイズが目立ち、小病変の検出が困難。',
+  },
 ]

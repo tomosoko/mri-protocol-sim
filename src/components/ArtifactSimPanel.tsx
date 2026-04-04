@@ -180,6 +180,28 @@ function getSliderConfig(artifactId: ArtifactType): SliderConfig | null {
         paramKey: 'matrixPhase',
         description: 'Matrixを下げるとリンギングが強くなる',
       }
+    case 'zipper':
+      return {
+        label: 'ETL（TurboFactor）',
+        unit: '',
+        min: 1,
+        max: 32,
+        step: 1,
+        defaultValue: 16,
+        paramKey: 'turboFactor',
+        description: 'ETL↑でジッパー影響を受けるエコーが増える',
+      }
+    case 'gfactor_noise':
+      return {
+        label: 'デモIPAT',
+        unit: '',
+        min: 1,
+        max: 4,
+        step: 1,
+        defaultValue: 2,
+        paramKey: 'ipatFactor',
+        description: '加速係数↑でg-factorノイズが増大する',
+      }
     default:
       return null
   }
@@ -228,6 +250,8 @@ export function ArtifactSimPanel({ onShowArtifactGuide }: ArtifactSimPanelProps)
       if (sliderConfig.paramKey === 'fov') base.fov = demoSliderValue
       else if (sliderConfig.paramKey === 'bandwidth') base.bandwidth = demoSliderValue
       else if (sliderConfig.paramKey === 'matrixPhase') base.matrixPhase = demoSliderValue
+      else if (sliderConfig.paramKey === 'turboFactor') base.turboFactor = demoSliderValue
+      else if (sliderConfig.paramKey === 'ipatFactor') base.ipatFactor = demoSliderValue
     }
     return base
   })()
@@ -642,5 +666,59 @@ function getInfluenceItems(
         },
       ]
     }
+    case 'zipper':
+      return [
+        {
+          label: '磁場強度',
+          value: `${p.fieldStrength}T`,
+          level: p.fieldStrength >= 2.5 ? 'bad' : 'warn',
+        },
+        {
+          label: 'TurboFactor (ETL)',
+          value: `${p.turboFactor}`,
+          level: p.turboFactor >= 16 ? 'bad' : p.turboFactor >= 8 ? 'warn' : 'good',
+        },
+        {
+          label: 'EMIシールド',
+          value: 'ファラデーケージ確認',
+          level: 'warn',
+        },
+      ]
+    case 'standing_wave':
+      return [
+        {
+          label: '磁場強度',
+          value: `${p.fieldStrength}T`,
+          level: p.fieldStrength >= 2.5 ? 'bad' : 'good',
+        },
+        {
+          label: '3T対策',
+          value: 'TrueForm/TIAMO推奨',
+          level: p.fieldStrength >= 2.5 ? 'warn' : 'good',
+        },
+        {
+          label: 'ゲルパッド',
+          value: '局所B1補正に有効',
+          level: 'warn',
+        },
+      ]
+    case 'gfactor_noise':
+      return [
+        {
+          label: 'IPAT/GRAPPA',
+          value: `AF=${p.ipatFactor}`,
+          level: p.ipatFactor <= 1 ? 'good' : p.ipatFactor === 2 ? 'warn' : 'bad',
+        },
+        {
+          label: 'コイルch数',
+          value: p.ipatFactor >= 3 ? '多ch推奨' : '適切',
+          level: p.ipatFactor >= 3 ? 'warn' : 'good',
+        },
+        {
+          label: 'SNR影響',
+          value: `×1/√${p.ipatFactor} ×g`,
+          level: p.ipatFactor <= 2 ? 'warn' : 'bad',
+        },
+      ]
   }
 }

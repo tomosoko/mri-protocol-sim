@@ -1,4 +1,4 @@
-export type ArtifactType = 'aliasing' | 'motion_ghost' | 'chemical_shift' | 'susceptibility' | 'gibbs'
+export type ArtifactType = 'aliasing' | 'motion_ghost' | 'chemical_shift' | 'susceptibility' | 'gibbs' | 'zipper' | 'standing_wave' | 'gfactor_noise'
 
 export interface ArtifactParams {
   fov: number
@@ -683,10 +683,172 @@ const gibbsModel: ArtifactModel = {
   },
 }
 
+// -----------------------------------------------------------------------
+// Zipper Artifact (RF interference)
+// -----------------------------------------------------------------------
+const zipperModel: ArtifactModel = {
+  id: 'zipper',
+  label: 'ジッパー',
+  description: 'ファラデーシールドから外部RF干渉が混入し、周波数エンコード方向と垂直に輝線（ジッパー）が現れる。室内の無線機器・シールド不良・RFリークが主因。3Tで周波数が高くなり外部干渉を受けやすくなる。',
+  relatedArtifactId: 'zipper',
+
+  severity(params) {
+    const { fieldStrength, turboFactor } = params
+    const base = fieldStrength >= 2.5 ? 65 : 42
+    const etlFactor = turboFactor >= 16 ? 1.2 : 1.0
+    return Math.min(100, Math.round(base * etlFactor))
+  },
+
+  generate(params, basePhantom) {
+    const result = new Uint8ClampedArray(basePhantom)
+    const sev = zipperModel.severity(params)
+    if (sev < 20) return result
+
+    const { fieldStrength, turboFactor } = params
+    const amp = sev * 0.75
+    const rng = seededRandom(99)
+
+    // Primary zipper at y = SIZE/2 (DC line of freq encoding)
+    const zipY1 = Math.round(SIZE * 0.5)
+    for (let x = 0; x < SIZE; x++) {
+      const wave = Math.sin(x * 0.28 + fieldStrength * 0.4) * 18
+      for (let dy = -1; dy <= 1; dy++) {
+        const y = zipY1 + dy
+        if (y < 0 || y >= SIZE) continue
+        const brightness = Math.round(amp * (1 - Math.abs(dy) * 0.5) + wave + rng() * 12)
+        result[y * SIZE + x] = Math.min(255, result[y * SIZE + x] + Math.max(0, brightness))
+      }
+    }
+
+    // Secondary harmonic zipper at 1/3 (present at 3T or high turboFactor)
+    if (fieldStrength >= 2.5 || turboFactor >= 12) {
+      const zipY2 = Math.round(SIZE * 0.33)
+      for (let x = 0; x < SIZE; x++) {
+        const wave = Math.sin(x * 0.55 + 1.2) * 9
+        const brightness = Math.round(amp * 0.45 + wave + rng() * 8)
+        result[zipY2 * SIZE + x] = Math.min(255, result[zipY2 * SIZE + x] + Math.max(0, brightness))
+      }
+    }
+
+    return result
+  },
+}
+
+// -----------------------------------------------------------------------
+// Standing Wave / Dielectric Effect (3T)
+// -----------------------------------------------------------------------
+const standingWaveModel: ArtifactModel = {
+  id: 'standing_wave',
+  label: '定在波',
+  description: '3TではRF波長が体内で≈26cmに短縮し体サイズと同程度になる。腹部中央で建設的干渉→中央が明るく周辺が暗い信号不均一（Dielectric Effect）。1.5Tでは波長≈52cmで影響軽微。TrueForm/TIAMOで補正。',
+  relatedArtifactId: 'dielectric',
+
+  severity(params) {
+    const { fieldStrength } = params
+    if (fieldStrength < 2.5) return 6
+    return 72
+  },
+
+  generate(params, basePhantom) {
+    const { fieldStrength } = params
+    const result = new Uint8ClampedArray(basePhantom)
+
+    const cx = SIZE / 2
+    const cy = SIZE / 2
+    const maxR = SIZE / 2
+
+    const is3T = fieldStrength >= 2.5
+    // 1.5T: almost no effect; 3T: strong center brightening
+    const strength = is3T ? 0.65 : 0.08
+
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const src = basePhantom[y * SIZE + x]
+        if (src === 0) continue
+
+        const dx = x - cx
+        const dy = y - cy
+        const rNorm = Math.sqrt(dx * dx + dy * dy) / maxR
+
+        // B1 standing wave pattern: enhanced at center, reduced at periphery
+        const b1Factor = 1 + strength * Math.exp(-(rNorm * rNorm) / 0.18) - strength * 0.55 * rNorm
+        result[y * SIZE + x] = Math.max(0, Math.min(255, Math.round(src * b1Factor)))
+      }
+    }
+
+    return result
+  },
+}
+
+// -----------------------------------------------------------------------
+// G-Factor Noise (Parallel Imaging / GRAPPA)
+// -----------------------------------------------------------------------
+const gfactorNoiseModel: ArtifactModel = {
+  id: 'gfactor_noise',
+  label: 'g因子ノイズ',
+  description: 'GRAPPA/SENSEなどの並列撮像では欠損k空間を補間する際に局所的にノイズが増幅される（g-factor）。加速係数↑でノイズ増大。画像中央部でg-factorが高くなりやすく、AF≥3で粒状ノイズが顕著。',
+  relatedArtifactId: 'gfactor_noise',
+
+  severity(params) {
+    const { ipatFactor } = params
+    if (ipatFactor <= 1) return 3
+    if (ipatFactor === 2) return 28
+    if (ipatFactor === 3) return 62
+    return 90
+  },
+
+  generate(params, basePhantom) {
+    const { ipatFactor } = params
+    const result = new Uint8ClampedArray(basePhantom)
+    if (ipatFactor <= 1) return result
+
+    const sev = gfactorNoiseModel.severity(params)
+    const rng = seededRandom(31)
+
+    const cx = SIZE / 2
+    const cy = SIZE / 2
+    const noiseAmp = (sev / 100) * 48
+
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        const src = basePhantom[y * SIZE + x]
+        if (src === 0) continue
+
+        const dx = x - cx
+        const dy = y - cy
+        const rNorm = Math.sqrt(dx * dx + dy * dy) / (SIZE / 2)
+
+        // g-factor: highest near center for GRAPPA
+        const sigma = 0.4
+        const gFactor = 1 + (ipatFactor - 1) * 0.55 * Math.exp(-(rNorm * rNorm) / (2 * sigma * sigma))
+        const noise = (rng() - 0.5) * 2 * noiseAmp * gFactor
+        result[y * SIZE + x] = Math.max(0, Math.min(255, Math.round(src + noise)))
+      }
+    }
+
+    // GRAPPA reconstruction stripes at 1/AF × FOV spacing (phase direction)
+    if (ipatFactor >= 3) {
+      const stripeInterval = Math.round(SIZE / ipatFactor)
+      for (let yBase = 0; yBase < SIZE; yBase += stripeInterval) {
+        for (let x = 0; x < SIZE; x++) {
+          if (basePhantom[yBase * SIZE + x] === 0) continue
+          const stripeVal = Math.round(noiseAmp * 0.35 * (rng() - 0.35))
+          result[yBase * SIZE + x] = Math.max(0, Math.min(255, result[yBase * SIZE + x] + stripeVal))
+        }
+      }
+    }
+
+    return result
+  },
+}
+
 export const artifactModels: ArtifactModel[] = [
   aliasingModel,
   motionGhostModel,
   chemShiftModel,
   susceptibilityModel,
   gibbsModel,
+  zipperModel,
+  standingWaveModel,
+  gfactorNoiseModel,
 ]
