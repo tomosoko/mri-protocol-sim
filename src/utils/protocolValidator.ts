@@ -664,6 +664,68 @@ const rules: Rule[] = [
     return null
   },
 
+  // ── CE-MRA: inlineMIP 推奨 ────────────────────────────────────────────────
+  p => {
+    const isCEmra = p.TR <= 5 && p.TE <= 2 && p.flipAngle >= 15 && p.flipAngle <= 40 && p.turboFactor <= 2
+    if (isCEmra && !p.inlineMIP) return {
+      id: 'cemra_no_mip', severity: 'info', category: 'CE-MRA',
+      title: 'CE-MRA: inline MIP が未設定',
+      detail: 'CE-MRAではinline MIPを有効にすることで、スキャン終了直後にMIP血管像を確認できます。造影タイミングの評価と再撮像判断の迅速化に有用です。',
+      params: ['inlineMIP'],
+      quickFixes: [
+        { label: 'inline MIP をオンにする', apply: () => ({ inlineMIP: true }) },
+      ],
+    }
+    return null
+  },
+
+  // ── DWI 3T: A>>P 位相方向はEPI歪み増大 ──────────────────────────────────
+  p => {
+    const isDWI = p.bValues.length > 1 && p.turboFactor <= 2 && p.bValues.some(b => b >= 500)
+    if (isDWI && p.fieldStrength >= 2.5 && p.phaseEncDir === 'A>>P') return {
+      id: 'dwi_3t_phase_ap', severity: 'info', category: 'DWI',
+      title: '3T DWI: A>>P 位相方向はEPI幾何学的歪みが大きい',
+      detail: '3T EPI(DWI)でA>>Pは前頭極・側頭極・脳幹の幾何学的歪みが増大します。R>>Lへ変更するとEPI歪みを最小化できます（特に前立腺・脳幹病変で重要）。',
+      params: ['phaseEncDir'],
+      quickFixes: [
+        { label: '位相方向を R>>L に変更', apply: () => ({ phaseEncDir: 'R>>L' as const }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 高IPAT + 加算なし: g-factor ノイズ懸念 ──────────────────────────────
+  p => {
+    if (p.ipatFactor >= 3 && p.averages <= 1 && p.fieldStrength < 2.5) return {
+      id: 'ipat_gfactor_15t', severity: 'warning', category: 'iPAT',
+      title: '1.5T: IPAT AF≥3 + 加算1回でg-factorノイズ増大',
+      detail: `1.5TでGRAPPA AF=${p.ipatFactor}はg-factorが高く、SNR低下が著明になります。加算2回以上の追加か、AF=2への変更を強く推奨します。`,
+      params: ['ipatFactor', 'averages', 'fieldStrength'],
+      quickFixes: [
+        { label: 'IPAT を AF=2 に下げる', apply: () => ({ ipatFactor: 2 }) },
+        { label: '加算 2 回に増やす', apply: () => ({ averages: 2 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 脊椎矢状断: 化学シフト BW チェック ──────────────────────────────────
+  p => {
+    const isSpineSag = p.orientation === 'Sag' && p.fieldStrength >= 2.5
+    const chemShiftPx = (p.fieldStrength >= 2.5 ? 440 : 220) / Math.max(p.bandwidth, 1)
+    if (isSpineSag && chemShiftPx >= 2.5 && p.fatSat === 'None') return {
+      id: 'spine_chemshift_high', severity: 'warning', category: '化学シフト',
+      title: '脊椎矢状断: 化学シフトが大きい（椎体終板に黒白バンド）',
+      detail: `現在の設定では化学シフト量 ≈ ${chemShiftPx.toFixed(1)}px。脊椎椎体-椎間板界面に黒白バンドアーチファクトが生じます。BW増加（≥250 Hz/px）または脂肪抑制の追加を推奨します。`,
+      params: ['bandwidth', 'fatSat'],
+      quickFixes: [
+        { label: 'BW を 250 Hz/px に上げる', apply: () => ({ bandwidth: 250 }) },
+        { label: '脂肪抑制 SPAIR を追加', apply: () => ({ fatSat: 'SPAIR' as const }) },
+      ],
+    }
+    return null
+  },
+
 ]
 
 // ────────────────────────────────────────────────────────────────────────────
