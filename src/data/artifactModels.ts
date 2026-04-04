@@ -50,7 +50,7 @@ function seededRandom(seed: number): () => number {
 // 高品質ファントム生成
 // -----------------------------------------------------------------------
 
-export function generateBasePhantom(type: 'head' | 'abdomen'): Uint8ClampedArray {
+export function generateBasePhantom(type: 'head' | 'abdomen' | 'spine'): Uint8ClampedArray {
   const data = new Uint8ClampedArray(SIZE * SIZE)
   const cx = SIZE / 2
   const cy = SIZE / 2
@@ -156,7 +156,7 @@ export function generateBasePhantom(type: 'head' | 'abdomen'): Uint8ClampedArray
         data[i] = Math.max(5, Math.min(255, data[i] + noise))
       }
     }
-  } else {
+  } else if (type === 'abdomen') {
     // --- 腹部ファントム改善版 ---
 
     // 1. 体表輪郭（皮下脂肪: 強度200）
@@ -256,6 +256,102 @@ export function generateBasePhantom(type: 'head' | 'abdomen'): Uint8ClampedArray
     for (let i = 0; i < SIZE * SIZE; i++) {
       if (data[i] > 0) {
         const noise = Math.round((rng() - 0.5) * 10)
+        data[i] = Math.max(5, Math.min(255, data[i] + noise))
+      }
+    }
+  } else {
+    // --- 脊椎ファントム（腰椎矢状断 T1W想定）---
+    // X: 前方=左, 後方=右  Y: 頭側=上, 尾側=下
+
+    // 1. 傍脊柱筋（前方: 強度95）
+    for (let y = 10; y < SIZE - 10; y++) {
+      for (let x = 10; x < 36; x++) {
+        if (isInsideEllipse(x, y, 23, SIZE / 2, 13, 55)) {
+          data[y * SIZE + x] = 95
+        }
+      }
+    }
+
+    // 2. 椎体 × 5 + 椎間板 × 4
+    const vertebrae = [
+      { y0: 14, y1: 29, disc: false },
+      { y0: 29, y1: 35, disc: true  },
+      { y0: 35, y1: 50, disc: false },
+      { y0: 50, y1: 56, disc: true  },
+      { y0: 56, y1: 71, disc: false },
+      { y0: 71, y1: 77, disc: true  },
+      { y0: 77, y1: 92, disc: false },
+      { y0: 92, y1: 98, disc: true  },
+      { y0: 98, y1: 113, disc: false },
+    ]
+    for (const seg of vertebrae) {
+      for (let y = seg.y0; y < seg.y1; y++) {
+        if (y < 0 || y >= SIZE) continue
+        if (seg.disc) {
+          // 椎間板: 中間信号 (T1中等度)
+          for (let x = 38; x <= 76; x++) {
+            data[y * SIZE + x] = 115
+          }
+        } else {
+          // 椎体骨髄 (脂肪性骨髄: 高信号)
+          for (let x = 38; x <= 76; x++) {
+            data[y * SIZE + x] = 185
+          }
+          // 骨皮質 (上下端: 低信号)
+          if (y === seg.y0 || y === seg.y0 + 1 || y === seg.y1 - 1 || y === seg.y1 - 2) {
+            for (let x = 38; x <= 76; x++) {
+              data[y * SIZE + x] = 35
+            }
+          }
+        }
+      }
+    }
+
+    // 3. 硬膜外脂肪 (椎体後方, 脊柱管前壁: 高信号)
+    for (let y = 14; y < 113; y++) {
+      for (let x = 77; x <= 82; x++) {
+        if (y >= 0 && y < SIZE) data[y * SIZE + x] = 190
+      }
+    }
+
+    // 4. 脊柱管内CSF (高信号)
+    for (let y = 14; y < 113; y++) {
+      for (let x = 83; x <= 92; x++) {
+        if (y >= 0 && y < SIZE) data[y * SIZE + x] = 235
+      }
+    }
+
+    // 5. 脊髄 (中等度信号, 脊柱管内の細い楕円)
+    for (let y = 14; y < 80; y++) {
+      for (let x = 84; x <= 90; x++) {
+        if (y >= 0 && y < SIZE) data[y * SIZE + x] = 145
+      }
+    }
+    // 馬尾神経 (L2以下: やや分散)
+    for (let y = 80; y < 113; y++) {
+      for (let x = 84; x <= 91; x++) {
+        if (y >= 0 && y < SIZE && (x + y) % 3 !== 0) data[y * SIZE + x] = 130
+      }
+    }
+
+    // 6. 棘突起・後方要素 (低〜中信号: 皮質骨)
+    for (let y = 14; y < 113; y++) {
+      const seg = vertebrae.find(s => !s.disc && y >= s.y0 && y < s.y1)
+      if (seg) {
+        for (let x = 93; x <= 110; x++) {
+          if (y >= 0 && y < SIZE) data[y * SIZE + x] = 75
+        }
+        // 棘突起先端 (明るい骨髄)
+        for (let x = 104; x <= 113; x++) {
+          if (y >= 0 && y < SIZE) data[y * SIZE + x] = 160
+        }
+      }
+    }
+
+    // 7. ガウスノイズ ±6
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      if (data[i] > 0) {
+        const noise = Math.round((rng() - 0.5) * 12)
         data[i] = Math.max(5, Math.min(255, data[i] + noise))
       }
     }
