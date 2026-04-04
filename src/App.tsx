@@ -22,15 +22,42 @@ import { SNRMapPanel } from './components/SNRMapPanel'
 import { ArtifactSimPanel } from './components/ArtifactSimPanel'
 import { CaseTrainingPanel } from './components/CaseTrainingPanel'
 import { KSpaceVisualizer } from './components/KSpaceVisualizer'
+import { TissueContrastPanel } from './components/TissueContrastPanel'
+import { ValidationPanel } from './components/ValidationPanel'
+import { validateProtocol } from './utils/protocolValidator'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
+// タブ → 関連パラメータ名のマッピング
+const TAB_PARAMS: Record<string, string[]> = {
+  Routine:    ['TR', 'TE', 'TI', 'flipAngle', 'slices', 'sliceThickness', 'sliceGap', 'averages'],
+  Contrast:   ['fatSat', 'mt'],
+  Resolution: ['matrixFreq', 'matrixPhase', 'fov', 'phaseResolution', 'bandwidth'],
+  Geometry:   ['orientation', 'phaseEncDir', 'satBands', 'sliceGap'],
+  System:     ['coil', 'coilType', 'ipatMode', 'ipatFactor', 'gradientMode', 'shim', 'fieldStrength'],
+  Physio:     ['ecgTrigger', 'respTrigger', 'triggerDelay', 'triggerWindow'],
+  Inline:     ['inlineADC', 'inlineMIP', 'inlineMPR', 'inlineSubtraction'],
+  Sequence:   ['turboFactor', 'echoSpacing', 'partialFourier', 'bValues'],
+}
+
 export default function App() {
-  const { activeTab, setActiveTab, activePresetId } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | null>('learn')
+  const { activeTab, setActiveTab, activePresetId, params } = useProtocolStore()
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
+  const allIssues = validateProtocol(params)
+
+  // タブごとの最大severity ('error' | 'warning' | null)
+  const tabSeverity = (tab: string): 'error' | 'warning' | null => {
+    const tabParams = TAB_PARAMS[tab] ?? []
+    const relatedIssues = allIssues.filter(i =>
+      !i.params || i.params.some(p => tabParams.includes(p))
+    )
+    if (relatedIssues.some(i => i.severity === 'error')) return 'error'
+    if (relatedIssues.some(i => i.severity === 'warning')) return 'warning'
+    return null
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#141414', color: '#c8ccd6' }}>
@@ -105,6 +132,33 @@ export default function App() {
             >
               <GraduationCap size={10} />
               クイズ
+            </button>
+          </div>
+          {/* 解析系 */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setRightPanel(rightPanel === 'validate' ? null : 'validate')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'validate' ? '#1a0505' : '#252525',
+                color: rightPanel === 'validate' ? '#f87171' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'validate' ? '#7f1d1d' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              Validate
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'tissue' ? null : 'tissue')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'tissue' ? '#0d1f0d' : '#252525',
+                color: rightPanel === 'tissue' ? '#34d399' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'tissue' ? '#166534' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              Tissue
             </button>
           </div>
           {/* ビジュアル系 */}
@@ -197,22 +251,31 @@ export default function App() {
 
           {/* Tab bar */}
           <div className="flex shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid #252525', background: '#0e0e0e' }}>
-            {TABS.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className="px-4 py-2 text-xs whitespace-nowrap transition-colors shrink-0"
-                style={{
-                  background: activeTab === tab ? '#1e1200' : 'transparent',
-                  color: activeTab === tab ? '#e88b00' : '#5a5a5a',
-                  borderBottom: activeTab === tab ? '2px solid #e88b00' : '2px solid transparent',
-                  fontSize: '11px',
-                  padding: '6px 14px',
-                }}
-              >
-                {tab}
-              </button>
-            ))}
+            {TABS.map(tab => {
+              const sev = tabSeverity(tab)
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className="relative flex items-center gap-1 whitespace-nowrap transition-colors shrink-0"
+                  style={{
+                    background: activeTab === tab ? '#1e1200' : 'transparent',
+                    color: activeTab === tab ? '#e88b00' : '#5a5a5a',
+                    borderBottom: activeTab === tab ? '2px solid #e88b00' : '2px solid transparent',
+                    fontSize: '11px',
+                    padding: '6px 14px',
+                  }}
+                >
+                  {tab}
+                  {sev === 'error' && (
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+                  )}
+                  {sev === 'warning' && (
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
+                  )}
+                </button>
+              )
+            })}
           </div>
 
           {/* Tab content */}
@@ -239,6 +302,8 @@ export default function App() {
             {rightPanel === 'artifactsim' && <ArtifactSimPanel onShowArtifactGuide={() => setRightPanel('artifact')} />}
             {rightPanel === 'case' && <CaseTrainingPanel />}
             {rightPanel === 'kspace' && <KSpaceVisualizer />}
+            {rightPanel === 'tissue' && <TissueContrastPanel />}
+            {rightPanel === 'validate' && <ValidationPanel />}
           </div>
         )}
       </div>

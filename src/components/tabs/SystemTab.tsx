@@ -18,7 +18,6 @@ export function SystemTab() {
   const [subTab, setSubTab] = useState<SubTab>('Misc')
 
   // local state
-  const [coilSelection, setCoilSelection] = useState('Auto Coil Select')
   const [coilCombination, setCoilCombination] = useState('Sum of Squares')
   const [msma, setMsma] = useState('S-C-T')
   const [matrixOpt, setMatrixOpt] = useState('Off')
@@ -85,9 +84,9 @@ export function SystemTab() {
           <div className="border-t my-1" style={{ borderColor: '#252525' }} />
 
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Coil</div>
-          <ParamField label="Coil Selection" value={coilSelection} type="select"
-            options={['Auto Coil Select', 'Head 64', 'Spine 32', 'Body', 'Flex']}
-            onChange={v => setCoilSelection(v as string)} />
+          <ParamField label="Coil Selection" value={params.coilType ?? 'Body'} type="select"
+            options={['Head_64', 'Head_20', 'Spine_32', 'Body', 'Knee', 'Shoulder', 'Flex']}
+            onChange={v => setParam('coilType', v as typeof params.coilType)} />
           <ParamField label="Coil Combination" value={coilCombination} type="select"
             options={['Sum of Squares', 'Adaptive']}
             onChange={v => setCoilCombination(v as string)} />

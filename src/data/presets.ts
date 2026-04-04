@@ -27,6 +27,7 @@ export interface ProtocolParams {
   satBands: boolean
   // System
   coil: string
+  coilType: 'Head_64' | 'Head_20' | 'Spine_32' | 'Body' | 'Knee' | 'Shoulder' | 'Flex'
   ipatMode: 'Off' | 'GRAPPA' | 'CAIPIRINHA'
   ipatFactor: number
   gradientMode: 'Fast' | 'Normal' | 'Whisper'
@@ -63,7 +64,7 @@ const base: ProtocolParams = {
   fatSat: 'None', mt: false,
   matrixFreq: 256, matrixPhase: 256, fov: 300, phaseResolution: 100, bandwidth: 200, interpolation: false,
   orientation: 'Tra', phaseEncDir: 'A>>P', satBands: false,
-  coil: 'Body', ipatMode: 'Off', ipatFactor: 2, gradientMode: 'Normal', shim: 'Auto',
+  coil: 'Body', coilType: 'Body', ipatMode: 'Off', ipatFactor: 2, gradientMode: 'Normal', shim: 'Auto',
   ecgTrigger: false, respTrigger: 'Off', triggerDelay: 0, triggerWindow: 5,
   inlineADC: false, inlineMIP: false, inlineMPR: false, inlineSubtraction: false,
   turboFactor: 15, echoSpacing: 4.5, partialFourier: 'Off', bValues: [0, 1000],
@@ -78,7 +79,8 @@ export const presets: Preset[] = [
     category: '頭部',
     params: { ...base, TR: 5000, TE: 100, flipAngle: 90, slices: 24, sliceThickness: 5, sliceGap: 10,
       fatSat: 'None', matrixFreq: 256, matrixPhase: 256, fov: 230, bandwidth: 200,
-      orientation: 'Tra', phaseEncDir: 'A>>P', turboFactor: 15, echoSpacing: 4.5, fieldStrength: 1.5 },
+      orientation: 'Tra', phaseEncDir: 'A>>P', turboFactor: 15, echoSpacing: 4.5, fieldStrength: 1.5,
+      coilType: 'Head_64' },
   },
   {
     id: 'brain_flair',
@@ -87,7 +89,7 @@ export const presets: Preset[] = [
     category: '頭部',
     params: { ...base, TR: 9000, TE: 120, TI: 2200, flipAngle: 150, slices: 24, sliceThickness: 5,
       fatSat: 'None', fov: 230, bandwidth: 200, orientation: 'Tra', phaseEncDir: 'A>>P',
-      turboFactor: 20, echoSpacing: 4.8, partialFourier: '6/8', fieldStrength: 1.5 },
+      turboFactor: 20, echoSpacing: 4.8, partialFourier: '6/8', fieldStrength: 1.5, coilType: 'Head_64' },
   },
   {
     id: 'brain_dwi',
@@ -97,7 +99,7 @@ export const presets: Preset[] = [
     params: { ...base, TR: 5500, TE: 90, flipAngle: 90, slices: 24, sliceThickness: 5,
       matrixFreq: 128, matrixPhase: 128, fov: 230, bandwidth: 1500,
       orientation: 'Tra', phaseEncDir: 'A>>P', ipatMode: 'GRAPPA', ipatFactor: 2,
-      inlineADC: true, turboFactor: 1, bValues: [0, 1000], fieldStrength: 1.5 },
+      inlineADC: true, turboFactor: 1, bValues: [0, 1000], fieldStrength: 1.5, coilType: 'Head_64' },
   },
   {
     id: 'abdomen_t2_bh',
@@ -158,7 +160,7 @@ export const presets: Preset[] = [
     category: '脊椎',
     params: { ...base, TR: 3500, TE: 120, flipAngle: 150, slices: 1, sliceThickness: 3, sliceGap: 10,
       fatSat: 'None', matrixFreq: 320, matrixPhase: 320, fov: 280, bandwidth: 200,
-      orientation: 'Sag', phaseEncDir: 'H>>F', turboFactor: 25, echoSpacing: 4.2, fieldStrength: 1.5 },
+      orientation: 'Sag', phaseEncDir: 'H>>F', turboFactor: 25, echoSpacing: 4.2, fieldStrength: 1.5, coilType: 'Spine_32' },
   },
   {
     id: 'knee_pd',
@@ -167,7 +169,7 @@ export const presets: Preset[] = [
     category: '関節',
     params: { ...base, TR: 3000, TE: 35, flipAngle: 150, slices: 24, sliceThickness: 3, sliceGap: 0,
       fatSat: 'SPAIR', matrixFreq: 384, matrixPhase: 307, fov: 160, bandwidth: 200,
-      orientation: 'Sag', phaseEncDir: 'A>>P', turboFactor: 12, echoSpacing: 4.5, fieldStrength: 1.5 },
+      orientation: 'Sag', phaseEncDir: 'A>>P', turboFactor: 12, echoSpacing: 4.5, fieldStrength: 1.5, coilType: 'Knee' },
   },
   {
     id: 'cardiac_cine',
@@ -196,7 +198,7 @@ export const presets: Preset[] = [
     description: '3T高分解能等方性T2。脳神経・内耳・海馬の詳細評価。',
     category: '頭部',
     params: { ...base, TR: 3200, TE: 402, TI: 0, turboFactor: 282, fov: 230, matrixFreq: 256,
-      sliceThickness: 1, fieldStrength: 3.0 },
+      sliceThickness: 1, fieldStrength: 3.0, coilType: 'Head_64' },
   },
   {
     id: 'brain_tof_mra',
@@ -204,7 +206,7 @@ export const presets: Preset[] = [
     description: '3D Time-of-Flight MRA。Willis動脈輪・脳動脈瘤の評価。',
     category: '頭部',
     params: { ...base, TR: 25, TE: 4, flipAngle: 20, matrixFreq: 320, fov: 200, bandwidth: 120,
-      orientation: 'Tra', fieldStrength: 3.0 },
+      orientation: 'Tra', fieldStrength: 3.0, coilType: 'Head_64' },
   },
   {
     id: 'neck_dixon',
@@ -286,7 +288,7 @@ export const presets: Preset[] = [
     description: '3T頸椎quiet TSE。騒音低減モードで患者負担軽減。',
     category: '脊椎',
     params: { ...base, TR: 3500, TE: 100, flipAngle: 150, slices: 1, sliceThickness: 3,
-      matrixFreq: 320, fov: 240, gradientMode: 'Whisper', turboFactor: 25, fieldStrength: 3.0 },
+      matrixFreq: 320, fov: 240, gradientMode: 'Whisper', turboFactor: 25, fieldStrength: 3.0, coilType: 'Spine_32' },
   },
   {
     id: 'spine_l_qtse',
@@ -294,7 +296,7 @@ export const presets: Preset[] = [
     description: '3T腰椎quiet TSE。椎間板・脊柱管狭窄の標準評価。',
     category: '脊椎',
     params: { ...base, TR: 3500, TE: 100, slices: 1, sliceThickness: 3, matrixFreq: 320, fov: 280,
-      gradientMode: 'Whisper', turboFactor: 25, fieldStrength: 3.0 },
+      gradientMode: 'Whisper', turboFactor: 25, fieldStrength: 3.0, coilType: 'Spine_32' },
   },
   {
     id: 'spine_whole',
@@ -310,7 +312,7 @@ export const presets: Preset[] = [
     description: '3T膝関節PD脂肪抑制。半月板・軟骨・靱帯の高精細評価。',
     category: '関節',
     params: { ...base, TR: 3000, TE: 35, fatSat: 'SPAIR', matrixFreq: 384, fov: 160,
-      sliceThickness: 3, orientation: 'Sag', turboFactor: 12, fieldStrength: 3.0 },
+      sliceThickness: 3, orientation: 'Sag', turboFactor: 12, fieldStrength: 3.0, coilType: 'Knee' },
   },
   {
     id: 'shoulder_blade',
@@ -318,7 +320,7 @@ export const presets: Preset[] = [
     description: 'BLADE（放射状k-space）。動きに強く腱板・関節唇を詳細評価。',
     category: '関節',
     params: { ...base, TR: 4000, TE: 90, fatSat: 'SPAIR', matrixFreq: 320, fov: 180,
-      sliceThickness: 3, turboFactor: 15, fieldStrength: 3.0 },
+      sliceThickness: 3, turboFactor: 15, fieldStrength: 3.0, coilType: 'Shoulder' },
   },
   {
     id: 'hip_dixon',
