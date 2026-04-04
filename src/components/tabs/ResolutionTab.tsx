@@ -34,6 +34,13 @@ export function ResolutionTab() {
   const readPx = (params.fov / params.matrixFreq).toFixed(2)
   const phasePx = (params.fov / params.matrixPhase * (100 / params.phaseResolution)).toFixed(2)
   const cs = chemShift(params)
+  // BW変更時の SNR/CS 予測
+  const bwOptions = [100, 150, 200, 300, 400, 500, 800, 1000, 1500, 2000]
+  const bwImpact = bwOptions.map(bw => ({
+    bw,
+    snrRel: Math.round(Math.sqrt(params.bandwidth / bw) * 100),
+    cs: Math.round((params.fieldStrength === 3.0 ? 440 : 220) / bw * 10) / 10,
+  }))
 
   return (
     <div>
@@ -105,6 +112,68 @@ export function ResolutionTab() {
             {cs >= 3 && (
               <div className="mt-1 text-red-400">⚠ 化学シフトアーチファクトが顕著です。BW増加か脂肪抑制を推奨。</div>
             )}
+          </div>
+
+          {/* Bandwidth トレードオフ表 */}
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #1a1520' }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-semibold" style={{ color: '#e88b00' }}>BW トレードオフ</div>
+              <ParamField label="" value={params.bandwidth} type="number"
+                min={50} max={3000} step={50} unit="Hz/px"
+                onChange={v => setParam('bandwidth', v as number)} highlight={hl('bandwidth')} />
+            </div>
+            <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ color: '#4b5563', fontSize: '9px' }}>
+                  <th className="text-left py-0.5">BW</th>
+                  <th className="text-center py-0.5">SNR 相対</th>
+                  <th className="text-center py-0.5">化学シフト</th>
+                  <th className="text-left py-0.5 pl-2">適用</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bwImpact.map(({ bw, snrRel, cs: bwCs }) => {
+                  const isCurrent = bw === params.bandwidth
+                  return (
+                    <tr
+                      key={bw}
+                      className="cursor-pointer"
+                      style={{
+                        borderTop: '1px solid #111',
+                        background: isCurrent ? '#2a1200' : 'transparent',
+                      }}
+                      onClick={() => setParam('bandwidth', bw)}
+                    >
+                      <td className="py-0.5 font-mono" style={{ color: isCurrent ? '#e88b00' : '#9ca3af', fontSize: '9px' }}>
+                        {bw}
+                      </td>
+                      <td className="text-center py-0.5 font-mono" style={{
+                        color: snrRel >= 100 ? '#34d399' : snrRel >= 70 ? '#fbbf24' : '#f87171',
+                        fontSize: '9px',
+                      }}>
+                        {snrRel}%
+                      </td>
+                      <td className="text-center py-0.5 font-mono" style={{
+                        color: bwCs <= 1.5 ? '#34d399' : bwCs <= 3 ? '#fbbf24' : '#f87171',
+                        fontSize: '9px',
+                      }}>
+                        {bwCs}px
+                      </td>
+                      <td className="py-0.5 pl-2" style={{ color: '#4b5563', fontSize: '8px' }}>
+                        {bw <= 150 ? '高SNR・CS大' :
+                         bw <= 300 ? '脳・脊椎標準' :
+                         bw <= 500 ? '腹部・関節' :
+                         bw <= 1000 ? '腹部高速' : 'EPI・DWI'}
+                      </td>
+                      {isCurrent && <td>←</td>}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div className="mt-1.5" style={{ color: '#374151', fontSize: '9px' }}>
+              行をクリックで BW を変更。SNR∝1/√BW、CS=化学シフト量(px)
+            </div>
           </div>
         </div>
       )}
