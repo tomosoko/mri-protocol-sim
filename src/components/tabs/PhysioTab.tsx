@@ -28,7 +28,9 @@ export function PhysioTab() {
   const [respGate, setRespGate] = useState(false)
   const [gatingWindow, setGatingWindow] = useState(50)
 
-  const heartRate = params.TR > 0 ? Math.round(60000 / params.TR) : 0
+  const [manualHR, setManualHR] = useState(70)
+  const heartRate = params.ecgTrigger ? manualHR : (params.TR > 0 ? Math.round(60000 / params.TR) : 70)
+  const rrInterval = Math.round(60000 / heartRate)
 
   return (
     <div>
@@ -98,23 +100,64 @@ export function PhysioTab() {
               <ParamField label="Multiple RR" value={multipleRR} type="toggle"
                 onChange={v => setMultipleRR(v as boolean)} />
 
-              {/* Heart rate display */}
+              {/* Heart rate calculator */}
               <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-                <div className="flex justify-between items-center mb-2">
-                  <span style={{ color: '#9ca3af' }}>推定心拍数 (60000/TR):</span>
-                  <span className="font-mono font-bold text-green-400">{heartRate} bpm</span>
+                <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>Trigger Delay 計算機</div>
+                <div className="flex items-center gap-2 mb-3">
+                  <span style={{ color: '#9ca3af' }}>心拍数</span>
+                  <input
+                    type="range" min={40} max={120} value={manualHR}
+                    onChange={e => setManualHR(parseInt(e.target.value))}
+                    className="flex-1"
+                  />
+                  <span className="font-mono font-bold text-green-400 w-14 text-right">{manualHR} bpm</span>
                 </div>
-                <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>Trigger Delay の目安</div>
+                <div className="mb-2 pb-2" style={{ borderBottom: '1px solid #252525' }}>
+                  <div className="flex justify-between">
+                    <span style={{ color: '#6b7280' }}>RR 間隔</span>
+                    <span className="font-mono text-white">{rrInterval} ms</span>
+                  </div>
+                </div>
                 <table className="w-full">
+                  <thead>
+                    <tr style={{ color: '#4b5563', fontSize: '9px' }}>
+                      <th className="text-left py-0.5">対象</th>
+                      <th className="text-center py-0.5">推奨 Delay</th>
+                      <th className="text-left py-0.5 pl-1"></th>
+                    </tr>
+                  </thead>
                   <tbody style={{ color: '#9ca3af' }}>
-                    <tr><td className="py-0.5 text-white">心筋（収縮末期）</td><td>350-400 ms</td></tr>
-                    <tr><td className="py-0.5 text-white">冠動脈（拡張中期）</td><td>RR×70-80%</td></tr>
-                    <tr><td className="py-0.5 text-white">大動脈弁</td><td>100-200 ms（収縮期）</td></tr>
-                    <tr><td className="py-0.5 text-white">僧帽弁</td><td>700-800 ms（拡張期）</td></tr>
+                    {[
+                      { label: '左室 (シネ)', delay: Math.round(rrInterval * 0.4), note: '拡張末期' },
+                      { label: '冠動脈 右', delay: Math.round(rrInterval * 0.72), note: 'RR×72%' },
+                      { label: '冠動脈 左', delay: Math.round(rrInterval * 0.76), note: 'RR×76%' },
+                      { label: '大動脈弁', delay: 150, note: '収縮期' },
+                      { label: '心筋灌流', delay: 200, note: '収縮末期' },
+                      { label: '遅延造影', delay: Math.round(rrInterval * 0.85), note: 'RR×85%' },
+                    ].map(({ label, delay, note }) => (
+                      <tr key={label} style={{ borderTop: '1px solid #111' }}>
+                        <td className="py-0.5 text-white">{label}</td>
+                        <td className="text-center py-0.5">
+                          <button
+                            onClick={() => setParam('triggerDelay', delay)}
+                            className="font-mono px-1.5 py-0.5 rounded transition-colors"
+                            style={{
+                              background: params.triggerDelay === delay ? '#2a1200' : '#1a1a1a',
+                              color: params.triggerDelay === delay ? '#e88b00' : '#9ca3af',
+                              border: `1px solid ${params.triggerDelay === delay ? '#c47400' : '#252525'}`,
+                              fontSize: '9px',
+                            }}
+                          >
+                            {delay}ms
+                          </button>
+                        </td>
+                        <td className="pl-1" style={{ color: '#4b5563', fontSize: '8px' }}>{note}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-                <div className="mt-1" style={{ color: '#6b7280' }}>
-                  ※ 3TではvECG（ベクターECG）を使用するとR波検出精度が大幅に向上
+                <div className="mt-2" style={{ color: '#6b7280', fontSize: '9px' }}>
+                  ※ 3T では vECG を使用するとR波検出精度が大幅に向上
                 </div>
               </div>
             </>
