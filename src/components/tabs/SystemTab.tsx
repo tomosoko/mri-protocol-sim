@@ -3,6 +3,78 @@ import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcSARLevel } from '../../store/calculators'
 
+// ── 傾斜磁場パフォーマンスモニター ────────────────────────────────────────────
+function GradientMonitor() {
+  const { params } = useProtocolStore()
+
+  // Gradient mode specs (approximate Siemens MAGNETOM values)
+  const GRAD_SPECS: Record<string, { maxAmp: number; slewRate: number; name: string }> = {
+    Normal:  { maxAmp: 26, slewRate: 100, name: 'Normal (省電力)' },
+    Fast:    { maxAmp: 40, slewRate: 170, name: 'Fast (標準)' },
+    Ultrafast: { maxAmp: 45, slewRate: 200, name: 'Ultra (高性能)' },
+  }
+  const spec = GRAD_SPECS[params.gradientMode] ?? GRAD_SPECS.Fast
+
+  const isDWI = params.bValues.length >= 2 && params.turboFactor <= 2
+  const isEPI = isDWI
+  const isTSE = params.turboFactor > 4
+
+  // Gradient duty cycle estimation (rough)
+  // EPI: high duty cycle (~80%); TSE: medium (~40%); SE: low (~20%)
+  const dutyCycle = isEPI ? 78 : isTSE ? 42 : 20
+
+  // Readout gradient amplitude needed (proportional to bandwidth/FOV)
+  const readGradAmp = Math.round(params.bandwidth / params.fov * 100 * 10) / 10
+
+  // Phase gradient (proportional to matrix/FOV)
+  const phaseGradAmp = Math.round(params.matrixPhase / params.fov * 1000 * 10) / 10
+
+  // Slew rate demand: bandwidth * matrix / 1000 (arbitrary units)
+  const slewDemand = Math.round(params.bandwidth * (params.matrixFreq / 256) / spec.slewRate * 100)
+  const ampDemand = Math.min(100, Math.round(Math.max(readGradAmp, phaseGradAmp) / spec.maxAmp * 100))
+
+  const dcColor = dutyCycle > 60 ? '#f87171' : dutyCycle > 40 ? '#fbbf24' : '#34d399'
+  const slewColor = slewDemand > 85 ? '#f87171' : slewDemand > 60 ? '#fbbf24' : '#34d399'
+  const ampColor = ampDemand > 85 ? '#f87171' : ampDemand > 60 ? '#fbbf24' : '#34d399'
+
+  const bars: { label: string; value: number; max: number; color: string; unit: string }[] = [
+    { label: 'Duty Cycle', value: dutyCycle, max: 100, color: dcColor, unit: '%' },
+    { label: 'Slew Rate 使用率', value: slewDemand, max: 100, color: slewColor, unit: '%' },
+    { label: 'Amplitude 使用率', value: ampDemand, max: 100, color: ampColor, unit: '%' },
+  ]
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0e1218', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#60a5fa', fontSize: '9px', letterSpacing: '0.06em' }}>
+          GRADIENT PERFORMANCE
+        </span>
+        <span style={{ color: '#4b5563', fontSize: '8px' }}>{spec.name}</span>
+      </div>
+      <div className="space-y-1">
+        {bars.map(b => (
+          <div key={b.label}>
+            <div className="flex items-center justify-between mb-0.5" style={{ fontSize: '8px' }}>
+              <span style={{ color: '#6b7280' }}>{b.label}</span>
+              <span className="font-mono" style={{ color: b.color }}>{b.value}{b.unit}</span>
+            </div>
+            <div className="h-1.5 rounded overflow-hidden" style={{ background: '#1e1e1e' }}>
+              <div className="h-full rounded transition-all"
+                style={{ width: `${Math.min(b.value, 100)}%`, background: b.color, opacity: 0.85 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1.5 pt-1.5 flex flex-wrap gap-x-3 gap-y-0.5" style={{ borderTop: '1px solid #1a1a1a', fontSize: '7px', color: '#374151' }}>
+        <span>MaxAmp: {spec.maxAmp}mT/m</span>
+        <span>SlewRate: {spec.slewRate}T/m/s</span>
+        {isEPI && <span style={{ color: '#f87171' }}>EPI: 高デューティサイクル</span>}
+        {dutyCycle > 60 && <span style={{ color: '#f87171' }}>⚠ 傾斜磁場過熱リスク</span>}
+      </div>
+    </div>
+  )
+}
+
 // ── g-factor SNR 損失チャート ─────────────────────────────────────────────────
 function GFactorChart() {
   const { params } = useProtocolStore()
@@ -229,6 +301,9 @@ export function SystemTab() {
               <div><span className="text-white">Whisper: </span>低騒音(約-10dB)・低PNS → 小児/聴覚過敏・鎮静</div>
             </div>
           </div>
+
+          {/* Gradient Performance Monitor */}
+          <GradientMonitor />
 
           {/* SAR Breakdown */}
           <SARBreakdown />

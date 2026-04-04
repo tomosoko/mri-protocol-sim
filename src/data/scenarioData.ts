@@ -21,6 +21,82 @@ export interface Scenario {
 }
 
 export const scenarios: Scenario[] = [
+  // ─── 造影剤アレルギー・腎機能障害 ──────────────────────────────────────
+  {
+    id: 'contrast_allergy_01',
+    title: '造影剤アレルギー既往患者の肝臓MRI',
+    category: '造影',
+    difficulty: 2,
+    patientInfo: '58歳 女性。HCC精査目的。過去にGd造影剤投与後にじんましん（軽度）の既往あり。腎機能正常(eGFR=78)。',
+    currentPresetId: 'liver_eob',
+    question: 'この患者に造影MRIを行う場合、最も適切な対応はどれですか？',
+    options: [
+      {
+        label: '前投薬（ステロイド+抗ヒスタミン）を行い造影剤を投与する',
+        paramChanges: {},
+        isCorrect: true,
+        explanation: '軽度アレルギー既往の場合、前投薬（メチルプレドニゾロン32mg×2回 or ヒドロコルチゾン200mg + 抗ヒスタミン剤）を行えば造影剤投与は可能です。放射線科医・主治医との確認が必要。緊急蘇生セット準備も必須。',
+      },
+      {
+        label: '造影剤を使わずにb値追加のDWIのみで評価する',
+        paramChanges: { inlineADC: true },
+        isCorrect: false,
+        explanation: 'DWIのみでは肝臓の動脈相・門脈相・遅延相の血流パターンが評価できず、HCCの確診は困難です。非造影評価の限界を理解した上で主治医に相談が必要。',
+      },
+      {
+        label: '造影剤を使わずに撮像を終了する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: '前投薬で対応可能なケースを無造影で終了するのは診断能を著しく損ないます。アレルギー既往があっても前投薬と緊急対応体制を整えれば安全に実施可能な場合があります。',
+      },
+      {
+        label: 'Gd製剤を半量にして造影する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: '造影剤を半量にしても前投薬なしではアレルギーリスクは変わりません。また用量を下げると造影効果が不十分になります。適切な前投薬と通常量での投与が推奨されます。',
+      },
+    ],
+    detailedExplanation: '造影剤アレルギー既往患者の管理: 軽度既往（じんましん、掻痒感）では前投薬プロトコルで対応可能。重度既往（アナフィラキシーショック）の場合は個別のリスク・ベネフィット評価が必要。eGFRが30未満の慢性腎臓病ではGSN（腎性全身性線維症）リスクのあるGd製剤は禁忌。環状構造のマクロ環型Gd（ガドテリック酸など）はリニア型より安全性が高い。',
+    relatedParams: ['inlineADC'],
+  },
+  {
+    id: 'renal_failure_01',
+    title: '腎不全患者の腹部MRI',
+    category: '造影',
+    difficulty: 3,
+    patientInfo: '72歳 男性。腎不全（eGFR=22）。膵臓腫瘤精査目的。Gd造影剤はGSNリスクで禁忌。',
+    currentPresetId: 'mrcp_3d',
+    question: 'Gd造影剤を使用できないこの患者で膵臓腫瘤を最大限評価するために何を追加すべきですか？',
+    options: [
+      {
+        label: 'DWIを追加してADCマップで腫瘍評価する',
+        paramChanges: { inlineADC: true },
+        isCorrect: true,
+        explanation: 'DWI（b=0, 400, 800）＋ADCマップは造影剤不要の腫瘍評価法です。膵腺癌はADC低値（拡散制限）を示し、嚢胞性腫瘍はADC高値を示します。MRCP+DWIの組み合わせは腎不全患者の標準的アプローチです。',
+      },
+      {
+        label: 'Gd造影剤を少量（半量）投与する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: 'eGFR<30の重症腎不全ではリニア型Gd製剤は禁忌です。「少量なら安全」という根拠はなく、GSN発症リスクが依然存在します。マクロ環型でも慎重な判断が必要です。',
+      },
+      {
+        label: 'MRCPのTEをさらに延長してT2コントラストを強調する',
+        paramChanges: { TE: 800 },
+        isCorrect: false,
+        explanation: 'MRCP の TE延長は膵管・胆管の液体コントラストを改善しますが、固形腫瘍の描出には限界があります。DWI追加の方が腫瘍評価の補完として有効です。',
+      },
+      {
+        label: '造影CTに変更する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: 'ヨード造影剤も腎機能が低い患者では造影剤腎症リスクがあります。また電離放射線の被爆も伴います。非造影MRIにDWIを追加する方向で最大限評価するのが適切です。',
+      },
+    ],
+    detailedExplanation: '腎不全患者の造影MRI: eGFR<30mL/min/1.73m²ではリニア型Gd製剤（Gd-DTPA, Gd-EOB-DTPA等）は腎性全身性線維症（NSF/GSD）リスクで禁忌。マクロ環型（ガドテリック酸, ガドブトロール等）は相対的に安全だが慎重な適用が必要。非造影で最大限の情報を得るにはDWI・MRCP・T1 Dixon・T2 HASSTEの組み合わせが有効。透析患者では透析直後にマクロ環型を使用すれば許容される場合もある（施設ポリシーに従う）。',
+    relatedParams: ['inlineADC', 'TE', 'bValues'],
+  },
+
   // ─── 急患 ───────────────────────────────────────────────
   {
     id: 'emergency_01',

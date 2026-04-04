@@ -106,6 +106,7 @@ export const protocolTree: BodyPart[] = [
           {
             id: 'pituitary_dot',
             label: 'pituitary_Dot',
+            presetId: 'pituitary_t1',
             columns: [
               {
                 label: 'adult',
@@ -130,6 +131,31 @@ export const protocolTree: BodyPart[] = [
                   { name: 't1_tse_sag' },
                   { name: 'CE_Injection', isCE: true },
                   { name: 't1_tse_cor_dyn' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'inner_ear',
+        label: 'Inner Ear',
+        variants: [
+          {
+            id: 'inner_ear_ciss_routine',
+            label: 'CISS_Routine',
+            presetId: 'inner_ear_ciss',
+            columns: [
+              {
+                label: '3D CISS',
+                sequences: [
+                  { name: 'AAHScout' },
+                  { name: 'AutoAlign Scout' },
+                  { name: 'ciss_3d_0.4mm_tra', duration: '5:30', reason: '内耳道・蝸牛・半規管 高分解能描出' },
+                  { name: 't2_tse_tra', duration: '2:30', reason: '解剖全体像' },
+                  { name: 't1_tse_tra', duration: '2:00', reason: '出血・脂肪腫評価' },
+                  { name: 'CE_Injection', isCE: true },
+                  { name: 't1_tse_tra_ce', duration: '2:00', isOptional: true, isCE: true, reason: '造影: 聴神経腫瘍' },
                 ],
               },
             ],
@@ -1143,6 +1169,109 @@ export const protocolTree: BodyPart[] = [
                   { name: 'pd_tse_spair_cor', duration: '4:30', reason: '外側靭帯・冠状断' },
                   { name: 'pd_tse_spair_tra', duration: '3:30', reason: '腓骨筋腱・横断' },
                   { name: 't1_tse_cor', duration: '3:00', reason: '骨髄評価' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // ── 心臓 ────────────────────────────────────────────────────────────────
+  {
+    id: 'cardiac',
+    label: 'Cardiac',
+    groups: [
+      {
+        id: 'cardiac_function',
+        label: 'Function',
+        variants: [
+          {
+            id: 'cardiac_cine_routine',
+            label: 'cine_routine',
+            presetId: 'cardiac_cine',
+            columns: [
+              {
+                label: 'Cine Protocol',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'localizer_haste_tra', duration: '0:30', reason: 'Cardiac localizer — breath-hold HASTE' },
+                  { name: 'cine_trufi_sax_survey', duration: '1:30', reason: '短軸断サーベイ: 心軸確認' },
+                  { name: 'cine_trufi_4ch', duration: '0:25', reason: '4腔断: 左右心房・心室' },
+                  { name: 'cine_trufi_2ch', duration: '0:25', reason: '2腔断: 左室壁運動' },
+                  { name: 'cine_trufi_3ch', duration: '0:25', reason: '3腔断: LVOT評価' },
+                  { name: 'cine_trufi_sax_stack', duration: '6:00', reason: '短軸スタック: EF・心筋質量定量' },
+                  { name: 'cine_trufi_sax_base', duration: '0:25', reason: '基部: MV評価' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'cardiac_viability',
+        label: 'Viability',
+        variants: [
+          {
+            id: 'cardiac_lge_routine',
+            label: 'LGE_routine',
+            presetId: 'cardiac_lge',
+            columns: [
+              {
+                label: 'LGE Protocol',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'localizer_haste_tra', duration: '0:30', reason: 'Cardiac localizer' },
+                  { name: 'cine_trufi_4ch', duration: '0:25', reason: '4腔断: 基準位置確認' },
+                  { name: 'CE_Injection', isCE: true, reason: 'Gd-DTPA 0.2mmol/kg IV' },
+                  { name: 'TI_Scout_10min', isTimer: true, duration: '10:00', reason: 'Gd循環待機' },
+                  { name: 'TI_scout_mag_fl2d', duration: '0:30', reason: 'Null TIスカウト (Look-Locker)' },
+                  { name: 'lge_psir_sax_stack', duration: '5:00', reason: 'PSIR LGE SAX: 梗塞・瘢痕描出' },
+                  { name: 'lge_psir_4ch', duration: '0:30', reason: 'PSIR LGE 4腔断' },
+                  { name: 'lge_psir_2ch', duration: '0:30', reason: 'PSIR LGE 2腔断' },
+                  { name: 'T1_mapping_moll_sax', duration: '1:00', isOptional: true, reason: 'T1 Mapping (MOLLI): ECV定量' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'cardiac_t2_stir_routine',
+            label: 'T2_STIR (Oedema)',
+            presetId: 'cardiac_t2_stir',
+            columns: [
+              {
+                label: 'Oedema Protocol',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'localizer_haste_tra', duration: '0:30' },
+                  { name: 'cine_trufi_sax_survey', duration: '1:30', reason: '心軸確認' },
+                  { name: 't2_stir_tse_sax', duration: '3:00', reason: 'T2 STIR SAX: 急性心筋炎・浮腫' },
+                  { name: 't2_stir_tse_4ch', duration: '1:30', reason: 'T2 STIR 4腔断' },
+                  { name: 'T2_mapping_t2_prep_sax', duration: '2:00', isOptional: true, reason: 'T2 Mapping: 定量的浮腫評価' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'cardiac_flow',
+        label: 'Flow / Valve',
+        variants: [
+          {
+            id: 'cardiac_pcmri',
+            label: 'PC-MRI',
+            columns: [
+              {
+                label: 'Flow Protocol',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'cine_trufi_3ch', duration: '0:25', reason: '大動脈弁: LVOT解剖確認' },
+                  { name: 'pc_fl2d_aorta_val', duration: '2:00', reason: 'PC-MRI 大動脈弁: 流速・逆流量' },
+                  { name: 'pc_fl2d_mval', duration: '2:00', reason: 'PC-MRI 僧帽弁: MR定量' },
+                  { name: 'pc_fl2d_mpa', duration: '2:00', reason: 'PC-MRI 主肺動脈: Qp/Qs' },
+                  { name: 'pc_fl2d_asc_aorta', duration: '2:00', isOptional: true, reason: '上行大動脈: 大動脈弁逆流' },
                 ],
               },
             ],

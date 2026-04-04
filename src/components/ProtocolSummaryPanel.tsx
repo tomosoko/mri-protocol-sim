@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { calcScanTime, calcSARLevel, calcSNR, voxelStr, chemShift, identifySequence, sarLevel, calcT2Blur, ernstAngle } from '../store/calculators'
 import { validateProtocol } from '../utils/protocolValidator'
@@ -70,6 +71,70 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+// Radar/spider chart for quality dimensions
+function RadarChart({ dims }: { dims: ScoreDimension[] }) {
+  const N = dims.length
+  const cx = 80, cy = 76, R = 62
+  const angleStep = (2 * Math.PI) / N
+  const startAngle = -Math.PI / 2
+
+  const point = (i: number, r: number) => {
+    const a = startAngle + i * angleStep
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
+  }
+
+  // Grid rings at 25%, 50%, 75%, 100%
+  const rings = [25, 50, 75, 100]
+  const ringPaths = rings.map(pct => {
+    const pts = Array.from({ length: N }, (_, i) => point(i, R * pct / 100))
+    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') + 'Z'
+  })
+
+  // Data polygon
+  const dataPts = dims.map((d, i) => point(i, R * d.score / 100))
+  const dataPath = dataPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ') + 'Z'
+
+  // Spoke lines
+  const spokes = Array.from({ length: N }, (_, i) => {
+    const outer = point(i, R)
+    return { x1: cx, y1: cy, x2: outer.x, y2: outer.y }
+  })
+
+  return (
+    <svg width={160} height={152} style={{ display: 'block', margin: '0 auto' }}>
+      {/* Grid rings */}
+      {ringPaths.map((d, i) => (
+        <path key={i} d={d} fill="none" stroke="#1e1e1e" strokeWidth={1} />
+      ))}
+      {/* 50% ring highlight */}
+      <path d={ringPaths[1]} fill="none" stroke="#2a2a2a" strokeWidth={1} />
+      {/* Spokes */}
+      {spokes.map((s, i) => (
+        <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke="#252525" strokeWidth={1} />
+      ))}
+      {/* Data polygon */}
+      <path d={dataPath} fill="#e88b0018" stroke="#e88b00" strokeWidth={1.5} opacity={0.9} />
+      {/* Data points */}
+      {dataPts.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={3} fill={dims[i].color} opacity={0.9} />
+      ))}
+      {/* Labels */}
+      {dims.map((d, i) => {
+        const lp = point(i, R + 12)
+        return (
+          <g key={i}>
+            <text x={lp.x} y={lp.y + 3} textAnchor="middle" fontSize={8} fill={d.color} fontFamily="monospace">
+              {d.label}
+            </text>
+          </g>
+        )
+      })}
+      {/* Center score */}
+      <text x={cx} y={cy + 4} textAnchor="middle" fontSize={9} fill="#6b7280">QS</text>
+    </svg>
+  )
+}
+
 function ScoreCard({ params }: { params: ProtocolParams }) {
   const dims = calcProtocolScore(params)
   const avgScore = Math.round(dims.reduce((s, d) => s + d.score, 0) / dims.length)
@@ -81,22 +146,29 @@ function ScoreCard({ params }: { params: ProtocolParams }) {
       <div className="flex items-center justify-between mb-2">
         <div className="font-semibold" style={{ color: '#e88b00', fontSize: '10px' }}>Protocol Quality Score</div>
         <div className="flex items-center gap-1">
-          <span className="font-mono font-bold" style={{ color: overallColor, fontSize: '18px' }}>{grade}</span>
-          <span style={{ color: overallColor, fontSize: '10px' }}>{avgScore}pts</span>
+          <span className="font-mono font-bold" style={{ color: overallColor, fontSize: '20px' }}>{grade}</span>
+          <span style={{ color: overallColor, fontSize: '11px' }}>{avgScore}pts</span>
         </div>
       </div>
-      {dims.map(d => (
-        <div key={d.label} className="mb-1">
-          <div className="flex justify-between mb-0.5" style={{ fontSize: '9px' }}>
-            <span style={{ color: '#6b7280' }}>{d.label}</span>
-            <span style={{ color: d.color, fontFamily: 'monospace' }}>{d.score} ({d.note})</span>
+
+      {/* Radar chart */}
+      <RadarChart dims={dims} />
+
+      {/* Score bars */}
+      <div className="mt-2">
+        {dims.map(d => (
+          <div key={d.label} className="mb-1">
+            <div className="flex justify-between mb-0.5" style={{ fontSize: '9px' }}>
+              <span style={{ color: '#6b7280' }}>{d.label}</span>
+              <span style={{ color: d.color, fontFamily: 'monospace' }}>{d.score} ({d.note})</span>
+            </div>
+            <div className="h-1 rounded overflow-hidden" style={{ background: '#1a1a1a' }}>
+              <div className="h-full rounded transition-all"
+                style={{ width: `${d.score}%`, background: d.color }} />
+            </div>
           </div>
-          <div className="h-1 rounded overflow-hidden" style={{ background: '#1a1a1a' }}>
-            <div className="h-full rounded transition-all"
-              style={{ width: `${d.score}%`, background: d.color }} />
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -162,8 +234,60 @@ function SequenceBestPractices({ seqType, params }: { seqType: string; params: P
   )
 }
 
+// パラメータ変更履歴の表示
+function ChangeHistoryPanel() {
+  const { params, baseline } = useProtocolStore()
+  const changes: { key: string; from: string; to: string }[] = []
+
+  const display = (v: unknown): string => {
+    if (Array.isArray(v)) return v.join(', ')
+    if (typeof v === 'boolean') return v ? 'ON' : 'OFF'
+    return String(v)
+  }
+
+  const LABELS: Partial<Record<keyof typeof params, string>> = {
+    TR: 'TR', TE: 'TE', TI: 'TI', flipAngle: 'FA',
+    turboFactor: 'ETL', echoSpacing: 'ES', bandwidth: 'BW',
+    matrixFreq: 'Matrix/freq', matrixPhase: 'Matrix/phase',
+    fov: 'FOV', sliceThickness: 'ST', sliceGap: 'Gap',
+    averages: 'Avg', ipatFactor: 'iPAT', fatSat: 'FatSat',
+    fieldStrength: 'B0', coilType: 'Coil', phaseEncDir: 'PE dir',
+    respTrigger: 'Resp', partialFourier: 'PF', phaseResolution: 'PhRes',
+  }
+
+  for (const [k, label] of Object.entries(LABELS)) {
+    const key = k as keyof typeof params
+    const bVal = baseline[key]
+    const cVal = params[key]
+    if (JSON.stringify(bVal) !== JSON.stringify(cVal)) {
+      changes.push({ key: label!, from: display(bVal), to: display(cVal) })
+    }
+  }
+
+  if (changes.length === 0) return null
+
+  return (
+    <div className="p-2 rounded mb-3" style={{ background: '#0e1218', border: '1px solid #1a2030' }}>
+      <div className="font-semibold mb-1.5" style={{ color: '#60a5fa', fontSize: '9px', letterSpacing: '0.06em' }}>
+        BASELINE からの変更 ({changes.length}件)
+      </div>
+      <div className="space-y-0.5">
+        {changes.map(c => (
+          <div key={c.key} className="flex items-center gap-1" style={{ fontSize: '9px' }}>
+            <span className="w-16 shrink-0 font-mono" style={{ color: '#6b7280' }}>{c.key}</span>
+            <span className="font-mono" style={{ color: '#4b5563' }}>{c.from}</span>
+            <span style={{ color: '#374151' }}>→</span>
+            <span className="font-mono font-semibold" style={{ color: '#fbbf24' }}>{c.to}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function ProtocolSummaryPanel() {
   const { params, activePresetId } = useProtocolStore()
+  const [copied, setCopied] = useState(false)
   const preset = presets.find(p => p.id === activePresetId)
   const scanTime = calcScanTime(params)
   const sarPct = calcSARLevel(params)
@@ -241,6 +365,8 @@ export function ProtocolSummaryPanel() {
 
   const handleCopy = () => {
     navigator.clipboard.writeText(exportText()).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
@@ -254,9 +380,9 @@ export function ProtocolSummaryPanel() {
         <button
           onClick={handleCopy}
           className="px-2 py-1 rounded text-xs transition-colors"
-          style={{ background: '#1a1200', color: '#e88b00', border: '1px solid #713f12' }}
+          style={{ background: copied ? '#14432a' : '#1a1200', color: copied ? '#34d399' : '#e88b00', border: `1px solid ${copied ? '#166534' : '#713f12'}` }}
         >
-          コピー
+          {copied ? '✓ コピー済' : 'コピー'}
         </button>
       </div>
 
@@ -264,6 +390,9 @@ export function ProtocolSummaryPanel() {
 
         {/* Quality Score */}
         <ScoreCard params={params} />
+
+        {/* Change history vs baseline */}
+        <ChangeHistoryPanel />
 
         {/* Preset / Sequence */}
         <div className="p-2 rounded mb-3" style={{ background: '#111', border: '1px solid #252525' }}>

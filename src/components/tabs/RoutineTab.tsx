@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField, SectionHeader as SH } from '../ParamField'
-import { TISSUES } from '../../store/calculators'
+import { TISSUES, calcScanTime } from '../../store/calculators'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
 function ErnstAngleIndicator() {
@@ -170,6 +170,77 @@ function SignalCurveChart() {
         {tissues.map(t => (
           <span key={t.label} style={{ color: t.color }}>● {t.label}</span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── スキャン時間分解 ─────────────────────────────────────────────────────────
+function ScanTimeBreakdown() {
+  const { params } = useProtocolStore()
+  const totalTime = calcScanTime(params)
+
+  const ipatDiv = params.ipatMode !== 'Off' ? params.ipatFactor : 1
+  const pfFactor = params.partialFourier === 'Off' ? 1.0
+    : params.partialFourier === '7/8' ? 0.875
+    : params.partialFourier === '6/8' ? 0.75
+    : params.partialFourier === '5/8' ? 0.625
+    : 0.5
+
+  // Baseline (no iPAT, no PF, no resp)
+  const basePhaseLines = Math.round(params.matrixPhase * (params.phaseResolution / 100))
+  const baseTime = Math.round((params.TR * basePhaseLines * params.averages) / params.turboFactor / 1000)
+  const timeWithPF = Math.round(baseTime * pfFactor)
+  const timeWithIPAT = Math.round(timeWithPF / ipatDiv)
+  const timeWithResp = params.respTrigger === 'RT' || params.respTrigger === 'PACE'
+    ? Math.round(timeWithIPAT * 1.4) : timeWithIPAT
+
+  const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s/60)}m${s%60>0 ? String(s%60).padStart(2,'0')+'s' : ''}`
+
+  const stages: { label: string; value: number; savings: number; color: string }[] = [
+    { label: 'Base (ETL×TR×Avg)', value: baseTime, savings: 0, color: '#4b5563' },
+    { label: `PF (${params.partialFourier})`, value: timeWithPF, savings: baseTime - timeWithPF, color: '#60a5fa' },
+    { label: `iPAT (${params.ipatMode === 'Off' ? 'Off' : `×${params.ipatFactor}`})`, value: timeWithIPAT, savings: timeWithPF - timeWithIPAT, color: '#34d399' },
+    { label: `Resp (${params.respTrigger})`, value: timeWithResp, savings: timeWithIPAT - timeWithResp, color: params.respTrigger !== 'Off' ? '#f87171' : '#374151' },
+  ]
+
+  const maxVal = Math.max(baseTime, 1)
+  const W = 260
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-semibold" style={{ color: '#4b5563' }}>スキャン時間 内訳</span>
+        <span className="font-mono font-bold" style={{ color: '#e88b00', fontSize: '11px' }}>{fmt(totalTime)}</span>
+      </div>
+      <div className="space-y-1">
+        {stages.map((s, i) => (
+          <div key={i}>
+            <div className="flex items-center justify-between mb-0.5" style={{ fontSize: '8px' }}>
+              <span style={{ color: '#6b7280' }}>{s.label}</span>
+              <span className="font-mono" style={{ color: s.color }}>{fmt(s.value)}</span>
+            </div>
+            <div style={{ width: W, height: 6, background: '#111', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{
+                width: `${(s.value / maxVal) * 100}%`,
+                height: '100%',
+                background: s.color,
+                borderRadius: 3,
+                opacity: 0.8,
+              }} />
+            </div>
+            {s.savings > 0 && (
+              <div style={{ fontSize: '7px', color: '#34d399', textAlign: 'right' }}>
+                −{fmt(s.savings)} 短縮
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-1.5 pt-1.5 flex items-center gap-2" style={{ borderTop: '1px solid #1a1a1a', fontSize: '8px', color: '#374151' }}>
+        <span>AVG×{params.averages}</span>
+        <span>ETL×{params.turboFactor}</span>
+        <span>Phase {params.matrixPhase}×{params.phaseResolution}%</span>
       </div>
     </div>
   )
@@ -445,6 +516,8 @@ export function RoutineTab() {
 
       {activeRoutineTab === 'Assistant' && (
         <div className="space-y-0">
+          <ScanTimeBreakdown />
+
           <SH label="SAR Control" />
           <ParamField label="SAR Assistant" hintKey="SAR" value={params.sarAssistant} type="select"
             options={['Off', 'Normal', 'Advanced']}

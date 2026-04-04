@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown } from 'lucide-react'
 import { useProtocolStore } from '../store/protocolStore'
 import { protocolTree } from '../data/protocols'
 import { presets } from '../data/presets'
+import { calcSNR, calcSARLevel, calcScanTime, identifySequence } from '../store/calculators'
 
 // 全ボディパーツを最初から展開
 const initExpanded = (): Record<string, boolean> => {
@@ -67,19 +68,34 @@ export function ProtocolTree() {
           {searchResults.length === 0 && (
             <div className="px-2 py-2 text-xs" style={{ color: '#4b5563' }}>見つかりません</div>
           )}
-          {searchResults.map(p => (
-            <div
-              key={p.id}
-              className="px-2 py-1 cursor-pointer"
-              style={{ borderBottom: '1px solid #111' }}
-              onClick={() => { loadPreset(p.id); setSearch('') }}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1c1c1c')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
-            >
-              <div style={{ color: '#e88b00', fontSize: '10px', fontWeight: 600 }}>{p.label}</div>
-              <div style={{ color: '#4b5563', fontSize: '9px' }}>{p.category}</div>
-            </div>
-          ))}
+          {searchResults.map(p => {
+            const snr = calcSNR(p.params)
+            const sar = calcSARLevel(p.params)
+            const time = calcScanTime(p.params)
+            const seqId = identifySequence(p.params)
+            const fmtTime = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s/60)}m${s%60 > 0 ? String(s%60).padStart(2,'0')+'s' : ''}`
+            return (
+              <div
+                key={p.id}
+                className="px-2 py-1.5 cursor-pointer"
+                style={{ borderBottom: '1px solid #111' }}
+                onClick={() => { loadPreset(p.id); setSearch('') }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1c1c1c')}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
+              >
+                <div className="flex items-center gap-1 mb-0.5">
+                  <span className="font-semibold" style={{ color: '#e88b00', fontSize: '10px' }}>{p.label}</span>
+                  <span className="px-1 rounded" style={{ background: seqId.color + '18', color: seqId.color, fontSize: '8px', border: `1px solid ${seqId.color}40` }}>{seqId.type}</span>
+                </div>
+                <div className="flex gap-2" style={{ fontSize: '9px' }}>
+                  <span style={{ color: snr > 60 ? '#34d399' : snr > 30 ? '#fbbf24' : '#f87171' }}>SNR {snr}</span>
+                  <span style={{ color: sar < 40 ? '#34d399' : sar < 70 ? '#fbbf24' : '#f87171' }}>SAR {sar}%</span>
+                  <span style={{ color: '#6b7280' }}>{fmtTime(time)}</span>
+                  <span style={{ color: '#374151' }}>{p.params.fieldStrength}T</span>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

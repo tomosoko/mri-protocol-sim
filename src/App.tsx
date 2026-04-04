@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProtocolStore } from './store/protocolStore'
 import { StatusBar } from './components/StatusBar'
 import { ProtocolTree } from './components/ProtocolTree'
@@ -46,12 +46,46 @@ const TAB_PARAMS: Record<string, string[]> = {
 }
 
 export default function App() {
-  const { activeTab, setActiveTab, activePresetId, params } = useProtocolStore()
+  const { activeTab, setActiveTab, activePresetId, params, undo, redo } = useProtocolStore()
   const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | 'summary' | 'clinical' | 'whatif' | 'optimizer' | 'export' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
   const allIssues = validateProtocol(params)
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Ignore when typing in inputs
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return
+      // Alt+1-8: switch tabs
+      if (e.altKey && e.key >= '1' && e.key <= '8') {
+        const idx = parseInt(e.key) - 1
+        if (idx < TABS.length) { e.preventDefault(); setActiveTab(TABS[idx]) }
+      }
+      // Escape: close right panel
+      if (e.key === 'Escape') { e.preventDefault(); setRightPanel(null) }
+      // Alt+Q: toggle quiz
+      if (e.altKey && e.key === 'q') { e.preventDefault(); setQuizMode(m => !m) }
+      // Alt+T: tissue contrast
+      if (e.altKey && e.key === 't') { e.preventDefault(); setRightPanel(p => p === 'tissue' ? null : 'tissue') }
+      // Alt+V: validate
+      if (e.altKey && e.key === 'v') { e.preventDefault(); setRightPanel(p => p === 'validate' ? null : 'validate') }
+      // Alt+O: optimizer
+      if (e.altKey && e.key === 'o') { e.preventDefault(); setRightPanel(p => p === 'optimizer' ? null : 'optimizer') }
+      // Alt+E: export
+      if (e.altKey && e.key === 'e') { e.preventDefault(); setRightPanel(p => p === 'export' ? null : 'export') }
+      // Alt+K: k-space
+      if (e.altKey && e.key === 'k') { e.preventDefault(); setRightPanel(p => p === 'kspace' ? null : 'kspace') }
+      // Cmd/Ctrl+Z: undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo() }
+      // Cmd/Ctrl+Shift+Z or Ctrl+Y: redo
+      if (((e.metaKey || e.ctrlKey) && e.key === 'z' && e.shiftKey) ||
+          ((e.ctrlKey) && e.key === 'y')) { e.preventDefault(); redo() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setActiveTab, undo, redo])
 
   // タブごとの最大severity ('error' | 'warning' | null)
   const tabSeverity = (tab: string): 'error' | 'warning' | null => {
@@ -76,6 +110,24 @@ export default function App() {
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
           </div>
           <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>syngo MR — Protocol Simulator</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={undo}
+              title="Undo (⌘Z)"
+              className="px-1.5 py-0.5 rounded text-xs transition-colors"
+              style={{ background: '#1a1a1a', color: '#4b5563', border: '1px solid #2a2a2a', fontSize: '10px' }}
+            >↩</button>
+            <button
+              onClick={redo}
+              title="Redo (⌘⇧Z)"
+              className="px-1.5 py-0.5 rounded text-xs transition-colors"
+              style={{ background: '#1a1a1a', color: '#4b5563', border: '1px solid #2a2a2a', fontSize: '10px' }}
+            >↪</button>
+          </div>
+          <span
+            style={{ color: '#252525', fontSize: '9px', cursor: 'default' }}
+            title={'キーボードショートカット:\nAlt+1〜8: タブ切替\nAlt+T: Tissue\nAlt+V: Validate\nAlt+O: Optimizer\nAlt+E: Export\nAlt+K: k空間\nAlt+Q: クイズ\nEsc: パネル閉じる\n⌘Z: Undo / ⌘⇧Z: Redo'}
+          >⌨</span>
           {activePreset && (
             <>
               <span style={{ color: '#374151' }}>›</span>

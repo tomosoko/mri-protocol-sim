@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { calcTissueContrast, ernstAngle, calcT2Blur, TISSUES, calcSNR } from '../store/calculators'
 import { chemShift } from '../store/calculators'
@@ -160,6 +161,20 @@ export function TissueContrastPanel() {
           )}
         </div>
 
+        {/* Sequence optimization tips */}
+        <SequenceOptimizationTips
+          contrastLabel={contrastLabel}
+          isGRE={isGRE}
+          isIR={isIR}
+          isFLAIR={isFLAIR}
+          isDWI={isDWI}
+          TR={params.TR}
+          TE={params.TE}
+          FA={params.flipAngle}
+          fieldStrength={params.fieldStrength}
+          turboFactor={params.turboFactor}
+        />
+
         {/* Tissue reference */}
         <TissueReference fieldStrength={params.fieldStrength} />
 
@@ -168,7 +183,7 @@ export function TissueContrastPanel() {
   )
 }
 
-// コントラスト比 + CNR の計算・表示
+// コントラスト比 + CNR の計算・表示（CNRバーチャート付き）
 function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissueContrast>; snr: number }) {
   const find = (label: string) => signals.find(s => s.tissue.label === label)
   const gm = find('GM')?.signal ?? 0
@@ -178,15 +193,20 @@ function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissu
   const liver = find('Liver')?.signal ?? 0
   const muscle = find('Muscle')?.signal ?? 0
 
-  // CNR = |S_A - S_B| × SNR_relative (normalized)
   const cnr = (a: number, b: number) => Math.round(Math.abs(a - b) * snr * 10) / 10
 
-  const pairs: { a: string; b: string; sigA: number; sigB: number; ideal: string }[] = [
-    { a: 'GM',     b: 'WM',     sigA: gm,    sigB: wm,     ideal: 'T2: >1.0' },
-    { a: 'CSF',    b: 'GM',     sigA: csf,   sigB: gm,     ideal: 'T2: >>1.0' },
-    { a: 'Fat',    b: 'GM',     sigA: fat,   sigB: gm,     ideal: 'T1: >1.0' },
-    { a: 'Liver',  b: 'Muscle', sigA: liver, sigB: muscle, ideal: '腹部' },
+  const pairs: { a: string; b: string; sigA: number; sigB: number; category: string }[] = [
+    { a: 'GM',    b: 'WM',     sigA: gm,    sigB: wm,     category: '脳' },
+    { a: 'CSF',   b: 'GM',     sigA: csf,   sigB: gm,     category: '脳' },
+    { a: 'Fat',   b: 'GM',     sigA: fat,   sigB: gm,     category: '脂肪' },
+    { a: 'Liver', b: 'Muscle', sigA: liver, sigB: muscle, category: '腹部' },
   ]
+
+  const cnrValues = pairs.map(p => cnr(p.sigA, p.sigB))
+  const maxCNR = Math.max(...cnrValues, 1)
+
+  // SVG bar chart dimensions
+  const W = 240, H = 64, barH = 10, gap = 6, padL = 52, padR = 8
 
   return (
     <div className="p-2 rounded" style={{ background: '#111', border: '1px solid #1a1520' }}>
@@ -194,18 +214,56 @@ function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissu
         <span className="font-semibold" style={{ color: '#a78bfa' }}>コントラスト比 / CNR</span>
         <span style={{ color: '#4b5563', fontSize: '8px' }}>CNR = ΔS × SNR</span>
       </div>
-      <div className="grid gap-px" style={{ gridTemplateColumns: '1fr auto auto auto' }}>
-        {/* Header */}
+
+      {/* CNR mini bar chart */}
+      <svg width={W} height={H} style={{ display: 'block', margin: '0 auto 6px' }}>
+        {pairs.map(({ a, b, sigA, sigB }, i) => {
+          const aT = TISSUES.find(t => t.label === a)
+          const bT = TISSUES.find(t => t.label === b)
+          const cnrVal = cnr(sigA, sigB)
+          const barW = Math.max(2, ((cnrVal / maxCNR) * (W - padL - padR)))
+          const y = i * (barH + gap) + 4
+          const color = cnrVal > 15 ? '#34d399' : cnrVal > 5 ? '#fbbf24' : '#f87171'
+          return (
+            <g key={`${a}${b}`}>
+              {/* Label */}
+              <text x={padL - 4} y={y + barH - 2} textAnchor="end" fontSize={8} fill={aT?.color ?? '#9ca3af'}>
+                {a}
+              </text>
+              <text x={padL - 4 - 18} y={y + barH - 2} textAnchor="end" fontSize={7} fill={bT?.color ?? '#6b7280'}>
+                /{b}
+              </text>
+              {/* Track */}
+              <rect x={padL} y={y} width={W - padL - padR} height={barH} rx={2} fill="#1e1e1e" />
+              {/* Bar */}
+              <rect x={padL} y={y} width={barW} height={barH} rx={2} fill={color} opacity={0.85} />
+              {/* Value */}
+              <text x={padL + barW + 3} y={y + barH - 2} fontSize={8} fill={color}>{cnrVal}</text>
+            </g>
+          )
+        })}
+        {/* Reference lines at 5 and 15 */}
+        {[5, 15].map(ref => {
+          const x = padL + (ref / maxCNR) * (W - padL - padR)
+          if (x > W - padR) return null
+          return (
+            <g key={ref}>
+              <line x1={x} y1={0} x2={x} y2={H - 2} stroke="#333" strokeWidth={1} strokeDasharray="2,2" />
+              <text x={x} y={H - 1} textAnchor="middle" fontSize={7} fill="#374151">{ref}</text>
+            </g>
+          )
+        })}
+      </svg>
+
+      {/* Ratio table */}
+      <div className="grid gap-px" style={{ gridTemplateColumns: '1fr auto auto' }}>
         <span style={{ color: '#4b5563', fontSize: '8px' }}>組織ペア</span>
-        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>比</span>
-        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>CNR</span>
-        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>参考</span>
-        {pairs.map(({ a, b, sigA, sigB, ideal }) => {
+        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>比率</span>
+        <span className="text-center" style={{ color: '#4b5563', fontSize: '8px' }}>分類</span>
+        {pairs.map(({ a, b, sigA, sigB, category }) => {
           const aT = TISSUES.find(t => t.label === a)
           const bT = TISSUES.find(t => t.label === b)
           const ratio = sigB > 0.01 ? sigA / sigB : 0
-          const cnrVal = cnr(sigA, sigB)
-          const cnrColor = cnrVal > 15 ? '#34d399' : cnrVal > 5 ? '#fbbf24' : '#f87171'
           return [
             <div key={`${a}${b}_label`} className="flex items-center gap-0.5 py-0.5">
               <span style={{ color: aT?.color, fontSize: '9px' }}>{a}</span>
@@ -213,16 +271,13 @@ function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissu
               <span style={{ color: bT?.color, fontSize: '9px' }}>{b}</span>
             </div>,
             <span key={`${a}${b}_ratio`} className="font-mono text-center py-0.5" style={{
-              color: ratio > 1.2 ? '#34d399' : ratio < 0.8 ? '#f87171' : '#fbbf24',
+              color: ratio > 1.2 ? '#34d399' : ratio > 0.8 ? '#fbbf24' : '#f87171',
               fontSize: '9px',
             }}>
               {ratio.toFixed(2)}
             </span>,
-            <span key={`${a}${b}_cnr`} className="font-mono text-center py-0.5" style={{ color: cnrColor, fontSize: '9px' }}>
-              {cnrVal}
-            </span>,
-            <span key={`${a}${b}_ideal`} className="text-center py-0.5" style={{ color: '#374151', fontSize: '8px' }}>
-              {ideal}
+            <span key={`${a}${b}_cat`} className="text-center py-0.5" style={{ color: '#374151', fontSize: '8px' }}>
+              {category}
             </span>,
           ]
         })}
@@ -232,6 +287,78 @@ function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissu
           <span>CNR基準: &gt;15◎ &gt;5○ &lt;5△</span>
           <span>SNR: {snr}</span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// シーケンス最適化のヒント
+function SequenceOptimizationTips({
+  contrastLabel, isGRE, isIR, isFLAIR, isDWI,
+  TR, TE, FA, fieldStrength, turboFactor
+}: {
+  contrastLabel: string; isGRE: boolean; isIR: boolean; isFLAIR: boolean; isDWI: boolean
+  TR: number; TE: number; FA: number; fieldStrength: number; turboFactor: number
+}) {
+  const is3T = fieldStrength >= 2.5
+
+  const tips = useMemo(() => {
+    const result: { icon: string; color: string; text: string }[] = []
+
+    if (isDWI) {
+      result.push({ icon: '◆', color: '#60a5fa', text: 'b=0とb=1000の2点でADC計算可能。b値追加で精度向上。' })
+      if (is3T) result.push({ icon: '⚠', color: '#fbbf24', text: '3T DWI: 幾何歪み増大。iPAT R=2またはリバースPEで補正を。' })
+    } else if (isFLAIR) {
+      result.push({ icon: '◆', color: '#60a5fa', text: `FLAIR最適TI(1.5T:3400ms 3T:2500ms頃)で水を完全抑制。` })
+      result.push({ icon: '◆', color: '#60a5fa', text: 'FLAIR+MPRAGE組合せでMS病巣評価に有効。' })
+      if (TE < 90) result.push({ icon: '△', color: '#fbbf24', text: `TE ${TE}ms → T2強調不十分。90ms以上を推奨。` })
+    } else if (isIR) {
+      result.push({ icon: '◆', color: '#4ade80', text: `STIR: TI ${Math.round((is3T ? 220 : 160))}ms付近で脂肪抑制最大。フィールド非依存性が強み。` })
+    } else if (isGRE) {
+      const ernstWM = Math.round((Math.acos(Math.exp(-TR / (is3T ? 1084 : 1080))) * 180) / Math.PI)
+      if (Math.abs(FA - ernstWM) > 15) {
+        result.push({ icon: '△', color: '#fbbf24', text: `現在FA ${FA}°、WM Ernst角 ${ernstWM}°。SNR最大化にはErnst角付近を推奨。` })
+      } else {
+        result.push({ icon: '✓', color: '#34d399', text: `FA ${FA}° ≈ Ernst角 ${ernstWM}°。WM SNR最適化済み。` })
+      }
+      if (is3T && TE > 20) result.push({ icon: '⚠', color: '#f87171', text: '3T GRE: TE長すぎるとT2*ぼけ増大。TE<15ms推奨。' })
+    } else if (TR < 1500 && TE < 30) {
+      // T1 SE
+      if (TR > 800) result.push({ icon: '△', color: '#fbbf24', text: `T1強調: TR ${TR}ms → T1コントラスト弱め。600ms以下推奨。` })
+      if (turboFactor > 4) result.push({ icon: '◆', color: '#60a5fa', text: `TSE T1: TF ${turboFactor}は脂肪ハイシグナルに注意。TF低減推奨。` })
+    } else if (TR >= 2500 && TE >= 60) {
+      // T2
+      if (TE > 120) result.push({ icon: '△', color: '#fbbf24', text: `TE ${TE}ms → 長すぎてSNR低下。90-100ms推奨。` })
+      if (turboFactor < 8) result.push({ icon: '◆', color: '#60a5fa', text: `T2強調: TF ${turboFactor}低め。16以上でスキャン時間短縮可。` })
+    }
+
+    // 3T共通
+    if (is3T && !isDWI) {
+      result.push({ icon: '◆', color: '#818cf8', text: '3T: B1不均一性対策にAdFlip/TrueFormを使用推奨。' })
+    }
+
+    // turboFactor
+    if (turboFactor > 20 && !isDWI) {
+      result.push({ icon: '⚠', color: '#f87171', text: `TF ${turboFactor} → T2ぼけ増大リスク。エコースペーシング確認を。` })
+    }
+
+    return result.slice(0, 4) // max 4 tips
+  }, [isDWI, isFLAIR, isIR, isGRE, TR, TE, FA, fieldStrength, turboFactor, is3T, contrastLabel])
+
+  if (tips.length === 0) return null
+
+  return (
+    <div className="p-2 rounded" style={{ background: '#0e1218', border: '1px solid #1a2030' }}>
+      <div className="font-semibold mb-1.5" style={{ color: '#60a5fa', fontSize: '9px', letterSpacing: '0.06em' }}>
+        OPTIMIZATION TIPS — {contrastLabel}
+      </div>
+      <div className="space-y-1">
+        {tips.map((tip, i) => (
+          <div key={i} className="flex gap-1.5" style={{ fontSize: '9px' }}>
+            <span style={{ color: tip.color, flexShrink: 0, width: '10px' }}>{tip.icon}</span>
+            <span style={{ color: '#9ca3af', lineHeight: 1.4 }}>{tip.text}</span>
+          </div>
+        ))}
       </div>
     </div>
   )

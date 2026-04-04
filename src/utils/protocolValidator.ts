@@ -572,6 +572,98 @@ const rules: Rule[] = [
     return null
   },
 
+  // ── DWI: b値が0のみ ──────────────────────────────────────────────────────
+  p => {
+    const isDWI = p.bValues.length >= 2 && p.turboFactor <= 2
+    if (isDWI && Math.max(...p.bValues) < 500) return {
+      id: 'dwi_low_bmax', severity: 'warning', category: 'DWI',
+      title: 'DWI: 最大b値が低すぎます',
+      detail: `最大b値 ${Math.max(...p.bValues)} s/mm²。拡散強調効果が不十分です。脳梗塞・腫瘍評価には b≥800、前立腺には b≥1000 が必要です。`,
+      params: ['bValues'],
+      quickFixes: [
+        { label: 'b=1000 を追加', apply: (p) => ({ bValues: [...p.bValues, 1000].sort((a,b) => a-b) }) },
+        { label: 'b=800 を追加', apply: (p) => ({ bValues: [...p.bValues, 800].sort((a,b) => a-b) }) },
+      ],
+    }
+    return null
+  },
+
+  // ── DWI: ADCマップなし ─────────────────────────────────────────────────────
+  p => {
+    const isDWI = p.bValues.length >= 2 && p.turboFactor <= 2 && Math.max(...p.bValues) >= 500
+    if (isDWI && !p.inlineADC) return {
+      id: 'dwi_no_adc', severity: 'info', category: 'DWI',
+      title: 'DWI: Inline ADC マップが無効',
+      detail: 'ADCマップは拡散制限の定量評価に必須です。視覚的な高信号（T2 shine-through）との鑑別に不可欠。有効化を推奨します。',
+      params: ['inlineADC'],
+      quickFixes: [
+        { label: 'Inline ADC を ON にする', apply: () => ({ inlineADC: true }) },
+      ],
+    }
+    return null
+  },
+
+  // ── ECGトリガー: 心拍数が高すぎる ─────────────────────────────────────────
+  p => {
+    const estimatedHR = p.ecgTrigger && p.TR < 800 ? Math.round(60000 / p.TR) : null
+    if (estimatedHR && estimatedHR > 90) return {
+      id: 'ecg_high_hr', severity: 'warning', category: 'Cardiac',
+      title: 'ECG同期: TR が短く高心拍数に対応できない可能性',
+      detail: `TR ${p.TR}ms は心拍数 ~${estimatedHR}bpmに相当。頻脈では収縮期が短く冠動脈評価に影響します。Multiple RR や TR 延長を検討してください。`,
+      params: ['TR', 'ecgTrigger', 'triggerDelay'],
+    }
+    return null
+  },
+
+  // ── 高SNR不足: 薄スライス+低磁場 ────────────────────────────────────────
+  p => {
+    const snr = calcSNR(p)
+    const thinSlice = p.sliceThickness < 2.0
+    const lowField = p.fieldStrength < 2.5
+    if (thinSlice && lowField && snr < 20) return {
+      id: 'thin_slice_low_snr', severity: 'warning', category: 'SNR',
+      title: '薄スライス×1.5T: SNR不足のリスク',
+      detail: `スライス厚 ${p.sliceThickness}mm + 1.5T でSNR=${snr}。診断に不十分な可能性があります。加算数増加・帯域幅低減・3T使用を検討してください。`,
+      params: ['sliceThickness', 'averages', 'bandwidth', 'fieldStrength'],
+      quickFixes: [
+        { label: '加算 2回に増やす', apply: () => ({ averages: 2 }) },
+        { label: '帯域幅を 150Hz/px に下げる', apply: () => ({ bandwidth: 150 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 3T + CISS相当 (turboFactor≤2, FA≤40, TR≤10) — 流れ補償 ──────────────
+  p => {
+    const isCISS = p.turboFactor <= 2 && p.flipAngle <= 70 && p.TR <= 15 && p.fieldStrength >= 2.5
+    if (isCISS && p.bandwidth < 500) return {
+      id: 'ciss_low_bw', severity: 'info', category: '画質',
+      title: '3D bSSFP/CISS: 帯域幅が低い（banding artifact リスク）',
+      detail: `bSSFP/CISS系シーケンスでは帯域幅が低いとbandingアーチファクトが増加します。BW≥700Hz/px を推奨します（特に3T）。`,
+      params: ['bandwidth'],
+      quickFixes: [
+        { label: 'BW を 700 Hz/px に変更', apply: () => ({ bandwidth: 700 }) },
+        { label: 'BW を 1000 Hz/px に変更', apply: () => ({ bandwidth: 1000 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── Phase Oversampling が低く aliasing リスク ──────────────────────────────
+  p => {
+    if (p.phaseOversampling < 15 && p.phaseResolution >= 100) return {
+      id: 'low_phase_os', severity: 'info', category: 'アーチファクト',
+      title: 'Phase Oversampling 不足: エイリアシングアーチファクトのリスク',
+      detail: `位相方向の過サンプリングが ${p.phaseOversampling}%。解剖が FOV を超える場合、折り返しアーチファクトが発生します。20% 以上を推奨します。`,
+      params: ['phaseOversampling', 'phaseResolution'],
+      quickFixes: [
+        { label: 'Phase Oversampling を 20% に', apply: () => ({ phaseOversampling: 20 }) },
+        { label: 'Phase Oversampling を 30% に', apply: () => ({ phaseOversampling: 30 }) },
+      ],
+    }
+    return null
+  },
+
 ]
 
 // ────────────────────────────────────────────────────────────────────────────

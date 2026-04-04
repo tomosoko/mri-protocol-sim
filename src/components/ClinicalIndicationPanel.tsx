@@ -265,6 +265,46 @@ const CLINICAL_DB: BodyPartData[] = [
       },
     ],
   },
+
+  {
+    id: 'special', label: '特殊・小児', icon: '⭐',
+    indications: [
+      {
+        id: 'inner_ear', label: '内耳・聴神経腫瘍', icon: '👂', urgency: 'urgent',
+        clinicalPearl: '3D CISS (0.4-0.5mm 等方性) が内耳道・蝸牛・半規管描出の標準。Gd造影で聴神経腫瘍の確定。',
+        recommendations: [
+          { presetId: 'inner_ear_ciss', priority: 'essential', reason: '3D CISS: 聴神経・内耳道の鮮明描出。0.4-0.5mm isotropic', clinicalNote: '薄スライスMPRで前庭神経・蝸牛神経を分離描出' },
+          { presetId: 'brain_t2', priority: 'recommended', reason: 'T2 TSE: 全体解剖・周辺構造の把握' },
+        ],
+      },
+      {
+        id: 'fetal_mri', label: '胎児MRI', icon: '🤰', urgency: 'urgent',
+        clinicalPearl: '胎児MRI: 超音波不明瞭例の補完。HASTEで高速取得必須。TE≤80ms短縮。SAR最小化。',
+        recommendations: [
+          { presetId: 'fetal_haste', priority: 'essential', reason: 'HASTE超高速: 胎動アーチファクト回避。脳・肺・腹部臓器', clinicalNote: '1.5T推奨(SAR↓)。造影剤禁忌' },
+          { presetId: 'abdomen_t2_rt', priority: 'recommended', reason: '呼吸同期T2: 胎盤・子宮壁の詳細評価' },
+        ],
+        contraindications: ['Gd造影剤は胎盤通過するため禁忌', '1.5T推奨（3TはSAR増加）'],
+      },
+      {
+        id: 'peripheral_mra', label: '下肢血管 MRA', icon: '🦿', urgency: 'urgent',
+        clinicalPearl: '下肢MRA: 造影3D TOFまたは非造影bSSFP。体位変換なしでStation移動。糖尿病性ASO評価。',
+        recommendations: [
+          { presetId: 'lower_limb_mra', priority: 'essential', reason: '3D TOF-MRA: 下肢動脈閉塞・狭窄の全体像', clinicalNote: 'Station移動で大腿〜足底まで' },
+          { presetId: 'renal_native_mra', priority: 'optional', reason: '非造影TrueFISP MRA: 腎不全例に適用可能' },
+        ],
+      },
+      {
+        id: 'pediatric_brain', label: '小児脳MRI', icon: '👶', urgency: 'urgent',
+        clinicalPearl: '小児: 髄鞘化の評価に T1（早期）と T2（後期）が相補的。新生児では反転した信号パターン。',
+        recommendations: [
+          { presetId: 'pediatric_brain', priority: 'essential', reason: '小児専用プロトコル: 短スキャン時間・SAR最小化', clinicalNote: '3Tは3歳以上推奨。新生児は1.5T' },
+          { presetId: 'brain_flair', priority: 'recommended', reason: 'FLAIR: 2歳以上で有用（それ以前は髄液=高信号で判読困難）' },
+          { presetId: 'brain_dwi', priority: 'recommended', reason: 'DWI: 新生児低酸素性脳症・代謝疾患の初期変化' },
+        ],
+      },
+    ],
+  },
 ]
 
 // priority カラー
