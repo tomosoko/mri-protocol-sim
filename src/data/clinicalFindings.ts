@@ -810,6 +810,121 @@ export const clinicalFindings: ClinicalFinding[] = [
       '心機能評価 → Cine MRIでEF/EDV/ESV/mass定量',
     ],
   },
+  // ============================================================
+  // 血管
+  // ============================================================
+  {
+    id: 'aortic-dissection',
+    region: '血管',
+    disease: '大動脈解離',
+    keySequence: 'CE-MRA（3D GRE）+ 黒血T1（HASTE double-IR）+ PC-MRI（流速評価）',
+    typicalFindings: [
+      '内膜フラップ（intimal flap）: 大動脈腔を真腔・偽腔に分割する薄い隔壁。CE-MRAで明瞭描出',
+      '真腔: T2で暗い（高流速スピン飽和）+ 収縮期に拡張。偽腔: T2で明るい（低流速 or 血栓形成）',
+      'エントリー部: 内膜フラップの亀裂部。Stanford A型は上行大動脈に及ぶ（外科的緊急）',
+      '分枝血管灌流評価: 腎動脈・上腸間膜動脈・腸骨動脈が真腔/偽腔のどちらから分岐するかを確認（臓器虚血の有無）',
+      'Stanford分類: A型=上行大動脈含む（外科手術）。B型=下行大動脈のみ（内科的管理）',
+      'CE-MRA MIPでは偽腔の造影剤充填パターン・偽腔瘤様拡張・大動脈壁肥厚を評価',
+    ],
+    differentialPoints: [
+      '解離 vs 壁内血腫（IMH）: IMHは内膜フラップなし。大動脈壁内の三日月状T1高信号（亜急性血腫）',
+      '解離 vs 動脈瘤破裂: 破裂は壁の不連続+周囲血腫。解離はフラップ構造が特徴的',
+      '真腔 vs 偽腔の同定: ①外側に位置することが多い偽腔②Cobweb sign（クモの巣状繊維索）=偽腔③収縮期に拡張=真腔',
+    ],
+    pitfalls: [
+      'Gd禁忌（eGFR<30）の患者では黒血法T1/T2のみで評価→解離フラップの描出が制限される',
+      'A型解離（外科緊急）を見逃さないこと：上行大動脈が範囲に含まれるか確認',
+      '撮像時間が長いと息止め中に造影剤のピークを逸しCE-MRAの造影が不完全になる',
+    ],
+    additionalImaging: [
+      'ボーラストラッキングでGdピーク時間を個別化（特に高齢者・低心拍出量患者）',
+      '解離の範囲確認後にPC-MRI（Phase Contrast）で真腔/偽腔の流速評価が可能',
+      '術後フォロー: 偽腔血栓化の確認・吻合部評価',
+    ],
+  },
+  {
+    id: 'renal-artery-stenosis',
+    region: '血管',
+    disease: '腎動脈狭窄',
+    keySequence: '非造影bSSFP MRA（eGFR<45時）または CE-MRA（3D GRE）',
+    typicalFindings: [
+      '腎動脈主幹部の狭窄: 粥状動脈硬化性（開口部～近位1/3、高齢者）vs 線維筋性異形成FMD（中遠位部、若い女性）',
+      '狭窄度評価: 70%以上の狭窄で血行動態的有意狭窄。MIPで細い血管では過大評価に注意',
+      'FMD（線維筋性異形成）: 腎動脈中遠位部の数珠状狭窄（String of Beads sign）。20-40代女性に多い',
+      '二次性変化: 同側腎の萎縮（慢性虚血）・皮質薄縮。腎血管性高血圧の根拠評価',
+      '非造影MRA: bSSFP（NATIVE TrueFISP）。ECGトリガー収縮期-拡張期差分で動脈のみ描出',
+    ],
+    differentialPoints: [
+      '腎動脈狭窄 vs 腎動脈瘤: 瘤は限局した嚢状/紡錘状拡張。連続性を確認',
+      '粥状動脈硬化 vs FMD: 粥状=開口部石灰化。FMD=中遠位部数珠状（若い患者）',
+    ],
+    pitfalls: [
+      'eGFR<45でGd使用はNSFリスク。非造影MRAを優先（NATIVE bSSFP）',
+      '腎動脈の小径（5-6mm）と呼吸体動でMIP画像の過大/過小評価が生じやすい',
+      '非造影MRAではステント内腔は評価困難（金属による信号消失）',
+    ],
+    additionalImaging: [
+      '腎機能評価: ASL（Arterial Spin Labeling）で腎灌流定量',
+      '術後/カテーテル後フォロー: CE-MRA or CTAで再狭窄評価',
+    ],
+  },
+  // ============================================================
+  // 腫瘍（全身）
+  // ============================================================
+  {
+    id: 'lymphoma',
+    region: '腫瘍',
+    disease: '悪性リンパ腫（全身staging）',
+    keySequence: 'DWIBS（全身DWI: b=800-1000）+ Inverted MIP + 造影CT/PET-CT比較',
+    typicalFindings: [
+      'DWIBS（Diffusion-weighted whole-body imaging with Background body signal Suppression）: STIR+高b値DWI全身撮像',
+      '腫瘍リンパ節: DWI高信号（細胞密度高→拡散制限）。ADC値は1.0×10⁻³mm²/s未満が多い',
+      'Inverted MIP: DWI信号を反転してMIP処理→PET画像に類似した全身腫瘍分布像',
+      '治療効果判定: 化学療法後のADC値上昇（細胞死→拡散回復）で奏効評価。PET-CTと高い一致率',
+      '骨髄浸潤: DWI高信号で椎体・骨盤骨髄への浸潤を検出。CTでは見落としやすい',
+    ],
+    differentialPoints: [
+      'リンパ腫 vs 転移性リンパ節: リンパ腫=軟部組織様のADC、融合傾向。転移=原発巣の信号特性を反映',
+      'リンパ腫 vs 胚細胞腫瘍: 縦隔・後腹膜の若年男性。マーカー（AFP・HCG）と組み合わせ',
+    ],
+    pitfalls: [
+      '呼吸同期（STIR+RT）がないと腹部DWIが体動でブレて診断不能',
+      '腸管ガス・膀胱尿が高b値DWIで高信号を示し偽陽性になることがある（T2 shine-through）',
+      'ADC計算省略→活動性リンパ節（DWI高信号）と壊死・嚢胞の鑑別困難',
+    ],
+    additionalImaging: [
+      '治療前後でADC値を定量比較（関心領域を固定して再現性を確保）',
+      '頭頸部・胸部への評価漏れを防ぐため全身スキャン範囲を必ず確認',
+    ],
+  },
+  {
+    id: 'adrenal-adenoma',
+    region: '腫瘍',
+    disease: '副腎腺腫（化学シフトMRI）',
+    keySequence: 'GRE Opposed-Phase/In-Phase（T1 dual-echo）',
+    typicalFindings: [
+      '副腎腺腫の特徴: 細胞内微小脂肪（microscopic fat）を含む。CT値<10HU（脂質リッチ腺腫）',
+      'Opposed-Phase（OP）でIn-Phase（IP）より信号低下: 腺腫では水・脂肪が同一ボクセル内に共存→OP信号相殺',
+      'Signal Intensity Index（SII）= (IP − OP) / IP × 100（%）',
+      'SII ≥ 16.5%: 副腎腺腫と診断（感度87%/特異度97%）',
+      '1.5TのTE設定: IP=4.6ms / OP=2.3ms。3TのTE設定: IP=2.3ms / OP=1.15ms（間違えやすい）',
+      '非腺腫（転移・褐色細胞腫）: 細胞内脂肪なし→SIIに有意な変化なし（<10%）',
+    ],
+    differentialPoints: [
+      '腺腫 vs 褐色細胞腫: 褐色細胞腫はT2で明瞭高信号（「lightbulb bright」）。尿中カテコラミン上昇',
+      '腺腫 vs 転移: 転移はSII低値+原発巣の信号特性を反映',
+      '腺腫 vs 副腎皮質癌: 癌は大きい（>4cm）+OP/IPに変化なし+周囲浸潤',
+    ],
+    pitfalls: [
+      '3TではOPとIPのTE設定が1.5Tの半分になること（TE=1.15ms/2.3ms）を忘れると正しい位相にならない',
+      'Macroscopic fat（成熟奇形腫・骨髄脂肪腫）とMicroscopic fat（腺腫）を混同しない: 前者はCTで−100HU以下',
+      '脂質乏しい腺腫（lipid-poor adenoma）: CT値10-30HU→SIIが低値でも腺腫の可能性あり（wash-out CT要追加）',
+    ],
+    additionalImaging: [
+      '非確定的な場合: ダイナミック造影CT（15分後wash-out >60%: 腺腫）で確定',
+      '機能的評価: 血漿アルドステロン・コルチゾール・カテコラミン測定と組み合わせ',
+    ],
+  },
 ]
 
 // 部位別にグループ化するユーティリティ
@@ -829,4 +944,6 @@ export const regions = [
   '関節',
   '乳腺',
   '心臓',
+  '血管',
+  '腫瘍',
 ] as const
