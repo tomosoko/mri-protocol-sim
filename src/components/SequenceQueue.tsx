@@ -117,6 +117,54 @@ export function SequenceQueue() {
           />
         ))}
       </div>
+
+      {/* Timeline bar */}
+      {totalSeconds > 0 && (
+        <ExamTimeline sequences={currentColumn.sequences} totalSeconds={totalSeconds} />
+      )}
+    </div>
+  )
+}
+
+function ExamTimeline({ sequences, totalSeconds }: { sequences: SequenceStep[]; totalSeconds: number }) {
+  const parseSec = (d?: string) => {
+    if (!d) return 0
+    const [m, s] = d.split(':').map(Number)
+    return m * 60 + (s || 0)
+  }
+  const W = 188
+  let elapsed = 0
+  const segments = sequences.map(s => {
+    const dur = parseSec(s.duration)
+    const x = elapsed
+    elapsed += dur
+    return { name: s.name, dur, x, isCE: s.isCE, isTimer: s.isTimer, isOptional: s.isOptional }
+  })
+
+  return (
+    <div className="shrink-0 px-2 py-1.5" style={{ borderTop: '1px solid #1a1a1a', background: '#080808' }}>
+      <div style={{ fontSize: '7px', color: '#374151', marginBottom: '3px' }}>全体タイムライン</div>
+      <svg width={W} height={10}>
+        {segments.filter(s => s.dur > 0).map((s, i) => {
+          const x = (s.x / totalSeconds) * W
+          const w = Math.max(1, (s.dur / totalSeconds) * W)
+          const color = s.isCE ? '#ef4444' : s.isTimer ? '#f59e0b' : s.isOptional ? '#374151' : '#34d399'
+          return (
+            <g key={i}>
+              <rect x={x} y={0} width={w - 0.5} height={10} fill={color} opacity={0.7} rx={1} />
+            </g>
+          )
+        })}
+        {/* 15min marker */}
+        {totalSeconds > 900 && (() => {
+          const x = (900 / totalSeconds) * W
+          return <line x1={x} y1={0} x2={x} y2={10} stroke="#e88b00" strokeWidth={0.8} strokeDasharray="2,2" opacity={0.5} />
+        })()}
+      </svg>
+      <div className="flex justify-between" style={{ fontSize: '7px', color: '#252525', marginTop: '1px' }}>
+        <span>0</span>
+        <span style={{ color: '#374151' }}>{Math.floor(totalSeconds / 60)}:{String(totalSeconds % 60).padStart(2,'0')}</span>
+      </div>
     </div>
   )
 }
