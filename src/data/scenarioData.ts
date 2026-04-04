@@ -661,4 +661,118 @@ export const scenarios: Scenario[] = [
     detailedExplanation: 'SARは主に磁場強度（B1²に比例）・flipAngle（FA²に比例）・TR（反比例）に依存します。3T装置では1.5Tの4倍のSARが発生します。対策の優先順：(1) SARAssistant Advanced有効化、(2) TR延長、(3) flipAngle低減、(4) turboFactor低減（エコートレイン中のリフォーカスパルス数減少）、(5) iPAT使用（収集パルス数減少）。MT（磁化移動）パルスやSTIRのinversion pulseは特にSARが高いため要注意。',
     relatedParams: ['sarAssistant', 'allowedDelay', 'TR', 'flipAngle', 'mt'],
   },
+  // ─── 3T腹部撮像：Dielectric Effect ──────────────────────────────────────
+  {
+    id: 'dielectric_effect_01',
+    title: '3T腹部MRI — 中心信号低下（Dielectric Effect）',
+    category: 'SAR超過',
+    difficulty: 3,
+    patientInfo: '45歳 男性 BMI 32。3T MRI で腹部EOBダイナミック撮像中。冠状断T2 HASTEで腹部中心部の信号が著明に低下し辺縁が明るく見える。',
+    currentPresetId: 'liver_eob',
+    question: 'この画像所見（中心暗化・辺縁増強）の原因と最も適切な対応はどれですか？',
+    options: [
+      {
+        label: 'B1フィールド不均一（Dielectric Effect）のためTrueForm/B1 Shimを有効にし、誘電体パッドを使用する',
+        paramChanges: {},
+        isCorrect: true,
+        explanation: '3TではB1+波長（≈26cm）が人体径に近いため体内で定在波が形成され中心増強・辺縁低下が起きます（Dielectric Effect）。対策：①TrueForm ON（Siemens B1 Shim）②誘電体パッド（DiPAD）③MRI用ゼリーの体表貼付。BMI高値の患者では特に顕著。',
+      },
+      {
+        label: 'シム（B0均一性補正）の調整ボリュームを変更する',
+        paramChanges: { shim: 'Manual' },
+        isCorrect: false,
+        explanation: 'B0シムは静磁場の均一性改善で、CHESS脂肪抑制の均一化などに有効ですが、Dielectric Effectは送信B1フィールドの不均一（B1+）が原因であるため、B0シムでは解決しません。',
+      },
+      {
+        label: 'FATSatをCHESSからSPAIRに変更する',
+        paramChanges: { fatSat: 'SPAIR' },
+        isCorrect: false,
+        explanation: 'SPAIR変更は脂肪抑制均一性の改善に有効ですが、中心暗化の原因はB1+不均一（Dielectric Effect）であり脂肪抑制の変更では解決しません。',
+      },
+      {
+        label: 'TR を延長する',
+        paramChanges: { TR: 6000 },
+        isCorrect: false,
+        explanation: 'TR延長はT1コントラストや撮像時間に影響しますが、Dielectric Effectによるアーチファクトの改善にはなりません。',
+      },
+    ],
+    detailedExplanation: 'Dielectric Effect（誘電体効果）：3T（128MHz）の波長λ=c/f/√ε_r ≈ 26cm（水の誘電率ε_r≈81）。腹部径（30-40cm）と同程度のため定在波が形成され、FOV中心でのB1+が高く辺縁で低くなります。結果：中心高信号/辺縁低信号 または その逆（患者サイズにより異なる）。対策：①B1 Shim（TrueForm）：複数送信チャンネルでB1分布を均一化。②誘電体パッド（DiPAD）：高誘電率ゲルを体表に貼付し局所的にB1を補正。③MRI用ゼリー（同様の原理）。BMI高値・腹水・大きな体格の患者で顕著。',
+    relatedParams: ['fieldStrength'],
+  },
+  // ─── 検査中 体動：認知症高齢者 ─────────────────────────────────────────
+  {
+    id: 'motion_dementia_01',
+    title: '認知症高齢者の頭部MRI — 激しい体動',
+    category: '体動',
+    difficulty: 2,
+    patientInfo: '82歳 女性。認知症（MMSE 12/30）。頭部MRI撮像中に激しく頭部を動かし、T2 TSEで高度なモーションアーチファクトが発生。撮像時間を短縮する必要がある。',
+    currentPresetId: 'brain_t2',
+    question: '体動の強い認知症患者でMRIを継続する場合、最も優先する対応はどれですか？',
+    options: [
+      {
+        label: 'ターボファクターを大幅に増加（ETL: 15→40）し1シーケンス当たりの撮像時間を短縮する',
+        paramChanges: { turboFactor: 40, averages: 1 },
+        isCorrect: true,
+        explanation: '体動が強い場合は撮像時間を最短にすることが最優先です。ETL増加（ターボファクター↑）＋Averages=1＋iPAT ON（可能なら）で1シーケンスを3分以内に完了させます。T2 blurは増加しますが、診断可能な画質を確保できます。HASTEへの変更も選択肢。',
+      },
+      {
+        label: '加算回数（Averages）を4に増やして信号平均化する',
+        paramChanges: { averages: 4 },
+        isCorrect: false,
+        explanation: '加算回数増加は撮像時間が4倍になり、体動がある場合はランダムなモーションが加算され画質がさらに悪化します。体動患者では逆効果です。',
+      },
+      {
+        label: '磁場強度を1.5Tから3Tに変更する',
+        paramChanges: { fieldStrength: 3.0 },
+        isCorrect: false,
+        explanation: '磁場強度変更は装置を変えることであり、体動対策には直接関係しません。3TではSAR増加・音響騒音増加で体動がさらに悪化する可能性もあります。',
+      },
+      {
+        label: 'PACE（Navigator）呼吸同期を追加する',
+        paramChanges: { respTrigger: 'PACE' },
+        isCorrect: false,
+        explanation: 'PACEは腹部の呼吸同期に用いるもので、頭部の体動アーチファクト（不随意な頭部運動）には対応できません。',
+      },
+    ],
+    detailedExplanation: '体動の強い患者への対応：①撮像時間短縮を最優先：ETL↑・PF↑・iPAT ON。②HASTE（Single shot TSE）採用：1回の励起で1スライス収集するため体動に最強。③MAグレーディング：軽度体動→Re-scan、中等度→ETL↑・再撮像、重度→鎮静相談。④鎮静薬使用時は放射線科医・麻酔科医と連携。⑤Propeller/BLADE MRI（k空間放射状収集）：体動補正が内蔵されているが時間が長い。認知症患者では短時間（3分以内/シーケンス）を目標に撮像計画を立てます。',
+    relatedParams: ['turboFactor', 'averages', 'ipatMode', 'partialFourier'],
+  },
+  // ─── 腎機能低下：非造影MRA ───────────────────────────────────────────────
+  {
+    id: 'renal_failure_mra_01',
+    title: '透析患者の腎動脈狭窄評価',
+    category: '造影',
+    difficulty: 3,
+    patientInfo: '67歳 男性。慢性腎不全（eGFR=8、維持透析中）。高血圧難治性のため腎血管性高血圧を疑い腎動脈評価の依頼あり。',
+    currentPresetId: 'renal_native_mra',
+    question: 'この患者に最も適切な腎動脈MRI方法はどれですか？',
+    options: [
+      {
+        label: 'ECG同期bSSFP（Native/QISS）非造影MRAで評価する',
+        paramChanges: { ecgTrigger: true, respTrigger: 'PACE' },
+        isCorrect: true,
+        explanation: '透析患者にはGd造影剤（特に非大環状型）のNSF（腎性全身性線維症）リスクがあります（eGFR<30で使用禁忌/注意）。ECG同期bSSFPまたはQISS（Quiescent-Interval Single Shot）法は造影剤不要で腎動脈を評価できます。',
+      },
+      {
+        label: '大環状型Gd製剤（Gadovist）を低用量（0.05mmol/kg）で使用する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: '大環状型Gdは非大環状型よりNSFリスクが低いですが、透析患者（eGFR<15）への使用は慎重かつ放射線科医の判断が必要。低用量でも診断能が確保できるかは不確実。非造影法が利用可能なら優先すべきです。',
+      },
+      {
+        label: 'CTA（CT血管造影）に変更する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: 'CTAのヨード造影剤も透析患者には影響があり（ヨード系造影剤は残存腎機能障害、透析患者でも造影剤誘発性腎症の議論あり）、加えて放射線被曝の問題があります。非造影MRAが第一選択です。',
+      },
+      {
+        label: '造影剤なしで通常のT2 TSEで腎動脈を評価する',
+        paramChanges: { respTrigger: 'PACE' },
+        isCorrect: false,
+        explanation: 'T2 TSEは腎動脈評価に十分な分解能がなく、血管走行・狭窄の詳細評価は困難です。非造影MRA（bSSFP/QISS/TOF）を使用すべきです。',
+      },
+    ],
+    detailedExplanation: 'NSF（Nephrogenic Systemic Fibrosis）：Gd造影剤（特に線状型：Omniscan/Magnevist）腎不全患者への投与後に皮膚・全身の線維化を起こす重篤な疾患。eGFR<30では大環状型以外禁忌。大環状型（Gadovist/ProHance）でもeGFR<15（透析含む）では慎重投与。非造影MRA選択肢：①QISS法（磁化準備bSSFP）②Native SPACE/COSMIC（3D TSE）③PC-MRA（位相コントラスト）④4D Flow MRI。これらは腎動脈狭窄の感度・特異度がCE-MRAと同等以上の報告もあります。',
+    relatedParams: ['ecgTrigger', 'respTrigger'],
+  },
 ]

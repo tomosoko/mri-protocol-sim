@@ -220,6 +220,88 @@ function computeSuggestions(params: ProtocolParams, goal: OptGoal): Suggestion[]
     ))
   }
 
+  // ── 3T最適化 ──────────────────────────────────────────────────────────────
+  if (params.fieldStrength === 3.0 && params.bandwidth < 300) {
+    all.push(mk('bw_3t_chemshift',
+      '3T: 帯域幅 ≥300 Hz/px に増加',
+      '3Tでは化学シフトが2倍(440Hz/px)になるため、BW≥300で1pixel以内に抑制できます。',
+      { bandwidth: 320 },
+      'SNR約10%低下'
+    ))
+  }
+  if (params.fieldStrength === 3.0 && params.satBands && params.fatSat === 'STIR') {
+    all.push(mk('stir_3t_spair',
+      '3T: STIR → SPAIR に変更',
+      '3TではSTIRのSAR負荷が大きく、均一性でもSPAIRが優位です。STIR禁止（造影後も注意）。',
+      { fatSat: 'SPAIR' },
+      'TR依存の均一性に注意'
+    ))
+  }
+
+  // ── DWI 最適化 ──────────────────────────────────────────────────────────────
+  const isDWI = params.bValues.length >= 2 && params.turboFactor <= 2
+  if (isDWI && params.ipatFactor < 2 && params.ipatMode === 'Off') {
+    all.push(mk('dwi_grappa2',
+      'DWI: GRAPPA×2 追加でEPI歪み改善',
+      'EPI-DWIでGRAPPA×2を追加するとエコートレインが半分→磁化率歪み・幾何学的歪みが大幅改善。',
+      { ipatMode: 'GRAPPA', ipatFactor: 2 },
+      'SNR約30%低下（歪み改善との交換）'
+    ))
+  }
+  if (isDWI && !params.inlineADC) {
+    all.push(mk('dwi_adc_inline',
+      'DWI: ADC Map をインライン再構成',
+      'ADCマップで拡散制限の定量確認・T2 shine-through 鑑別が可能。臨床DWIでは標準的です。',
+      { inlineADC: true }
+    ))
+  }
+  if (isDWI && params.phaseEncDir === 'A>>P' && params.fieldStrength === 3.0) {
+    all.push(mk('dwi_phase_rl',
+      'DWI(3T): 位相方向 R>>L に変更検討',
+      '腹部DWI 3Tでは A>>P方向に磁化率歪みが出やすい。R>>L変更で特定方向の歪みを軽減できます。',
+      { phaseEncDir: 'R>>L' }
+    ))
+  }
+
+  // ── 心臓 最適化 ─────────────────────────────────────────────────────────────
+  if (params.ecgTrigger && params.TR < 800) {
+    all.push(mk('cardiac_tr_trigger',
+      'ECGトリガー: TR≥1000ms に延長',
+      'ECGトリガー使用時にTR<800msでは心収縮周期が2回に1回しかカバーできない場合があります。',
+      { TR: 1000 }
+    ))
+  }
+
+  // ── 薄スライス高分解能 最適化 ────────────────────────────────────────────────
+  if (params.sliceThickness < 3 && params.averages < 3 && params.fieldStrength === 1.5) {
+    all.push(mk('thin_slice_avg',
+      '薄スライス: Averages ≥ 2 でSNR補償',
+      `${params.sliceThickness}mmスライスはSNRが低い。1.5TではAverages増加でSNRを補います（撮像時間↑）。`,
+      { averages: Math.min(params.averages + 1, 4) },
+      '撮像時間2倍'
+    ))
+  }
+
+  // ── PACE/呼吸同期 最適化 ─────────────────────────────────────────────────────
+  if (params.respTrigger === 'Off' && params.sliceThickness >= 5 &&
+      (params.orientation === 'Tra' || params.orientation === 'Cor') && params.TR > 3000) {
+    all.push(mk('resp_pace',
+      '腹部T2: PACE 呼吸同期を追加',
+      '腹部・骨盤のT2 TSEでは呼吸同期（PACE/Navigator）でモーションアーチファクトを大幅に軽減できます。',
+      { respTrigger: 'PACE' },
+      '撮像時間2-3倍増加の可能性'
+    ))
+  }
+
+  // ── iPAT CAIPIRINHA for 3D ────────────────────────────────────────────────
+  if (params.ipatMode === 'GRAPPA' && params.ipatFactor >= 3 && params.fieldStrength === 3.0) {
+    all.push(mk('caipirinha_3t',
+      '3D 3T: CAIPIRINHA に変更',
+      'GRAPPA×3以上では3TでCAIPIRINHAの方がg-factor（残留アーチファクト）が低くなることが多い。',
+      { ipatMode: 'CAIPIRINHA' }
+    ))
+  }
+
   // ── relevance score でソート ──────────────────────────────────────────────
   const score = (s: Suggestion): number => {
     switch (goal) {
