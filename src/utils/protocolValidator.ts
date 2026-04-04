@@ -3,6 +3,11 @@ import { calcSARLevel, calcSNR } from '../store/calculators'
 
 export type RuleSeverity = 'error' | 'warning' | 'info'
 
+export interface QuickFix {
+  label: string
+  apply: (p: ProtocolParams) => Partial<ProtocolParams>
+}
+
 export interface ValidationIssue {
   id: string
   severity: RuleSeverity
@@ -10,6 +15,7 @@ export interface ValidationIssue {
   title: string
   detail: string
   params?: string[]   // 関連パラメータ名（ハイライト用）
+  quickFixes?: QuickFix[]
 }
 
 type Rule = (p: ProtocolParams) => ValidationIssue | null
@@ -28,12 +34,21 @@ const rules: Rule[] = [
       title: 'SAR 上限超過',
       detail: `推定SAR ${sar}% で IEC 安全限界を超えています。TR延長・FA低減・ETL短縮を検討してください。`,
       params: ['flipAngle', 'TR', 'turboFactor'],
+      quickFixes: [
+        { label: 'FA を 120° に下げる', apply: () => ({ flipAngle: 120 }) },
+        { label: 'TR を 500ms 延長', apply: (p) => ({ TR: p.TR + 500 }) },
+        { label: 'ETL を半分に短縮', apply: (p) => ({ turboFactor: Math.max(1, Math.floor(p.turboFactor / 2)) }) },
+      ],
     }
     if (sar >= 80) return {
       id: 'sar_high', severity: 'warning', category: 'SAR',
       title: 'SAR が高い値です',
       detail: `推定SAR ${sar}%。3T + HASTE/TSE + 大FA の組み合わせで特に注意。SAR Assistant を "Advanced" にすることを推奨。`,
       params: ['flipAngle', 'TR', 'turboFactor'],
+      quickFixes: [
+        { label: 'FA を 130° に下げる', apply: () => ({ flipAngle: 130 }) },
+        { label: 'SAR Assistant を Advanced に', apply: () => ({ sarAssistant: 'Advanced' as const }) },
+      ],
     }
     return null
   },
@@ -66,6 +81,10 @@ const rules: Rule[] = [
       title: '3T で STIR は非推奨',
       detail: '3T では B1 不均一性が大きくSTIRの脂肪抑制効率が低下します。SPAIR または Dixon に変更することを推奨。',
       params: ['fatSat', 'fieldStrength'],
+      quickFixes: [
+        { label: 'SPAIR に変更', apply: () => ({ fatSat: 'SPAIR' as const, TI: 0 }) },
+        { label: 'Dixon に変更', apply: () => ({ fatSat: 'Dixon' as const, TI: 0 }) },
+      ],
     }
     return null
   },
@@ -76,6 +95,10 @@ const rules: Rule[] = [
       title: 'STIR なのに TI が 0 です',
       detail: 'STIR には脂肪の T1 に合わせた TI 設定が必須です。1.5T では TI≈160ms、3T では TI≈180ms を使用してください。',
       params: ['fatSat', 'TI'],
+      quickFixes: [
+        { label: `TI を ${p.fieldStrength === 3.0 ? 180 : 160}ms に設定`, apply: (p) => ({ TI: p.fieldStrength === 3.0 ? 180 : 160 }) },
+        { label: 'SPAIR に変更（3T推奨）', apply: () => ({ fatSat: 'SPAIR' as const, TI: 0 }) },
+      ],
     }
     return null
   },
@@ -98,6 +121,9 @@ const rules: Rule[] = [
       title: 'ADC マップが無効です',
       detail: 'DWI (b値複数) が設定されていますが Inline ADC が OFF です。拡散係数の定量評価には Inline → ADC を ON にしてください。',
       params: ['inlineADC'],
+      quickFixes: [
+        { label: 'Inline ADC を ON に', apply: () => ({ inlineADC: true }) },
+      ],
     }
     return null
   },
@@ -119,6 +145,10 @@ const rules: Rule[] = [
       title: 'HASTE で PartialFourier が OFF です',
       detail: 'Single-shot HASTE には PartialFourier (5/8 または 6/8) が必須です。全ラインを1TRで収集することは SAR/時間的に困難です。',
       params: ['partialFourier', 'turboFactor'],
+      quickFixes: [
+        { label: 'PF 5/8 に設定（推奨）', apply: () => ({ partialFourier: '5/8' as const }) },
+        { label: 'PF 6/8 に設定', apply: () => ({ partialFourier: '6/8' as const }) },
+      ],
     }
     return null
   },
@@ -151,6 +181,10 @@ const rules: Rule[] = [
       title: '大 FOV で呼吸同期なし',
       detail: `FOV=${p.fov}mm (腹部・胸部と推定)。呼吸同期なしではモーションアーチファクトが生じます。PACE/RT または息止め(BH)を推奨。`,
       params: ['respTrigger', 'fov'],
+      quickFixes: [
+        { label: 'PACE を有効化', apply: () => ({ respTrigger: 'PACE' as const }) },
+        { label: '息止め (BH) に設定', apply: () => ({ respTrigger: 'BH' as const }) },
+      ],
     }
     return null
   },

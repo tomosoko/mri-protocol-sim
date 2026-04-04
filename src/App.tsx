@@ -24,6 +24,7 @@ import { CaseTrainingPanel } from './components/CaseTrainingPanel'
 import { KSpaceVisualizer } from './components/KSpaceVisualizer'
 import { TissueContrastPanel } from './components/TissueContrastPanel'
 import { ValidationPanel } from './components/ValidationPanel'
+import { ProtocolSummaryPanel } from './components/ProtocolSummaryPanel'
 import { validateProtocol } from './utils/protocolValidator'
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
@@ -42,7 +43,7 @@ const TAB_PARAMS: Record<string, string[]> = {
 
 export default function App() {
   const { activeTab, setActiveTab, activePresetId, params } = useProtocolStore()
-  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | null>('learn')
+  const [rightPanel, setRightPanel] = useState<'artifact' | 'learn' | 'diff' | 'scenario' | 'snrmap' | 'artifactsim' | 'case' | 'kspace' | 'tissue' | 'validate' | 'summary' | null>('learn')
   const [quizMode, setQuizMode] = useState(false)
 
   const activePreset = presets.find(p => p.id === activePresetId)
@@ -159,6 +160,18 @@ export default function App() {
               }}
             >
               Tissue
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === 'summary' ? null : 'summary')}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors"
+              style={{
+                background: rightPanel === 'summary' ? '#1a0e00' : '#252525',
+                color: rightPanel === 'summary' ? '#e88b00' : '#5a5a5a',
+                border: `1px solid ${rightPanel === 'summary' ? '#c47400' : '#374151'}`,
+                fontSize: '10px',
+              }}
+            >
+              Summary
             </button>
           </div>
           {/* ビジュアル系 */}
@@ -304,6 +317,7 @@ export default function App() {
             {rightPanel === 'kspace' && <KSpaceVisualizer />}
             {rightPanel === 'tissue' && <TissueContrastPanel />}
             {rightPanel === 'validate' && <ValidationPanel />}
+            {rightPanel === 'summary' && <ProtocolSummaryPanel />}
           </div>
         )}
       </div>

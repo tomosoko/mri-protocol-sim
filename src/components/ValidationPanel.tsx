@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { validateProtocol, issueCount, type ValidationIssue, type RuleSeverity } from '../utils/protocolValidator'
-import { AlertTriangle, XCircle, Info, ChevronDown, ChevronRight, ArrowRight } from 'lucide-react'
+import { AlertTriangle, XCircle, Info, ChevronDown, ChevronRight, ArrowRight, Wrench } from 'lucide-react'
+import type { ProtocolParams } from '../data/presets'
 
 // パラメータ → タブのマッピング
 const PARAM_TAB: Record<string, string> = {
@@ -42,11 +43,12 @@ const severityLabel: Record<RuleSeverity, string> = {
   info: '情報',
 }
 
-function IssueCard({ issue, expanded, onToggle, onJumpToTab }: {
+function IssueCard({ issue, expanded, onToggle, onJumpToTab, onApplyFix }: {
   issue: ValidationIssue
   expanded: boolean
   onToggle: () => void
   onJumpToTab: (tab: string, params: string[]) => void
+  onApplyFix: (fix: (p: ProtocolParams) => Partial<ProtocolParams>) => void
 }) {
   // 最初の関連パラメータからタブを推定
   const targetTab = issue.params
@@ -95,6 +97,29 @@ function IssueCard({ issue, expanded, onToggle, onJumpToTab }: {
               )}
             </div>
           )}
+          {issue.quickFixes && issue.quickFixes.length > 0 && (
+            <div className="mt-2 pt-1.5 space-y-1" style={{ borderTop: '1px solid #252525' }}>
+              <div className="flex items-center gap-1 mb-0.5" style={{ color: '#4b5563', fontSize: '9px' }}>
+                <Wrench size={8} />クイックフィックス
+              </div>
+              {issue.quickFixes.map((fix, i) => (
+                <button
+                  key={i}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded w-full text-left transition-colors"
+                  style={{
+                    background: '#0a1a0a',
+                    color: '#86efac',
+                    border: '1px solid #14532d',
+                    fontSize: '9px',
+                  }}
+                  onClick={e => { e.stopPropagation(); onApplyFix(fix.apply) }}
+                >
+                  <Wrench size={7} />
+                  {fix.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -102,7 +127,7 @@ function IssueCard({ issue, expanded, onToggle, onJumpToTab }: {
 }
 
 export function ValidationPanel() {
-  const { params, setActiveTab, setHighlightedParams } = useProtocolStore()
+  const { params, setActiveTab, setHighlightedParams, setParam } = useProtocolStore()
   const issues = validateProtocol(params)
   const counts = issueCount(issues)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -111,8 +136,14 @@ export function ValidationPanel() {
   const handleJumpToTab = (tab: string, relatedParams: string[]) => {
     setActiveTab(tab)
     setHighlightedParams(relatedParams)
-    // 3秒後にハイライト解除
     setTimeout(() => setHighlightedParams([]), 3000)
+  }
+
+  const handleApplyFix = (fixFn: (p: ProtocolParams) => Partial<ProtocolParams>) => {
+    const changes = fixFn(params)
+    Object.entries(changes).forEach(([key, value]) => {
+      setParam(key as keyof ProtocolParams, value as ProtocolParams[keyof ProtocolParams])
+    })
   }
 
   const toggle = (id: string) => {
@@ -191,6 +222,7 @@ export function ValidationPanel() {
               expanded={expandedIds.has(issue.id)}
               onToggle={() => toggle(issue.id)}
               onJumpToTab={handleJumpToTab}
+              onApplyFix={handleApplyFix}
             />
           ))
         )}
