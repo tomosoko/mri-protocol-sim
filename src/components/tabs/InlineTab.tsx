@@ -6,7 +6,6 @@ import { ParamField } from '../ParamField'
 function IVIMCalculator({ bValues }: { bValues: number[] }) {
   const sortedB = [...bValues].sort((a, z) => a - z)
   const maxB = Math.max(...sortedB)
-  const minB = Math.min(...sortedB)
   const hasLowB = sortedB.some(b => b > 0 && b < 200)
 
   // Simulate tissue ADC values for different tissues at the given b-values

@@ -496,6 +496,70 @@ export function getSeqClinical(name: string, bodyPartId: string | null): SeqClin
     }
   }
 
+  // ====== 血管 ======
+  if (n.includes('bolustrigger') || n.includes('bolus_trigger')) return {
+    reason: '造影剤到達検知（Bolus Tracking）',
+    clinical: '関心領域（大動脈弓部・腹部大動脈）をモニタリングし、造影剤到達による信号上昇を検知して自動的に本撮像へ移行。適切な動脈相タイミングを実現し、MIPでの血管描出品質を向上させる。',
+    params: 'モニタリング間隔1秒。閾値は施設ごとに設定（通常ベースラインの+40%）。'
+  }
+  if (n.includes('ce_mra') || n.includes('3d_flash_cor')) return {
+    reason: '造影3D-FLASH MRA（血管描出）',
+    clinical: '短TR/TEのGradient Echoで3D収集。造影剤ファーストパスの動脈相を捕捉してMIPで血管像を作成。大動脈・腎動脈・末梢血管の狭窄・閉塞・瘤を評価する。',
+    findings: '大動脈瘤: 拡張+壁在血栓｜解離: 偽腔+内膜フラップ｜腎動脈狭窄: 信号途絶+側副血行路｜末梢閉塞: flow void',
+    params: 'TR≈3ms、TE≈1ms、FA=25°。呼吸停止 or 受け入れウィンドウ。'
+  }
+  if (n.includes('wb_dwi') || n.includes('whole_body')) return {
+    reason: '全身DWI（背景抑制全身拡散強調）',
+    clinical: 'DWIBS（DWI with Background body Signal Suppression）: STIR+EPI。複数ステーションを連続撮像して全身を一括評価。ADC低値病変（悪性リンパ腫・骨転移・腹膜播種）が反転MIP画像上で際立つ。PETとの相補性が高い。',
+    findings: 'リンパ腫: リンパ節群の高信号（ADC低値）｜骨転移: 椎体・骨盤の斑状高信号｜腹膜播種: 腸間膜・大網の結節状高信号',
+    params: 'b=50/800。3-4ステーション（各5-8分）。受け入れ型呼吸同期。STIR-EPI。'
+  }
+  if (n.includes('wb_dixon') || n.includes('dixon_t1_cor')) return {
+    reason: '全身 Dixon T1（骨髄脂肪評価）',
+    clinical: '骨髄の正常脂肪信号（黄色骨髄）が背景として描出される中、腫瘍置換（赤色骨髄）・骨転移・骨髄腫が低信号で検出される。DWIとの組み合わせで感度・特異度が向上。',
+    findings: '骨転移: T1低信号+DWI高信号｜骨髄腫: びまん性T1低信号｜リンパ腫骨髄浸潤: 散在性T1低信号',
+  }
+  if (n.includes('pre-ce_mask') || n.includes('mask')) return {
+    reason: '造影前マスク取得（サブトラクション用）',
+    clinical: '造影後画像から造影前マスクを減算することで、背景組織を消去して純粋な血管・造影増強部位のみを描出する。CE-MRAのMIP品質向上、乳腺ダイナミックの増強パターン評価に必須。',
+    params: 'マスクと本撮像で同一呼吸相（理想は同一息止め）の位置合わせが重要。'
+  }
+  if (n.includes('pancreatic_phase') || n.includes('panc_phase')) return {
+    reason: '膵実質相（35秒）Dynamic CT/MRI',
+    clinical: '膵実質が最も強く造影される相（動脈後期〜門脈前期）。膵内分泌腫瘍（NET）は血流豊富なため膵実質相での高信号が特徴的。膵癌は低血管性のため低信号（膵実質との対比で検出）。',
+    findings: 'NET（機能性）: 膵実質相での著明な増強｜膵癌: 全相で低信号+主膵管拡張｜漿液性嚢胞腺腫: 中心瘢痕増強',
+    params: '注射後35秒が目安。1秒単位の遅延設定が病変検出率に影響する。'
+  }
+  if (n.includes('gre_opp') || n.includes('opp_in_phase') || n.includes('opp-in')) return {
+    reason: 'GRE Opp/In-Phase（化学シフトイメージング）',
+    clinical: '副腎腺腫は細胞内脂質を含むため、Opposed-Phase（逆位相）でIn-Phase比20%以上のSI低下を示す。副腎腺腫vs転移の鑑別に最も信頼性が高い非侵襲的な方法。SI比=(IP-OP)/IP×100%。',
+    findings: '腺腫: SI比>20%（脂質含有）｜転移・褐色細胞腫: SI変化なし(<10%)｜脂肪腫: 極めて高いSI低下(>50%)',
+    params: '1.5T: OP-TE≈2.3ms、IP-TE≈4.6ms。3T: OP-TE≈1.15ms、IP-TE≈2.3ms。'
+  }
+  if (n.includes('native') && (n.includes('trufi') || n.includes('trig'))) return {
+    reason: 'ECG同期非造影MRA（Native TruFi / QISS）',
+    clinical: '腎機能低下（eGFR<30）や造影禁忌患者の腎動脈評価に適用。拡張期の低流速血流をbSSFP（TruFiSP）で高信号化し、3D収集でMIPを作成。腎動脈狭窄の感度は造影MRAと同等とする報告もある。',
+    findings: '腎動脈狭窄: 信号欠損・caliber変化｜腎動脈瘤: 局所拡張｜FMD: beading pattern',
+    params: 'ECG同期（拡張期取得）。TI≈200-300msで動脈/静脈コントラスト最適化。'
+  }
+  if (n.includes('vibe_hbp') || n.includes('hep_bh') || (n.includes('vibe') && n.includes('hbp'))) return {
+    reason: 'Primovist 肝細胞相（20分後）',
+    clinical: 'Gd-EOB-DTPAは肝細胞のOATP1B3トランスポーター経由で取り込まれ胆管排泄される。正常肝は高信号、肝細胞機能のない腫瘍（転移・多くのHCC）は低信号で際立つ。高分化HCCではOATP1B3残存により等/高信号を示すことがある（偽陰性）。',
+    findings: 'HCC（低〜中分化）: 低信号｜FNH: 等〜高信号（中心瘢痕除く）｜転移: 低信号で辺縁強調（rim）｜胆管腺腫: 高信号（胆道系由来）',
+    params: '注射後15〜20分。GRE T1 BH Dixon。肝信号均一性を確認してから撮像開始。'
+  }
+  if (n.includes('stir_tra') && (bp === 'thorax' || bp === 'oncology')) return {
+    reason: 'STIR T2（リンパ腫活性・縦隔腫瘤評価）',
+    clinical: 'STIR（Short TI Inversion Recovery）は脂肪信号を抑制しT2コントラストを最大化。悪性リンパ腫の活性病変は著明な高信号。縦隔の脂肪信号を除去することで腫瘤のT2信号を純粋に評価できる。',
+    findings: '活性リンパ腫: 著明高信号（ADC低値も併存）｜治療後繊維化: 低/等信号（活性化なし）｜胸腺腫: 均一高信号（悪性は不均一）',
+  }
+  if (n.includes('t2_haste_cor_rt') || n.includes('haste_rt') || n.includes('haste_cor_rt')) return {
+    reason: '肺 HASTE 呼吸同期 冠状断',
+    clinical: '超高速SE（Half-Fourier HASTE）で呼吸に伴う動きアーチファクトを最小化。肺腫瘤・胸水・胸膜病変を冠状断で広視野に把握。CTに比べ放射線被曝ゼロで、小児・妊婦・頻回フォロー検査に有用。',
+    findings: '肺腫瘤: T2高信号の充実性成分｜胸水: 均一高信号｜無気肺: 均一高信号+体積減少｜肺炎: すりガラス状高信号',
+    params: 'TR=1500ms。TE=最短（30-40ms）。ETL=220程度で超高速収集。'
+  }
+
   // ====== フォールバック（汎用） ======
   if (n.includes('t2_tse') || n.includes('t2_haste')) return {
     reason: 'T2強調（水・浮腫・腫瘍の高信号描出）',

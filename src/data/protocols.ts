@@ -1312,4 +1312,277 @@ export const protocolTree: BodyPart[] = [
       },
     ],
   },
+  // ── 血管 ─────────────────────────────────────────────────────────────────────
+  {
+    id: 'vascular',
+    label: '血管',
+    groups: [
+      {
+        id: 'aorta',
+        label: '大動脈',
+        variants: [
+          {
+            id: 'aorta_ce_mra_routine',
+            label: 'CE-MRA',
+            presetId: 'aorta_ce_mra',
+            columns: [
+              {
+                label: 'CE-MRA',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_cor', duration: '1:30', reason: 'Scout: 大動脈走行確認' },
+                  { name: 'Pre-CE_mask', duration: '0:30', reason: 'マスク（サブトラクション用）' },
+                  { name: 'BolusTrigger_wait', isTimer: true, duration: '0:30', reason: '造影剤注入〜到達待機' },
+                  { name: 'CE_Injection', isCE: true, reason: 'Gd造影剤 0.2mmol/kg + 生食フラッシュ' },
+                  { name: 'aorta_3d_flash_cor_arterial', duration: '0:20', reason: '動脈相: 狭窄・解離・瘤評価' },
+                  { name: 'aorta_3d_flash_cor_portal', duration: '0:20', reason: '静脈相: 開存確認' },
+                  { name: 'aorta_3d_flash_cor_equilibrium', duration: '0:30', isOptional: true, reason: '平衡相: 壁在血栓' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'renal_artery',
+        label: '腎動脈',
+        variants: [
+          {
+            id: 'renal_mra_ce_routine',
+            label: 'CE-MRA',
+            presetId: 'renal_mra_ce',
+            columns: [
+              {
+                label: 'CE-MRA',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_cor', duration: '1:30', reason: '腎形態・位置確認' },
+                  { name: 'Native SPACE TOF', duration: '4:00', reason: '非造影MRA (QISS/NATIVE)' },
+                  { name: 'Pre-CE_mask', duration: '0:30', reason: 'マスク取得' },
+                  { name: 'CE_Injection', isCE: true, reason: '造影剤注入 0.1mmol/kg' },
+                  { name: 'renal_3d_flash_cor_arterial', duration: '0:18', reason: '動脈相: 腎動脈狭窄評価' },
+                  { name: 't1_vibe_ce_tra', duration: '0:25', isOptional: true, isCE: true, reason: '薄スライス詳細評価' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'renal_native_mra_routine',
+            label: 'Native MRA',
+            presetId: 'renal_native_mra',
+            columns: [
+              {
+                label: 'Native (造影なし)',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 'native_trufi_cor_trig', duration: '7:00', reason: 'ECG同期非造影MRA。腎機能低下・造影禁忌に適応' },
+                  { name: 't2_haste_cor_bh', duration: '1:30', reason: '腎形態確認' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'peripheral',
+        label: '末梢血管',
+        variants: [
+          {
+            id: 'peripheral_ce_mra_routine',
+            label: '3-Station CE-MRA',
+            presetId: 'peripheral_mra',
+            columns: [
+              {
+                label: '3-Station',
+                sequences: [
+                  { name: 'Localizer_whole', duration: '0:30' },
+                  { name: 'Pre-CE_mask_station1', duration: '0:30', reason: 'Station1(腸骨)マスク' },
+                  { name: 'Pre-CE_mask_station2', duration: '0:30', reason: 'Station2(大腿)マスク' },
+                  { name: 'Pre-CE_mask_station3', duration: '0:30', reason: 'Station3(下腿)マスク' },
+                  { name: 'CE_Injection', isCE: true, reason: '造影剤 0.2mmol/kg 4ml/s' },
+                  { name: 'ce_mra_station3_legs', duration: '0:25', reason: '下腿先行撮像（静脈混入防止）' },
+                  { name: 'ce_mra_station1_iliac', duration: '0:18', reason: '腸骨動脈: 狭窄・閉塞' },
+                  { name: 'ce_mra_station2_femoral', duration: '0:20', reason: '大腿動脈: SFA評価' },
+                  { name: 'ce_mra_station3_repeat', duration: '0:25', isOptional: true, reason: '下腿追加撮像' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  // ── 腫瘍・全身 ───────────────────────────────────────────────────────────────
+  {
+    id: 'oncology',
+    label: '腫瘍・全身',
+    groups: [
+      {
+        id: 'whole_body',
+        label: '全身 DWI',
+        variants: [
+          {
+            id: 'wb_dwi_lymphoma',
+            label: 'リンパ腫 staging',
+            presetId: 'whole_body_dwi',
+            columns: [
+              {
+                label: 'WB-DWI',
+                sequences: [
+                  { name: 'Localizer_full', duration: '0:30' },
+                  { name: 't2_haste_cor_head_neck', duration: '2:00', reason: '頸部リンパ節形態評価' },
+                  { name: 'wb_dwi_cor_station1_chest', duration: '4:30', reason: '胸部 b=50/800 DWIBS' },
+                  { name: 'wb_dwi_cor_station2_abdomen', duration: '4:30', reason: '腹部 b=50/800 DWIBS' },
+                  { name: 'wb_dwi_cor_station3_pelvis', duration: '4:30', reason: '骨盤 b=50/800 DWIBS' },
+                  { name: 'wb_dwi_cor_station4_legs', duration: '5:00', isOptional: true, reason: '下肢 b=50/800' },
+                  { name: 'WB_MIP_ADC_reconstruction', isTimer: true, duration: '3:00', reason: '全身ADC/MIPワークフロー処理' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'wb_dwi_bone_meta',
+            label: '骨転移 screening',
+            presetId: 'whole_body_dwi',
+            columns: [
+              {
+                label: 'Bone Meta',
+                sequences: [
+                  { name: 'Localizer_full', duration: '0:30' },
+                  { name: 'wb_dixon_t1_cor', duration: '3:00', reason: 'Dixon T1: 骨髄置換の背景評価' },
+                  { name: 'wb_dwi_cor_station1', duration: '4:00', reason: 'b=0/600 骨転移スクリーニング' },
+                  { name: 'wb_dwi_cor_station2', duration: '4:00', reason: '体幹部 DWI' },
+                  { name: 'wb_dwi_cor_station3', duration: '4:00', reason: '骨盤・大腿近位 DWI' },
+                  { name: 'Bone_ADC_fusion', isTimer: true, duration: '2:00', reason: 'ADC+T1 Fusion画像作成' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'liver_oncology',
+        label: '肝・膵',
+        variants: [
+          {
+            id: 'pancreas_routine',
+            label: '膵臓精査',
+            presetId: 'pancreas_mri',
+            columns: [
+              {
+                label: '膵臓標準',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_cor_bh', duration: '1:00', reason: '膵管・胆管 overview' },
+                  { name: 'mrcp_3d_space', duration: '6:00', reason: '3D MRCP: 膵管形態・IPMN分枝型評価' },
+                  { name: 't2_spair_tra', duration: '5:00', reason: '膵実質T2: 腫瘤・萎縮評価' },
+                  { name: 'dwi_tra_b50_800', duration: '4:00', reason: 'DWI: 膵癌ADC低値 <1.0×10⁻³' },
+                  { name: 'CE_Injection', isCE: true, reason: '造影剤 0.1mmol/kg' },
+                  { name: 'vibe_bh_pre', duration: '0:20', reason: '造影前マスク' },
+                  { name: 'vibe_bh_pancreatic_phase', duration: '0:20', isCE: true, reason: '膵実質相(35s): 膵内分泌腫瘍に必須' },
+                  { name: 'vibe_bh_portal', duration: '0:20', isCE: true, reason: '門脈相(60s): 膵癌主体' },
+                  { name: 'vibe_bh_equilibrium', duration: '0:20', isCE: true, reason: '平衡相(3min): 間質増生パターン' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'adrenal_routine',
+            label: '副腎腺腫鑑別',
+            presetId: 'adrenal_mri',
+            columns: [
+              {
+                label: 'Chemical Shift',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_tra_bh', duration: '1:30', reason: '副腎形態・位置確認' },
+                  { name: 'gre_opp_in_phase_bh', duration: '1:00', reason: 'Opp/In-Phase Dixon: 腺腫は20%以上SI低下' },
+                  { name: 'dwi_tra_b0_600', duration: '4:00', isOptional: true, reason: 'DWI: 転移はADC低値' },
+                  { name: 'CE_Injection', isOptional: true, isCE: true, reason: '造影: Washout評価(腺腫特異的)' },
+                  { name: 'vibe_dynamic_adrenal', duration: '0:20', isOptional: true, isCE: true, reason: 'Dynamic: 60s/10min washout計算' },
+                ],
+              },
+            ],
+          },
+          {
+            id: 'liver_ablation_followup',
+            label: 'RFA後評価',
+            presetId: 'liver_hcc_ablation',
+            columns: [
+              {
+                label: 'Post-RFA',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_tra_bh', duration: '1:00', reason: 'Ablation zone 大きさ確認' },
+                  { name: 'dwi_tra_b50_800', duration: '4:00', reason: 'ADC: 残存HCC検出（低ADC）' },
+                  { name: 'vibe_bh_pre', duration: '0:20', reason: 'Primovist 前' },
+                  { name: 'CE_Injection', isCE: true, reason: 'Primovist 0.025mmol/kg' },
+                  { name: 'vibe_bh_arterial', duration: '0:20', isCE: true, reason: '動脈相: 残存結節のnodule-in-nodule' },
+                  { name: 'vibe_bh_portal', duration: '0:20', isCE: true, reason: '門脈相: washout確認' },
+                  { name: 'Wait_20min', isTimer: true, duration: '20:00', reason: 'Primovist 肝胆道相待機' },
+                  { name: 'vibe_hbp', duration: '0:20', isCE: true, reason: '肝胆道相: 残存HCCは低信号' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  // ── 胸部 ─────────────────────────────────────────────────────────────────────
+  {
+    id: 'thorax',
+    label: '胸部',
+    groups: [
+      {
+        id: 'lung',
+        label: '肺',
+        variants: [
+          {
+            id: 'lung_mri_routine',
+            label: '肺腫瘤精査',
+            presetId: 'lung_mri',
+            columns: [
+              {
+                label: 'Lung MRI',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_cor_rt', duration: '4:00', reason: '肺腫瘤形態・胸水評価' },
+                  { name: 't2_haste_tra_rt', duration: '4:00', reason: '横断: 縦隔浸潤・リンパ節' },
+                  { name: 'dwi_epi_tra_b50_800', duration: '4:00', reason: 'DWI: 悪性所見(ADC低値)・縦隔リンパ節' },
+                  { name: 'CE_Injection', isOptional: true, isCE: true, reason: '造影追加時' },
+                  { name: 'vibe_tra_ce', duration: '0:20', isOptional: true, isCE: true, reason: '造影T1 VIBE: 胸膜播種・血管浸潤' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        id: 'mediastinum',
+        label: '縦隔',
+        variants: [
+          {
+            id: 'mediastinum_routine',
+            label: '縦隔腫瘤',
+            presetId: 'mediastinum_mri',
+            columns: [
+              {
+                label: '縦隔標準',
+                sequences: [
+                  { name: 'Localizer', duration: '0:20' },
+                  { name: 't2_haste_sag', duration: '2:00', reason: '縦隔腫瘤 overview' },
+                  { name: 't2_tse_tra', duration: '5:00', reason: 'T2: 胸腺腫・神経原性腫瘍・奇形腫' },
+                  { name: 't2_stir_tra', duration: '5:00', reason: 'STIR: 悪性リンパ腫活性評価' },
+                  { name: 'dwi_tra', duration: '5:00', reason: 'DWI: ADC低値 → 高悪性度' },
+                  { name: 'CE_Injection', isOptional: true, isCE: true },
+                  { name: 't1_vibe_tra_ce', duration: '0:25', isOptional: true, isCE: true, reason: '造影: 被膜浸潤・大血管浸潤' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ]

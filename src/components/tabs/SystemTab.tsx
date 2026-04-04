@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcSARLevel } from '../../store/calculators'
@@ -70,6 +70,108 @@ function GradientMonitor() {
         <span>SlewRate: {spec.slewRate}T/m/s</span>
         {isEPI && <span style={{ color: '#f87171' }}>EPI: 高デューティサイクル</span>}
         {dutyCycle > 60 && <span style={{ color: '#f87171' }}>⚠ 傾斜磁場過熱リスク</span>}
+      </div>
+    </div>
+  )
+}
+
+// ── B1+ フィールドマップ (Dielectric Effect 可視化) ──────────────────────────────
+function B1FieldMap({ fieldStrength, trueForm }: { fieldStrength: number; trueForm: boolean }) {
+  const is3T = fieldStrength >= 2.5
+  const W = 260, H = 120
+  const CX = W / 2, CY = H / 2
+  const RX = 100, RY = 46  // body ellipse radii
+
+  // Generate B1+ heatmap: at 3T center-brightening (Dielectric Effect), at 1.5T roughly uniform
+  const pixels = useMemo(() => {
+    const pts: { x: number; y: number; v: number }[] = []
+    const step = 4
+    for (let y = CY - RY - 2; y <= CY + RY + 2; y += step) {
+      for (let x = CX - RX - 2; x <= CX + RX + 2; x += step) {
+        const nx = (x - CX) / RX
+        const ny = (y - CY) / RY
+        const r2 = nx * nx + ny * ny
+        if (r2 > 1.0) continue
+
+        let v: number
+        if (is3T) {
+          // 3T: center brightening — B1+ ∝ J0(kr) pattern (simplified as gaussian-like)
+          const sigma2 = trueForm ? 0.45 : 0.22
+          v = 0.45 + 0.65 * Math.exp(-r2 / sigma2)
+        } else {
+          // 1.5T: relatively uniform with slight edge falloff
+          v = 0.75 + 0.25 * Math.exp(-r2 * 1.2)
+        }
+        pts.push({ x, y, v: Math.min(1, v) })
+      }
+    }
+    return pts
+  }, [is3T, trueForm])
+
+  // Map value to color (blue→green→yellow→red heatmap)
+  const valToColor = useCallback((v: number) => {
+    const t = Math.max(0, Math.min(1, v))
+    if (t < 0.33) {
+      const r = Math.round(0 + (t / 0.33) * 0)
+      const g = Math.round(0 + (t / 0.33) * 128)
+      const b = Math.round(180 + (t / 0.33) * 75)
+      return `rgb(${r},${g},${b})`
+    } else if (t < 0.66) {
+      const s = (t - 0.33) / 0.33
+      const r = Math.round(s * 200)
+      const g = Math.round(128 + s * 127)
+      const b = Math.round(255 - s * 255)
+      return `rgb(${r},${g},${b})`
+    } else {
+      const s = (t - 0.66) / 0.34
+      const r = Math.round(200 + s * 55)
+      const g = Math.round(255 - s * 200)
+      const b = 0
+      return `rgb(${r},${g},${b})`
+    }
+  }, [])
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080808', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#60a5fa', fontSize: '9px' }}>B1+ FIELD MAP ({fieldStrength}T)</span>
+        {is3T && !trueForm && <span style={{ color: '#f87171', fontSize: '8px' }}>⚠ Dielectric Effect 強</span>}
+        {is3T && trueForm && <span style={{ color: '#4ade80', fontSize: '8px' }}>TrueForm 補正中</span>}
+      </div>
+      <div className="flex gap-3 items-center">
+        <svg width={W} height={H} style={{ flexShrink: 0 }}>
+          {/* Heatmap pixels */}
+          {pixels.map((p, i) => (
+            <rect key={i} x={p.x - 2} y={p.y - 2} width={4} height={4}
+              fill={valToColor(p.v)} opacity={0.85} />
+          ))}
+          {/* Body outline */}
+          <ellipse cx={CX} cy={CY} rx={RX} ry={RY}
+            fill="none" stroke="#374151" strokeWidth={1} />
+          {/* Spine dot */}
+          <circle cx={CX} cy={CY + RY - 8} r={5}
+            fill="none" stroke="#4b5563" strokeWidth={0.8} />
+          {/* Center cross */}
+          <line x1={CX - 6} y1={CY} x2={CX + 6} y2={CY} stroke="#ffffff" strokeWidth={0.5} opacity={0.3} />
+          <line x1={CX} y1={CY - 6} x2={CX} y2={CY + 6} stroke="#ffffff" strokeWidth={0.5} opacity={0.3} />
+          {/* Colorbar */}
+          <defs>
+            <linearGradient id="cbGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgb(255,55,0)" />
+              <stop offset="40%" stopColor="rgb(200,255,0)" />
+              <stop offset="70%" stopColor="rgb(0,200,200)" />
+              <stop offset="100%" stopColor="rgb(0,0,200)" />
+            </linearGradient>
+          </defs>
+          <rect x={W - 12} y={10} width={8} height={H - 20} fill="url(#cbGrad)" rx={2} />
+          <text x={W - 14} y={14} textAnchor="end" fill="#6b7280" style={{ fontSize: '7px' }}>High</text>
+          <text x={W - 14} y={H - 11} textAnchor="end" fill="#6b7280" style={{ fontSize: '7px' }}>Low</text>
+        </svg>
+      </div>
+      <div className="mt-1" style={{ fontSize: '7px', color: '#374151' }}>
+        {is3T
+          ? `3T: 波長(≈26cm)が体径に近く中心集中（Dielectric Effect）。${trueForm ? 'TrueForm で均一化補正。' : 'TrueForm ON で軽減推奨。'}`
+          : '1.5T: 波長(≈52cm)が十分長く均一なB1分布。腹部撮像でも均一性良好。'}
       </div>
     </div>
   )
@@ -398,6 +500,7 @@ export function SystemTab() {
               TrueFormは標準的なCP送信モードでB1均一性を最適化します。
             </div>
           </div>
+          <B1FieldMap fieldStrength={params.fieldStrength} trueForm={trueForm} />
         </div>
       )}
 
