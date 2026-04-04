@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
+import { TISSUES } from '../../store/calculators'
 
 type SubTab = 'Common' | 'Dynamic'
 
@@ -108,10 +109,14 @@ export function ContrastTab() {
                'Mixed / 特殊'}
             </span>
           </div>
+
+          {/* TI 自動計算器 */}
+          <TICalculator />
         </div>
       )}
 
       {subTab === 'Dynamic' && (
+
         <div className="space-y-0.5">
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Timing</div>
           <div className="mx-3 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
@@ -162,6 +167,97 @@ export function ContrastTab() {
           <ParamField label="Reconstruction" value={reconstruction} type="select"
             options={['Magnitude', 'Phase', 'Real', 'Imaginary']}
             onChange={v => setReconstruction(v as string)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// TI 自動計算器コンポーネント
+function TICalculator() {
+  const { params, setParam } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // 組織別 null point TI 計算: TI_null = T1 × ln2
+  const tissueNullTI = TISSUES.map(t => {
+    const T1 = is3T ? t.T1_30 : t.T1_15
+    return {
+      label: t.label,
+      color: t.color,
+      TI: Math.round(T1 * Math.log(2)),
+    }
+  })
+
+  const presets = [
+    { label: 'FLAIR 1.5T', TI: 2200, hint: '水(CSF)をnull。白質病変・MS' },
+    { label: 'FLAIR 3T', TI: 2500, hint: '3T用FLAIR。TI延長が必要' },
+    { label: 'STIR 1.5T', TI: 150, hint: '脂肪をnull。関節・金属周囲' },
+    { label: 'STIR 3T', TI: 180, hint: '3T用STIR。SPAIR推奨' },
+    { label: 'DIR 1.5T', TI: 3400, hint: 'Double IR: WM+CSF同時抑制。GM病変' },
+    { label: 'PSIR 1.5T', TI: 400, hint: 'Phase Sensitive IR: 心筋T1マッピング' },
+  ]
+
+  return (
+    <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111', border: '1px solid #1a1a2a' }}>
+      <div className="font-semibold mb-2" style={{ color: '#a78bfa' }}>TI 自動計算機 (IR/FLAIR/STIR)</div>
+
+      {/* 組織別 null point */}
+      <div className="mb-2">
+        <div className="text-xs mb-1" style={{ color: '#4b5563' }}>組織 Null Point TI ({params.fieldStrength}T)</div>
+        <div className="flex flex-wrap gap-1">
+          {tissueNullTI.map(({ label, color, TI }) => (
+            <button
+              key={label}
+              onClick={() => setParam('TI', TI)}
+              className="px-1.5 py-0.5 rounded transition-colors"
+              style={{
+                background: Math.abs(params.TI - TI) < 20 ? color + '28' : '#151515',
+                color: Math.abs(params.TI - TI) < 20 ? color : '#6b7280',
+                border: `1px solid ${Math.abs(params.TI - TI) < 20 ? color + '60' : '#252525'}`,
+                fontSize: '9px',
+              }}
+              title={`TI=${TI}ms で ${label} の信号がnullになります`}
+            >
+              {label} ≈{TI}ms
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 臨床プリセット */}
+      <div>
+        <div className="text-xs mb-1" style={{ color: '#4b5563' }}>臨床 TI プリセット</div>
+        <div className="space-y-1">
+          {presets.map(({ label, TI, hint }) => (
+            <button
+              key={label}
+              onClick={() => setParam('TI', TI)}
+              className="flex items-center justify-between w-full px-2 py-1 rounded transition-colors"
+              style={{
+                background: params.TI === TI ? '#2a1200' : '#151515',
+                color: params.TI === TI ? '#e88b00' : '#9ca3af',
+                border: `1px solid ${params.TI === TI ? '#c47400' : '#252525'}`,
+              }}
+            >
+              <span className="font-semibold" style={{ fontSize: '10px' }}>{label}</span>
+              <span className="font-mono" style={{ fontSize: '9px' }}>TI={TI}ms</span>
+              <span style={{ fontSize: '8px', color: params.TI === TI ? '#c47400' : '#4b5563' }}>{hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {params.TI > 0 && (
+        <div className="mt-2 pt-1.5 flex justify-between items-center" style={{ borderTop: '1px solid #252525' }}>
+          <span style={{ color: '#6b7280' }}>現在のTI: </span>
+          <span className="font-mono font-semibold" style={{ color: '#a78bfa' }}>{params.TI}ms</span>
+          <button
+            onClick={() => setParam('TI', 0)}
+            className="px-1.5 py-0.5 rounded"
+            style={{ background: '#1a0505', color: '#f87171', border: '1px solid #7f1d1d', fontSize: '9px' }}
+          >
+            TI=0 にリセット
+          </button>
         </div>
       )}
     </div>
