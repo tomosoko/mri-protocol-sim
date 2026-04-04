@@ -7,21 +7,23 @@ type CategoryFilter = Scenario['category'] | 'すべて'
 type DifficultyFilter = 0 | 1 | 2 | 3
 
 const CATEGORY_COLORS: Record<Scenario['category'], string> = {
-  '急患':     '#ef4444',
-  '小児':     '#3b82f6',
+  '急患':       '#ef4444',
+  '小児':       '#3b82f6',
   '閉所恐怖症': '#8b5cf6',
-  '金属':     '#f59e0b',
-  '体動':     '#06b6d4',
-  '呼吸困難': '#10b981',
-  '造影':     '#ec4899',
-  'SAR超過':  '#f97316',
+  '金属':       '#f59e0b',
+  '体動':       '#06b6d4',
+  '呼吸困難':   '#10b981',
+  '造影':       '#ec4899',
+  'SAR超過':    '#f97316',
+  'アーチファクト': '#e88b00',
+  '心臓':       '#f87171',
 }
 
 const DIFF_LABEL = ['', '★', '★★', '★★★']
 const DIFF_COLOR = ['', '#6b7280', '#f59e0b', '#ef4444']
 
 const ALL_CATEGORIES: CategoryFilter[] = [
-  'すべて', '急患', '小児', '閉所恐怖症', '金属', '体動', '呼吸困難', '造影', 'SAR超過',
+  'すべて', '急患', '小児', '閉所恐怖症', '金属', '体動', '呼吸困難', '造影', 'SAR超過', 'アーチファクト', '心臓',
 ]
 
 export function ScenarioExercisePanel() {

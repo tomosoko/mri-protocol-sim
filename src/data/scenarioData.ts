@@ -10,7 +10,7 @@ export interface ScenarioOption {
 export interface Scenario {
   id: string
   title: string
-  category: '急患' | '小児' | '閉所恐怖症' | '金属' | '体動' | '呼吸困難' | '造影' | 'SAR超過'
+  category: '急患' | '小児' | '閉所恐怖症' | '金属' | '体動' | '呼吸困難' | '造影' | 'SAR超過' | 'アーチファクト' | '心臓'
   difficulty: 1 | 2 | 3
   patientInfo: string
   currentPresetId: string
@@ -774,5 +774,119 @@ export const scenarios: Scenario[] = [
     ],
     detailedExplanation: 'NSF（Nephrogenic Systemic Fibrosis）：Gd造影剤（特に線状型：Omniscan/Magnevist）腎不全患者への投与後に皮膚・全身の線維化を起こす重篤な疾患。eGFR<30では大環状型以外禁忌。大環状型（Gadovist/ProHance）でもeGFR<15（透析含む）では慎重投与。非造影MRA選択肢：①QISS法（磁化準備bSSFP）②Native SPACE/COSMIC（3D TSE）③PC-MRA（位相コントラスト）④4D Flow MRI。これらは腎動脈狭窄の感度・特異度がCE-MRAと同等以上の報告もあります。',
     relatedParams: ['ecgTrigger', 'respTrigger'],
+  },
+  // ─── アーチファクト対応：ジッパー ────────────────────────────────────────
+  {
+    id: 'zipper_artifact_01',
+    title: 'スキャン中の水平輝線（ジッパーアーチファクト）',
+    category: 'アーチファクト',
+    difficulty: 2,
+    patientInfo: '45歳 女性。頭部MRI（T2 TSE）撮像中、すべての画像の中央部に明るい水平線が走っている。前の患者では発生しなかった。直前にスキャンルームのドアを整備スタッフが確認した。',
+    currentPresetId: 'brain_t2',
+    question: 'このジッパーアーチファクトの対応として最も適切な手順はどれですか？',
+    options: [
+      {
+        label: 'スキャンルームのドア・シールドを点検し、RF干渉源（携帯電話等）を除去してから再撮像する',
+        paramChanges: {},
+        isCorrect: true,
+        explanation: 'ジッパーアーチファクトは外部RF干渉（ファラデーシールド不備）が原因です。まずRF遮蔽の確認（ドアの密閉・ペネトレーションパネル）と干渉源除去（携帯電話・インバータ照明等）を行います。修理後に再撮像します。',
+      },
+      {
+        label: 'ETLを増やして撮像時間を短縮し、アーチファクトを目立たなくする',
+        paramChanges: { turboFactor: 25 },
+        isCorrect: false,
+        explanation: 'ETL増加は撮像時間短縮に有用ですが、ジッパーアーチファクトの根本原因（RF干渉）は解決しません。むしろETL増加でより多くのエコーが干渉を受けます。',
+      },
+      {
+        label: '帯域幅を増加させて化学シフトアーチファクトと判断して対処する',
+        paramChanges: { bandwidth: 400 },
+        isCorrect: false,
+        explanation: 'このアーチファクトは化学シフト（明暗バンドが脂肪-水界面に局在）ではなく、すべての横位置に等間隔で現れるジッパーです。帯域幅の変更は無効です。',
+      },
+      {
+        label: '加算回数を増やしてアーチファクトをアベレージで除去する',
+        paramChanges: { averages: 4 },
+        isCorrect: false,
+        explanation: 'ジッパーアーチファクトは再現性の高いRF干渉であり、加算してもアベレージされません（毎回同じ位置に発生する）。根本原因を取り除く必要があります。',
+      },
+    ],
+    detailedExplanation: 'ジッパーアーチファクト対応フロー：①直前の環境変化を確認（施設作業・機器搬入等）②スキャンルームのドア・シールド密閉確認③RF干渉源の特定（携帯電話・スマートウォッチ・無線LAN・インバータ照明・電動ベッド）④干渉源除去または遮蔽修理⑤テスト撮像でアーチファクト消失確認⑥必要に応じて保守・サービスエンジニアへ依頼。記録：発生日時・影響した患者数・原因・対処内容をインシデントレポートとして記録します。',
+    relatedParams: ['turboFactor', 'averages', 'bandwidth'],
+  },
+  // ─── 心臓 MRI：不整脈対応 ────────────────────────────────────────────────
+  {
+    id: 'cardiac_arrhythmia_01',
+    title: '心臓CINE撮像中の不整脈（心房細動）',
+    category: '心臓',
+    difficulty: 3,
+    patientInfo: '72歳 男性。心筋梗塞後の心機能評価のため心臓MRI（CINE TrueFISP）撮像中。ECGモニターが心房細動（不整脈）を示しており、R-R間隔が不規則（550-950ms）。CINE画像に動きアーチファクトが著明。',
+    currentPresetId: 'cardiac_cine',
+    question: '心房細動（Af）患者の心臓CINE撮像で最も適切な対応はどれですか？',
+    options: [
+      {
+        label: 'Retrospective ECG gating に変更し、全心位相データを収集してから再構成する',
+        paramChanges: { ecgTrigger: true },
+        isCorrect: true,
+        explanation: 'Retrospective ECGゲーティングはR-R間隔全体のデータを収集し、後から心位相を再構成します。不整脈でR-R間隔が不規則でも全データから最良の心位相を選択できます。Prospective（前向き）ゲーティングはR-R間隔が規則的な洞調律でのみ最適に機能します。',
+      },
+      {
+        label: '撮像を中止し、洞調律に回復してから再撮像する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: 'Afが持続性の場合、洞調律回復を待つと撮像が困難になります。Retrospective ECGゲーティングやリアルタイムCINE（Single-shot bSSFP）を使えばAfでも撮像可能です。',
+      },
+      {
+        label: 'TR を 1 RR 分に固定し、心拍ごとに1スライスずつ撮像する',
+        paramChanges: { TR: 900 },
+        isCorrect: false,
+        explanation: '1TR=1RRの固定設定はR-R間隔が規則的な場合に有効ですが、Afで不規則なR-Rでは各心拍のデータが異なる心位相になり正確なCINEが得られません。',
+      },
+      {
+        label: '加算回数を増やして体動アーチファクトをアベレージで平均化する',
+        paramChanges: { averages: 4 },
+        isCorrect: false,
+        explanation: '加算は周期的体動のランダム化に有効ですが、心臓CINE（息止め前提）では加算回数増加が息止め延長になり不可能な場合が多いです。また心位相ずれの根本解決になりません。',
+      },
+    ],
+    detailedExplanation: 'Af患者の心臓MRI戦略：①Retrospective ECG gating：全R-Rデータ収集→後処理で心位相再構成。心拍変動に強い。②Real-time CINE（Single-shot bSSFP）：1心拍1フレームを連続収集→低分解能だがAfでも高品質。③Segment数低減：各セグメントのR-R内収集ライン数を減らし1回の息止め収集データを短縮。④ベータ遮断薬投与：心拍数を下げて規則性改善（循環器科医と連携）。⑤Arrhythmia rejection：設定したR-Rウィンドウ外のビートを自動除外して再収集。',
+    relatedParams: ['ecgTrigger', 'TR', 'respTrigger'],
+  },
+  // ─── CE-MRA：ボーラスタイミング失敗対応 ──────────────────────────────────
+  {
+    id: 'cemra_timing_01',
+    title: 'CE-MRA ボーラスタイミング遅延（撮像開始が遅すぎた）',
+    category: '造影',
+    difficulty: 2,
+    patientInfo: '61歳 男性。大動脈のCE-MRA（3D GRE）撮像中。ボーラストラッキングで造影剤到達を確認したが反応が遅く、撮像開始が2秒以上遅れた。k空間中心に到達したとき造影剤ピークが過ぎており、動脈相画像で大動脈が不均一な造影になっている。',
+    currentPresetId: 'aorta_ce_mra',
+    question: 'このような状況でCE-MRAの造影タイミングを改善するための対応はどれですか？',
+    options: [
+      {
+        label: 'ボーラストラッキング開始のしきい値を下げ、自動撮像開始のディレイを短縮して再撮像する',
+        paramChanges: {},
+        isCorrect: true,
+        explanation: 'ボーラストラッキングのROI閾値（造影剤到達判定シグナル）を低く設定し、撮像開始ディレイ（通常2-4秒）を最小化します。患者に「息止め開始」の準備コールを素早く行う練習も重要です。次回は自動/手動撮像のトリガータイミングを最適化します。',
+      },
+      {
+        label: 'TR を延長してスキャン時間を伸ばし、造影剤との重複時間を増やす',
+        paramChanges: { TR: 8 },
+        isCorrect: false,
+        explanation: 'TR延長はスキャン時間延長になりますが、k空間中心（コントラストを決定する部分）が造影剤ピークと一致しなければ改善しません。むしろTR延長でk空間中心到達がさらに遅れる可能性があります。',
+      },
+      {
+        label: 'Gd造影剤の注入速度を下げ、ピーク到達時間を延長する',
+        paramChanges: {},
+        isCorrect: false,
+        explanation: '注入速度低下はピーク到達遅延と濃度低下の両方をもたらします。ピークが平坦になるため、タイミング精度の要求は下がりますが、動脈相と静脈相の分離が困難になる場合があります。今回のタイミング失敗の根本対策にはなりません。',
+      },
+      {
+        label: '次回からTest bolus法（少量予備注入でピーク時間を計測）を使用する',
+        paramChanges: {},
+        isCorrect: true,
+        explanation: 'Test bolus法：造影剤2mLを試験的に注入し、動的モニタリングでピーク到達時間を個別に計測します。これにより患者ごとの循環時間に合わせた最適撮像タイミングを決定できます（特に心機能低下・高齢者で有用）。',
+      },
+    ],
+    detailedExplanation: 'CE-MRAボーラスタイミング技術：①Bolus Tracking（Care Bolus）：大動脈ROIでシグナル閾値到達を検知→自動または手動トリガー。閾値・ディレイを患者に合わせて調整。②Test bolus法：2mL予備注入→到達時間計測→本撮像タイミング設定。③Elliptic Centric k-space ordering：k空間中心（コントラスト決定）を最初に収集→タイミング精度要求が低い。④タイミング改善Tips：患者への息止め指示を素早く、患者練習を撮像前に実施、スキャン開始ショートカットキーを準備、注入速度3-4mL/sを標準にする。',
+    relatedParams: ['TR', 'inlineMIP'],
   },
 ]
