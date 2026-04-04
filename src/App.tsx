@@ -558,9 +558,11 @@ function LearnPanel() {
         'iPAT = integrated Parallel Acquisition Techniques。GRAPPA/CAIPIRINHAの総称',
         'GRAPPA: k空間アンダーサンプリング→ACS（Reference Lines）からカーネル推定して補間',
         'AF=2: SNR≈70%・時間1/2｜AF=3: SNR≈58%・時間1/3（g-factor追加ペナルティあり）',
+        'g-factor noise: 並列撮像でk空間補間時にノイズが局所増幅（画像中央で最大）。32ch以上コイルでg-factor低減',
         '1.5T AF≤2推奨。3T AF≤3まで許容（g-factorがSNR低下の主因）',
-        'TrueForm B1 Shim: 2ch位相制御でB1均一化。3T腹部のDielectric Effect対策',
+        'TrueForm B1 Shim: 2ch位相制御でB1均一化。3T腹部のDielectric Effect（定在波）対策',
         'Whisper モード: 騒音約-10dB（qtseと組み合わせると最大-97%）。小児・閉所恐怖症患者に',
+        'ジッパーアーチファクト: ファラデーシールド不良でRF干渉→画像中央に明線。シールド点検・干渉源除去',
       ],
     },
     Physio: {
@@ -571,7 +573,8 @@ function LearnPanel() {
         'PACE: 横隔膜エコーで直接追跡。効率50-60%（5mmウィンドウ時）。精度◎',
         '冠動脈Trigger Delay = RR×70-80%（拡張中期=最小運動期）',
         '3T ECG: T波がBCGと重複しR波誤認しやすい→vECG（ベクターECG）を必ず使用',
-        '心臓シネ: prospective trigger（整数RR）かretrospecitve（全位相取得）を用途で選択',
+        '心臓Af（心房細動）: Retrospective ECGゲーティング使用。R-R不規則でも全位相データ収集後再構成',
+        '心臓シネ: prospective trigger（整数RR）かretrospective（全位相取得）を用途で選択',
       ],
     },
     Inline: {
@@ -579,16 +582,19 @@ function LearnPanel() {
       items: [
         'DWI: ADC Map ON必須。T2シャインスルー（T2の長い構造が拡散を模倣）の鑑別',
         'ADC値目安: 急性梗塞 0.3-0.4 / 悪性腫瘍 0.6-1.2 / 正常脳 0.8 (×10⁻³mm²/s)',
+        'DWIBS（全身DWI）: Inverted MIP → PET様画像。悪性リンパ腫staging・治療効果判定に',
         'MIP前提: 背景を暗くする脂肪抑制が必須。明るい背景は最大値投影でMIPに紛れる',
         'Subtraction: 乳腺・骨盤造影で造影前後を自動差分→増強部位を強調表示',
+        'CE-MRA inline MIP: 撮像直後にMIP血管像を確認→造影タイミング評価と再撮像判断の迅速化',
         'MPR: VIBE/MPRAGE等3D収集後にTra/Cor/Sag自動再構成。読影ワークフロー改善',
-        'MIP Radial: 血管を360°方向から自動投影→CE-MRAの俯瞰評価に',
       ],
     },
     Sequence: {
       title: 'Sequenceタブ — シーケンス技術',
       items: [
         'HASTE: Single-shot TSE（ETL>100）。HAとはHalf-Fourier Acquired Single-shot TurboSpin Echo',
+        'CE-MRA: TR≈3ms, TE≈1ms, FA=20-30°。k空間中心収集タイミングをGdピークに合わせる',
+        'Bolus Tracking: ROIの閾値・ディレイ設定が重要。Test bolus法で循環時間を個別計測',
         'RESOLVE DWI: readout-segment EPI。k空間を3-6分割→EPI歪み大幅軽減。前立腺必須',
         'qtse (Quiet TSE): QuietX技術で傾斜slew rate最適化→最大97%騒音低減。3T脊椎標準',
         'starVIBE: Stack-of-Stars放射状k空間→全スポークがk空間中心を通過→体動averaging',
