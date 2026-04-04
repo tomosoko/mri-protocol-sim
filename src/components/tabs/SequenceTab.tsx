@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcT2Blur } from '../../store/calculators'
@@ -332,6 +333,120 @@ function KSpaceEchoTrainViz() {
   )
 }
 
+// ── PSF (Point Spread Function) T2 ブラーシミュレーション ────────────────────
+function PSFBlurSimulator() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // Only show for TSE sequences
+  if (params.turboFactor <= 2) return null
+
+  const T2_TISSUES: { label: string; T2: number; color: string }[] = [
+    { label: 'CSF',  T2: is3T ? 1500 : 1800, color: '#38bdf8' },
+    { label: 'WM',   T2: is3T ? 69 : 72,     color: '#60a5fa' },
+    { label: 'GM',   T2: is3T ? 83 : 95,     color: '#a78bfa' },
+    { label: 'Cart', T2: is3T ? 32 : 35,     color: '#4ade80' },
+    { label: 'Liver',T2: is3T ? 34 : 40,     color: '#fb923c' },
+  ]
+
+  const etl = params.turboFactor
+  const es  = params.echoSpacing
+
+  // For each tissue compute PSF FWHM in units of voxels
+  // PSF(k) = sum_j [w_j * exp(-i*k_j*x)] where w_j = exp(-te_j / T2)
+  // For linear k-ordering: te_j ≈ TE + (j - ETL/2) * ES
+  // PSF FWHM ≈ ETL * ES / (pi * T2) (approximate Lorentzian FWHM)
+  const psfFWHM = (T2: number) => {
+    const fwhm = (etl * es) / (Math.PI * T2) * 1000  // in fractional voxels
+    return Math.min(fwhm, etl)
+  }
+
+  // Compute PSF shape: approximate 1D PSF as inverse FT of T2-weighted k-weighting
+  const N = 100  // display pixels
+  const W = 270, H = 80
+  const PAD = { l: 8, r: 8, t: 8, b: 18 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+  const halfW = 4  // +/- 4 voxel display range
+
+  const paths = useMemo(() => T2_TISSUES.map(t => {
+    // 1D PSF: numerically compute sum_j W_j exp(i*2pi*k_j*x/N)
+    // Simplified: PSF(x) = sum_{j=0}^{ETL-1} w_j * cos(2pi * kj * x / kmax)
+    const maxJ = Math.min(etl, 64)
+    const pts = Array.from({ length: N + 1 }, (_, n) => {
+      const x = -halfW + (n / N) * 2 * halfW  // position in voxels
+      let re = 0
+      for (let j = 0; j < maxJ; j++) {
+        const kPos = (j / (maxJ - 1)) * 2 - 1  // -1 to +1 (linear k-order)
+        const te = params.TE + (j - maxJ / 2) * es
+        const w = Math.exp(-Math.max(0, te) / t.T2)
+        re += w * Math.cos(Math.PI * kPos * x)
+      }
+      return re
+    })
+    // Normalize to peak=1
+    const peak = Math.max(...pts.map(p => Math.abs(p)))
+    const norm = pts.map(p => p / (peak || 1))
+    const d = norm.map((v, i) => {
+      const px = PAD.l + (i / N) * innerW
+      const py = PAD.t + (1 - Math.max(0, Math.min(1, v))) * innerH
+      return `${i === 0 ? 'M' : 'L'}${px.toFixed(1)},${py.toFixed(1)}`
+    }).join(' ')
+    const fwhm = psfFWHM(t.T2)
+    return { ...t, d, fwhm }
+  }), [etl, es, params.TE, is3T])
+
+  const blurPct = calcT2Blur(params)
+  const blurColor = blurPct > 60 ? '#f87171' : blurPct > 35 ? '#fbbf24' : '#4ade80'
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080808', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px' }}>PSF T2 ブラー (ETL={etl} × ES={es}ms)</span>
+        <span className="font-mono font-bold" style={{ color: blurColor, fontSize: '9px' }}>Blur {blurPct}%</span>
+      </div>
+      <svg width={W} height={H}>
+        {/* Baseline and center */}
+        <line x1={PAD.l} y1={PAD.t + innerH} x2={PAD.l + innerW} y2={PAD.t + innerH}
+          stroke="#252525" strokeWidth={1} />
+        <line x1={PAD.l + innerW / 2} y1={PAD.t} x2={PAD.l + innerW / 2} y2={PAD.t + innerH}
+          stroke="#374151" strokeWidth={0.8} strokeDasharray="2,2" />
+        {/* Grid: half-power (-3dB) line */}
+        <line x1={PAD.l} y1={PAD.t + innerH / 2} x2={PAD.l + innerW} y2={PAD.t + innerH / 2}
+          stroke="#1a1a1a" strokeWidth={0.5} />
+        <text x={PAD.l + 2} y={PAD.t + innerH / 2 - 1} fill="#374151" style={{ fontSize: '6px' }}>0.5</text>
+        {/* PSF curves */}
+        {paths.map(t => (
+          <path key={t.label} d={t.d} fill="none" stroke={t.color} strokeWidth={1.2} opacity={0.8} />
+        ))}
+        {/* X axis labels */}
+        {[-3, -2, -1, 0, 1, 2, 3].map(v => {
+          const x = PAD.l + ((v + halfW) / (2 * halfW)) * innerW
+          return (
+            <text key={v} x={x} y={H - 3} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>{v}</text>
+          )
+        })}
+        <text x={PAD.l + innerW / 2} y={H} textAnchor="middle" fill="#252525" style={{ fontSize: '7px' }}>pixel</text>
+      </svg>
+      {/* FWHM table */}
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1" style={{ fontSize: '7px' }}>
+        {paths.map(t => (
+          <div key={t.label} className="flex items-center gap-1">
+            <span style={{ color: t.color }}>—</span>
+            <span style={{ color: '#6b7280' }}>{t.label}</span>
+            <span className="font-mono" style={{ color: t.fwhm > 1.5 ? '#f87171' : '#4ade80' }}>
+              FWHM={t.fwhm.toFixed(2)}px
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 pt-1" style={{ borderTop: '1px solid #111', fontSize: '7px', color: '#374151' }}>
+        PSF広がり: ETL↑・ES↑・T2短い組織で増大。FWHM&gt;1.5px → 空間分解能の実質的低下（T2ブラー）。
+      </div>
+    </div>
+  )
+}
+
 // 臨床用 b値プリセット
 const B_VALUE_PRESETS: { label: string; values: number[]; hint: string }[] = [
   { label: '脳梗塞', values: [0, 1000], hint: 'b=0+1000 | 急性期梗塞の標準' },
@@ -437,6 +552,9 @@ export function SequenceTab() {
           </tbody>
         </table>
       </div>
+
+      {/* PSF Blur Simulator (TSE only) */}
+      <PSFBlurSimulator />
 
       {/* DWI b-values */}
       <div className="border-t mt-2 pt-2 mx-3" style={{ borderColor: '#252525' }}>
