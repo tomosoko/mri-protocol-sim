@@ -266,6 +266,75 @@ const CLINICAL_DB: BodyPartData[] = [
     ],
   },
 
+  // ── 血管 ───────────────────────────────────────────────────────────────────
+  {
+    id: 'vascular', label: '血管', icon: '🩸',
+    indications: [
+      {
+        id: 'aortic_dissection', label: '大動脈解離', icon: '⚡', urgency: 'stat',
+        clinicalPearl: 'Stanford分類: A型（上行大動脈含む）→外科的、B型（下行のみ）→内科的。DeBakey I/II/III。内膜フラップ+真腔/偽腔同定が必須。',
+        recommendations: [
+          { presetId: 'aorta_ce_mra', priority: 'essential', reason: 'CE-MRA: 解離範囲・分枝血管への影響評価。真腔/偽腔の同定', clinicalNote: '動脈相 + 平衡相でsubtractionも実施' },
+          { presetId: 'abdomen_t2_bh', priority: 'recommended', reason: 'T2: 壁内血腫・心嚢液貯留・胸水の評価' },
+        ],
+      },
+      {
+        id: 'renal_htn', label: '腎血管性高血圧', icon: '🫀', urgency: 'urgent',
+        clinicalPearl: '若年性高血圧や難治性高血圧に腎動脈狭窄を疑う。FMD（線維筋異形成）は若年女性に多い。',
+        recommendations: [
+          { presetId: 'renal_mra_ce', priority: 'essential', reason: '造影MRA: 腎動脈狭窄部位・程度の定量評価', clinicalNote: 'eGFR≥30 が条件。Bolus Tracking推奨' },
+          { presetId: 'renal_native_mra', priority: 'recommended', reason: '非造影MRA: eGFR<30 または造影禁忌例', clinicalNote: 'ECG同期TrueFISP/QISS法' },
+        ],
+      },
+      {
+        id: 'pad', label: '末梢動脈疾患（PAD）', icon: '🦵', urgency: 'urgent',
+        clinicalPearl: 'ABI（足首上腕血圧比）<0.9でPADを疑う。糖尿病・腎不全例ではMRAが適切（CTAのヨード使用回避）。',
+        recommendations: [
+          { presetId: 'peripheral_mra', priority: 'essential', reason: '3-Station CE-MRA: 腸骨〜膝窩〜下腿の全体評価', clinicalNote: '下腿先行法。静脈汚染防止が鍵' },
+          { presetId: 'renal_native_mra', priority: 'optional', reason: '非造影bSSFP MRA: 腎不全例（eGFR<30）に対応' },
+        ],
+      },
+    ],
+  },
+  // ── 腫瘍・全身 ──────────────────────────────────────────────────────────────
+  {
+    id: 'oncology', label: '腫瘍', icon: '🔬',
+    indications: [
+      {
+        id: 'lymphoma_staging', label: '悪性リンパ腫（staging）', icon: '🩺', urgency: 'urgent',
+        clinicalPearl: '全身DWI（WB-DWI）はPET代替スクリーニング。反転MIPで腫大リンパ節・骨髄浸潤を白点として可視化。',
+        recommendations: [
+          { presetId: 'whole_body_dwi', priority: 'essential', reason: 'WB-DWI: b=50/800 全身staging. 骨転移・リンパ節・腹膜播種', clinicalNote: 'Inverted MIP + ADC map を必ず作成' },
+          { presetId: 'neck_lymph', priority: 'recommended', reason: '頸部リンパ節詳細: STIR+DWI+造影T1' },
+        ],
+      },
+      {
+        id: 'hcc_surveillance', label: 'HCC精査（Primovist）', icon: '🫀', urgency: 'urgent',
+        clinicalPearl: 'LI-RADS分類: arterial hyperenhancement + washout + capsule → LR-5（HCC確定的）。肝細胞相での低信号もLR-5補助基準。',
+        recommendations: [
+          { presetId: 'liver_eob', priority: 'essential', reason: 'Primovist Dynamic + 肝細胞相: HCC/FNH/転移の鑑別', clinicalNote: '動脈相25-35s / 門脈相60s / 肝細胞相20min' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI: ADC低値(<1.0)でHCC支持。T2 shine-through鑑別' },
+          { presetId: 'liver_hcc_ablation', priority: 'optional', reason: 'RFA後評価: 残存HCC（動脈相 nodule-in-nodule）' },
+        ],
+      },
+      {
+        id: 'pancreatic_mass', label: '膵腫瘤精査', icon: '🫁', urgency: 'urgent',
+        clinicalPearl: 'MRCP+DWI+Dynamic CE の組み合わせが標準。膵実質相（35s）はNET検出に必須。',
+        recommendations: [
+          { presetId: 'pancreas_mri', priority: 'essential', reason: '膵臓 MRI: MRCP+T2+DWI+Dynamic CE。膵癌/NET/IPMN 鑑別', clinicalNote: '膵実質相(35s)でNET:高信号 / 膵癌:低信号' },
+          { presetId: 'mrcp_3d', priority: 'recommended', reason: '3D MRCP: 膵管拡張・IPMN分枝型・胆管合流異常' },
+        ],
+      },
+      {
+        id: 'adrenal_adenoma', label: '副腎腫瘤鑑別', icon: '🧪', urgency: 'routine',
+        clinicalPearl: 'Chemical Shift: SI比>20%低下 → 腺腫（脂質含有）。CT HU値<10 でも脂質リッチ腺腫と診断可能。',
+        recommendations: [
+          { presetId: 'adrenal_mri', priority: 'essential', reason: 'Dixon化学シフト（Opp/In-phase）: SI比>20%→腺腫。造影washout>40%→腺腫', clinicalNote: '1.5T: OP-TE 2.3ms / IP-TE 4.6ms' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI: 転移はADC低値。褐色細胞腫は非常に高ADC' },
+        ],
+      },
+    ],
+  },
   {
     id: 'special', label: '特殊・小児', icon: '⭐',
     indications: [
