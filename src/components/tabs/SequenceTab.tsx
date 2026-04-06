@@ -1073,6 +1073,114 @@ const B_VALUE_PRESETS: { label: string; values: number[]; hint: string }[] = [
   { label: '前立腺高b', values: [0, 50, 400, 800, 2000], hint: 'b=2000 | 高感度癌検出' },
 ]
 
+// ── trueFISP/bSSFP バンディングアーチファクト可視化 ───────────────────────────
+// バランスSFFPのバンディングはB0の不均一性（Hz）と TR の関係で発生
+// バンド間隔 = 1/(TR[s]) Hz — TRが長いほどバンドが密になり臨床的に問題
+function TrueFISPBandingViz() {
+  const { params } = useProtocolStore()
+
+  // trueFISP identified by: short TR (<6ms), FA~40-80°, ETL=1
+  const isTrueFISP = params.TR <= 6 && params.turboFactor <= 1 && params.flipAngle >= 30 && params.flipAngle <= 80
+  if (!isTrueFISP) return null
+
+  const is3T = params.fieldStrength >= 2.5
+
+  // Banding frequency: 1/TR (Hz) — at 3T B0 inhomogeneity is ~2× larger
+  const bandingPeriodHz = 1000 / params.TR  // Hz between nulling bands
+  const b0InhomPpm = is3T ? 2.5 : 1.2  // typical B0 inhomogeneity
+  const larmorHz = is3T ? 127740000 : 63870000  // Hz
+  const b0Spread = b0InhomPpm * 1e-6 * larmorHz  // Hz spread
+  const nBands = Math.round(b0Spread / bandingPeriodHz)
+
+  // Profile across a cross-section (0-400Hz off-resonance range)
+  const W = 290, H = 56
+  const PAD = { l: 14, r: 10, t: 8, b: 16 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+
+  const maxHz = 400
+  const nPts = 200
+  const fa = params.flipAngle * Math.PI / 180
+  const tr = params.TR / 1000  // s
+
+  // bSSFP signal profile vs off-resonance:
+  // S(Δf) = M0 × sin(α) × (1 - E1) / (1 - E1·cos(α) - E2·(E1-cos(α))·cos(2π·Δf·TR))
+  // Simplified: use |cos(π·Δf·TR)| as banding indicator
+  const profile = useMemo(() => {
+    return Array.from({ length: nPts + 1 }, (_, i) => {
+      const df = (i / nPts) * maxHz  // Hz
+      const phase = 2 * Math.PI * df * tr  // accumulated phase over TR
+      // Signal magnitude (simplified bSSFP profile)
+      const signal = Math.abs(Math.sin(fa / 2)) * Math.sqrt(1 - Math.cos(phase) ** 2 * Math.sin(fa / 2) ** 4)
+      // Banding null occurs at phase = (2n+1)π
+      const isNull = Math.abs(Math.cos(phase)) > 0.92
+      return { df, signal: isNull ? 0 : Math.min(1, signal), isNull }
+    })
+  }, [fa, tr])
+
+  const maxSig = Math.max(...profile.map(p => p.signal), 0.01)
+  const tx = (df: number) => PAD.l + (df / maxHz) * innerW
+  const ty = (s: number) => PAD.t + (1 - s / maxSig) * innerH
+
+  const path = profile.map((p, i) =>
+    `${i === 0 ? 'M' : 'L'}${tx(p.df).toFixed(1)},${ty(p.signal).toFixed(1)}`
+  ).join(' ')
+
+  const bandPositions = profile.filter(p => p.isNull).map(p => p.df)
+    .filter((df, i, arr) => i === 0 || df - arr[i-1] > 5)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0808', border: '1px solid #2a1010' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#f472b6', fontSize: '9px', letterSpacing: '0.05em' }}>
+          trueFISP BANDING ARTIFACT
+        </span>
+        <div className="flex items-center gap-2" style={{ fontSize: '8px' }}>
+          <span style={{ color: '#374151' }}>Band Δ = {bandingPeriodHz.toFixed(0)} Hz</span>
+          <span style={{ color: nBands > 3 ? '#f87171' : nBands > 1 ? '#fbbf24' : '#34d399' }}>
+            ~{nBands} bands
+          </span>
+        </div>
+      </div>
+      <svg width={W} height={H}>
+        {/* Signal profile */}
+        <path d={path} fill="none" stroke="#f472b6" strokeWidth={1.2} opacity={0.85} />
+        {/* Fill under curve */}
+        <path d={`${path} L${tx(maxHz)},${PAD.t + innerH} L${PAD.l},${PAD.t + innerH} Z`}
+          fill="#f472b610" />
+        {/* Band null markers */}
+        {bandPositions.map((df, i) => (
+          <g key={i}>
+            <line x1={tx(df)} y1={PAD.t} x2={tx(df)} y2={PAD.t + innerH}
+              stroke="#f8717140" strokeWidth={2} />
+          </g>
+        ))}
+        {/* B0 spread indicator */}
+        {b0Spread < maxHz && (
+          <rect x={PAD.l} y={PAD.t} width={tx(b0Spread) - PAD.l} height={innerH}
+            fill="#fbbf2408" />
+        )}
+        {/* X axis */}
+        <line x1={PAD.l} y1={PAD.t + innerH} x2={PAD.l + innerW} y2={PAD.t + innerH}
+          stroke="#252525" strokeWidth={0.5} />
+        <text x={PAD.l} y={H - 3} fill="#374151" style={{ fontSize: '7px' }}>0 Hz</text>
+        <text x={PAD.l + innerW} y={H - 3} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>{maxHz} Hz</text>
+        {/* B0 spread label */}
+        {b0Spread < maxHz && (
+          <text x={tx(b0Spread / 2)} y={PAD.t + 6} textAnchor="middle" fill="#fbbf2480" style={{ fontSize: '7px' }}>
+            B0±{b0InhomPpm}ppm
+          </text>
+        )}
+      </svg>
+      <div style={{ fontSize: '7px', color: '#374151', marginTop: 2 }}>
+        {nBands > 2
+          ? `⚠ TR=${params.TR}ms → バンドが${nBands}本。TRを短く (≤4ms) するかB0 shimを強化。`
+          : `trueFISP: TR=${params.TR}ms — バンド間隔${bandingPeriodHz.toFixed(0)}Hz — ${is3T ? '3T' : '1.5T'}では注意が必要`}
+      </div>
+    </div>
+  )
+}
+
 export function SequenceTab() {
   const { params, setParam, highlightedParams } = useProtocolStore()
   const hl = (k: string) => highlightedParams.includes(k)
@@ -1112,6 +1220,9 @@ export function SequenceTab() {
 
       {/* 2D k-space sampling pattern */}
       <KSpaceGrid2D />
+
+      {/* trueFISP banding artifact visualization */}
+      <TrueFISPBandingViz />
 
       {/* ETL 計算インジケーター */}
       {params.turboFactor > 1 && (
