@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { ProtocolParams } from '../data/presets'
 import { presets } from '../data/presets'
 
@@ -37,7 +38,9 @@ interface ProtocolStore {
 
 const MAX_HISTORY = 50
 
-export const useProtocolStore = create<ProtocolStore>((set) => ({
+export const useProtocolStore = create<ProtocolStore>()(
+  persist(
+  (set) => ({
   params: presets[0].params,
   activePresetId: presets[0].id,
   activeTab: 'Routine',
@@ -135,4 +138,20 @@ export const useProtocolStore = create<ProtocolStore>((set) => ({
     })),
 
   setComparePreset: (id) => set({ comparePresetId: id }),
-}))
+  }),
+  {
+    name: 'mri-protocol-store',
+    storage: createJSONStorage(() => localStorage),
+    // persist only the key state (skip transient UI state and large history)
+    partialize: (state) => ({
+      params: state.params,
+      activePresetId: state.activePresetId,
+      activeBodyPartId: state.activeBodyPartId,
+      activeGroupId: state.activeGroupId,
+      activeVariantId: state.activeVariantId,
+      activeColumnIndex: state.activeColumnIndex,
+      baseline: state.baseline,
+      comparePresetId: state.comparePresetId,
+    }),
+  }
+))

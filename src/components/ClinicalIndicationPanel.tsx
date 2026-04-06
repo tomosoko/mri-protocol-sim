@@ -102,6 +102,34 @@ const CLINICAL_DB: BodyPartData[] = [
           { presetId: 'brain_t2', priority: 'recommended', reason: '浮腫・構造的異常の評価' },
         ],
       },
+      {
+        id: 'cranial_nerve', label: '脳神経 / 頭蓋底病変', icon: '🧠', urgency: 'urgent',
+        clinicalPearl: '3D CISS/True FISP は脳神経を脳槽内で高コントラスト描出。神経血管圧迫（三叉神経痛）の原因血管同定に有用。',
+        recommendations: [
+          { presetId: 'inner_ear_ciss', priority: 'essential', reason: '3D CISS: 脳神経の脳槽内走行・圧迫血管・腫瘍との関係を描出', clinicalNote: '0.4-0.5mm isotropic でMPR再構成。V/VII/VIII神経に最適' },
+          { presetId: 'brain_t1_gd', priority: 'recommended', reason: '造影T1: 神経鞘腫・髄膜腫・神経炎（ガドリニウム増強）の確定' },
+          { presetId: 'brain_flair', priority: 'recommended', reason: 'FLAIR: 周囲白質変化・浮腫の評価' },
+        ],
+      },
+      {
+        id: 'neck_mri', label: '頸部リンパ節 / 頸部腫瘤', icon: '🫀', urgency: 'urgent',
+        clinicalPearl: '頸部DWIは転移リンパ節（ADC<1.0）と反応性リンパ節（ADC>1.0）の鑑別に有用。短径10mm以上・円形・中心壊死は転移を示唆。',
+        recommendations: [
+          { presetId: 'neck_lymph', priority: 'essential', reason: '頸部T2+SPAIR: リンパ節・軟部腫瘤の全体評価', clinicalNote: '甲状腺・唾液腺を含む全頸部評価' },
+          { presetId: 'abdomen_dwi', priority: 'essential', reason: 'DWI: リンパ節転移（ADC低下）vs 反応性（ADC高め）鑑別', clinicalNote: 'Cutoff ADC 1.0×10⁻³mm²/s' },
+          { presetId: 'brain_t1_gd', priority: 'recommended', reason: '造影T1: 壊死・膿瘍・炎症性病変のエンハンスパターン評価' },
+        ],
+      },
+      {
+        id: 'dementia', label: '認知症 / 変性疾患', icon: '🔵', urgency: 'routine',
+        clinicalPearl: 'アルツハイマー病: 海馬・側頭葉内側面の萎縮。前頭側頭型認知症: 前頭・側頭葉萎縮。DLB: 後頭葉萎縮+SWI微小出血。',
+        recommendations: [
+          { presetId: 'brain_space', priority: 'essential', reason: '3D高分解能T1: 脳萎縮の客観的評価（海馬体積・皮質厚）。VBMにも使用可', clinicalNote: 'MCI→AD転換の指標：海馬萎縮率>1.5%/年' },
+          { presetId: 'brain_flair', priority: 'essential', reason: 'FLAIR: 白質病変・脳室周囲高信号（Fazekas分類）の評価' },
+          { presetId: 'brain_swi', priority: 'recommended', reason: 'SWI: 微小出血（CAA・DLB）の検出。シデロフィリン定量' },
+          { presetId: 'brain_dwi', priority: 'optional', reason: 'DWI: Creutzfeldt-Jakob病（大脳皮質・大脳基底核のリボン状拡散制限）の除外' },
+        ],
+      },
     ],
   },
 
@@ -135,6 +163,25 @@ const CLINICAL_DB: BodyPartData[] = [
           { presetId: 'abdomen_dwi', priority: 'essential', reason: 'DWI: 活動性炎症・膿瘍はADC低下', clinicalNote: 'b=800でADC<1.4はcrohn活動性' },
         ],
       },
+      {
+        id: 'renal_mass', label: '腎腫瘍精査', icon: '🫘', urgency: 'urgent',
+        clinicalPearl: 'RCC（腎細胞癌）は造影早期相（皮質相30-40s）で強く増強。Blood pool構造（血管腫）との鑑別にも有用。',
+        recommendations: [
+          { presetId: 'liver_dynamic', priority: 'essential', reason: 'Dynamic CE: 皮質相/髄質相/排泄相で腎腫瘤のエンハンスパターン評価', clinicalNote: 'ccRCC: 皮質相強増強+washout。嚢胞: Bosniak分類' },
+          { presetId: 'abdomen_t2_bh', priority: 'essential', reason: 'T2: 単純嚢胞（均一高信号）vs 複雑嚢胞（隔壁・結節）の初期評価' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI: 固形腫瘍（ADC低下）と嚢胞（ADC高値）の鑑別。転移リンパ節評価', clinicalNote: 'oncocytomaはADC高め。ccRCCはADC低め' },
+          { presetId: 'liver_opp_in', priority: 'optional', reason: 'Chemical Shift: 脂質成分含有（clear cell RCC・AML）の同定' },
+        ],
+      },
+      {
+        id: 'adrenal_detailed', label: '副腎偶発腫 / 精査', icon: '🧪', urgency: 'routine',
+        clinicalPearl: 'HU<10（CT）または化学シフトSI低下>20%（MRI）で脂質リッチ腺腫を確定診断。褐色細胞腫は高ADCが特徴。',
+        recommendations: [
+          { presetId: 'liver_opp_in', priority: 'essential', reason: 'Chemical Shift (OPP/IN): SI低下>20%→腺腫確定。MRI特有の脂質定量評価', clinicalNote: '1.5T: OPP TE=2.3ms / IN TE=4.6ms。3T: OPP TE=1.15ms / IN TE=2.3ms' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI: 褐色細胞腫は高ADC（>1.5）。転移・悪性副腎腫瘤は低ADC', clinicalNote: 'ADCの絶対値より副腎/肝臓比を参考に' },
+          { presetId: 'liver_dynamic', priority: 'recommended', reason: 'Dynamic CE: 早期強増強→褐色細胞腫/転移。Washout率で機能性腺腫の補完' },
+        ],
+      },
     ],
   },
 
@@ -166,6 +213,15 @@ const CLINICAL_DB: BodyPartData[] = [
           { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI: リンパ節転移のADC低下による鑑別' },
         ],
       },
+      {
+        id: 'endometriosis', label: '子宮内膜症', icon: '🩷', urgency: 'routine',
+        clinicalPearl: '子宮内膜症MRI: T2暗帯（shading sign）はチョコレート嚢胞の特徴。T1高信号+T2低信号=出血性内容物。深部浸潤型（DIE）は3方向高分解能T2が必須。',
+        recommendations: [
+          { presetId: 'pelvis_female', priority: 'essential', reason: 'T2 骨盤MRI: 子宮内膜症性嚢胞・癒着・DIEの全体評価', clinicalNote: '3方向必須。直腸-膣中隔・膀胱浸潤を確認' },
+          { presetId: 'abdomen_t2_bh', priority: 'recommended', reason: 'T1: 出血性嚢胞（T1高信号）と機能性嚢胞（T1低信号）の鑑別', clinicalNote: 'Dixon法で脂肪との鑑別も可能' },
+        ],
+        contraindications: ['月経直前・月経中は腹水・浮腫で評価しにくい'],
+      },
     ],
   },
 
@@ -194,6 +250,23 @@ const CLINICAL_DB: BodyPartData[] = [
         clinicalPearl: 'BLADE は動きアーチファクトに強く、協力度が低い患者でも高品質画像を提供。',
         recommendations: [
           { presetId: 'shoulder_blade', priority: 'essential', reason: 'BLADE T2 SPAIR: 腱板・関節唇の描出。モーション頑健性あり' },
+        ],
+      },
+      {
+        id: 'bone_marrow', label: '骨髄病変 / 骨腫瘍', icon: '🦴', urgency: 'urgent',
+        clinicalPearl: '骨髄MRI: STIR が浮腫・転移・骨折の高感度検出法。T1低信号（正常骨髄の黄色髄=高信号が消失）が骨髄置換のサイン。',
+        recommendations: [
+          { presetId: 'spine_t2', priority: 'essential', reason: 'T2+STIR矢状断: 骨転移・骨折・脊椎炎の全体スクリーニング', clinicalNote: 'STIRは骨髄浮腫に高感度（脂肪抑制で正常骨髄低信号→病変対比向上）' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI全身: 骨転移・骨髄腫・リンパ腫のstaging。b=800でADC低値', clinicalNote: 'Inverted MIP で骨転移を白点として可視化' },
+          { presetId: 'brain_t1_gd', priority: 'recommended', reason: '造影T1: 骨腫瘍のエンハンスパターン・軟部浸潤評価' },
+        ],
+      },
+      {
+        id: 'stress_fracture', label: '疲労骨折 / スポーツ障害', icon: '🏃', urgency: 'urgent',
+        clinicalPearl: '疲労骨折は単純X線陰性でもSTIRで骨髄浮腫として検出可能。脛骨・中足骨・大腿骨頸部が好発部位。',
+        recommendations: [
+          { presetId: 'spine_t2', priority: 'essential', reason: 'STIR: 骨髄浮腫の高感度検出。X線陰性の疲労骨折を初期描出', clinicalNote: '仮骨線（low T1, low T2）の確認が骨折線確定' },
+          { presetId: 'knee_pd', priority: 'recommended', reason: 'PDw SPAIR: 骨挫傷・靭帯・半月板の同時評価', clinicalNote: '複合損傷（前十字靭帯+骨挫傷）は骨髄浮腫が診断の手がかり' },
         ],
       },
     ],
@@ -335,6 +408,48 @@ const CLINICAL_DB: BodyPartData[] = [
       },
     ],
   },
+  {
+    id: 'breast', label: '乳腺', icon: '🩷',
+    indications: [
+      {
+        id: 'breast_cancer_workup', label: '乳腺癌精査・術前評価', icon: '🔴', urgency: 'urgent',
+        clinicalPearl: '乳腺MRIはマンモグラフィ・超音波の補完。BRCA変異保持者の高リスクスクリーニングや術前範囲評価で必須。',
+        recommendations: [
+          { presetId: 'breast_dynamic', priority: 'essential', reason: 'DCE-MRI: 動脈相（wash-in）と遅延相（wash-out）で悪性度評価。多発・対側病変の検出', clinicalNote: '造影後60s/120s/180sの3相が標準。Mass vs NME（非塊状増強）を記録' },
+          { presetId: 'abdomen_dwi', priority: 'essential', reason: 'DWI (b=0/800): ADC低値（<1.3×10⁻³mm²/s）で悪性支持。乳腺腺症・線維腺腫との鑑別', clinicalNote: 'ADC＜1.0 → 高悪性度。DCIS は比較的ADC高め' },
+          { presetId: 'abdomen_t2_bh', priority: 'recommended', reason: 'T2 SPAIR: 嚢胞・粘液癌・漿液性変化の評価。解剖学的背景の把握', clinicalNote: '脂肪抑制T2で正常乳腺実質（高信号）と病変を分離' },
+        ],
+        contraindications: ['月経周期 5-14日目に撮像（月経期は乳腺実質の背景増強が増加し評価困難）'],
+      },
+      {
+        id: 'breast_screening_high_risk', label: 'ハイリスクスクリーニング', icon: '🧬', urgency: 'routine',
+        clinicalPearl: 'BRCA1/2変異・家族歴・胸部放射線照射歴（Li-Fraumeni等）ではMRI年1回スクリーニングが推奨（ACS/ESR）。',
+        recommendations: [
+          { presetId: 'breast_dynamic', priority: 'essential', reason: '高リスクDCE: マンモグラフィより感度高く（感度80-90% vs 30-40%）。微小癌の早期検出', clinicalNote: '両側乳腺同時。月経5-14日目に実施' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI追加でDCEの特異度を向上。偽陽性低減', clinicalNote: 'b値 0/50/800。ADC mapは必須作成' },
+        ],
+      },
+      {
+        id: 'breast_implant', label: '乳腺インプラント評価', icon: '💉', urgency: 'routine',
+        clinicalPearl: 'シリコンインプラント破裂評価にSilicone-only（STIR-water sat）が特異的。"Linguine sign"で破裂確定。',
+        recommendations: [
+          { presetId: 'breast_mri_nac', priority: 'essential', reason: 'Silicone-specific STIR: 水抑制・脂肪抑制でシリコンのみ高信号。capsular/intracapsular 破裂の描出', clinicalNote: 'Wavy line sign = intracapsular破裂。Silicone 胸壁浸潤 = extracapsular' },
+          { presetId: 'abdomen_t2_bh', priority: 'recommended', reason: 'T2 SPAIR: インプラント周囲漿液腫・線維包縮の評価' },
+        ],
+        contraindications: ['造影剤は通常不要（破裂評価のみ）'],
+      },
+      {
+        id: 'breast_post_treatment', label: '治療後評価（NAC・術後）', icon: '♻️', urgency: 'urgent',
+        clinicalPearl: '術前化学療法（NAC）の効果判定にDCE-MRIが最良。pCR（病理学的完全奏効）予測精度80%以上。',
+        recommendations: [
+          { presetId: 'breast_mri_nac', priority: 'essential', reason: 'NAC中間・終了時DCE: 腫瘍サイズ・増強効果の変化でpCR予測。RD（残存病変）範囲の術前評価', clinicalNote: 'ベースライン→2サイクル後→NAC終了後の3時点比較が標準' },
+          { presetId: 'abdomen_dwi', priority: 'recommended', reason: 'DWI: ADC上昇（>20%）が治療奏効の早期指標。形態変化より先行', clinicalNote: 'ADC値の経時変化は機能的早期奏効マーカー' },
+          { presetId: 'abdomen_t2_bh', priority: 'recommended', reason: 'T2: 術後血腫・漿液腫と残存腫瘍の鑑別。瘢痕（低信号）vs 腫瘍（高信号）' },
+        ],
+      },
+    ],
+  },
+
   {
     id: 'special', label: '特殊・小児', icon: '⭐',
     indications: [

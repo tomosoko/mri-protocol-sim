@@ -1,7 +1,79 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { calcTissueContrast, ernstAngle, calcT2Blur, TISSUES, calcSNR } from '../store/calculators'
 import { chemShift } from '../store/calculators'
+import type { ProtocolParams } from '../data/presets'
+
+// ────────────────────────────────────────────────────────────────────────────
+// 病変プリセット定義
+// ────────────────────────────────────────────────────────────────────────────
+interface PathologyPreset {
+  id: string
+  label: string
+  T1_15: number
+  T2_15: number
+  T1_30: number
+  T2_30: number
+  // Background tissue label (from TISSUES) used for CNR calculation
+  backgroundLabel: string
+  // Recommended sequence text
+  recommendation: string
+}
+
+const PATHOLOGY_PRESETS: PathologyPreset[] = [
+  {
+    id: 'stroke',
+    label: '急性脳梗塞',
+    T1_15: 1100, T2_15: 70,
+    T1_30: 1600, T2_30: 65,
+    backgroundLabel: 'GM',
+    recommendation: '急性脳梗塞：DWI (b=1000) が最優先。T2/FLAIRは補助的（超急性期は陰性も）。',
+  },
+  {
+    id: 'tumor',
+    label: '悪性腫瘍',
+    T1_15: 1200, T2_15: 180,
+    T1_30: 1800, T2_30: 170,
+    backgroundLabel: 'WM',
+    recommendation: '悪性腫瘍：T1+Gd造影 & T2 FLAIRが基本。DWI/PWIで悪性度評価を補助。',
+  },
+  {
+    id: 'ms',
+    label: 'MS病変',
+    T1_15: 950, T2_15: 160,
+    T1_30: 1500, T2_30: 140,
+    backgroundLabel: 'WM',
+    recommendation: 'MS病変：FLAIR (T2水抑制) が最優先。T1+Gdで活動性評価。',
+  },
+  {
+    id: 'cartilage',
+    label: '軟骨損傷',
+    T1_15: 1000, T2_15: 50,
+    T1_30: 1500, T2_30: 45,
+    backgroundLabel: 'Muscle',
+    recommendation: '軟骨損傷：PDW Fat-sat (T2マッピング) が最優先。3D GRE薄スライスが有効。',
+  },
+]
+
+// ────────────────────────────────────────────────────────────────────────────
+// Bloch 簡略計算（病変信号）
+// ────────────────────────────────────────────────────────────────────────────
+function calcLesionSignal(T1: number, T2: number, params: ProtocolParams): number {
+  const { TR, TE, TI, turboFactor, flipAngle, averages } = params
+  const isIR = TI > 0
+  const isGRE = turboFactor <= 2 && flipAngle < 60
+  let s: number
+  if (isIR) {
+    s = Math.abs(1 - 2 * Math.exp(-TI / T1) + Math.exp(-TR / T1)) * Math.exp(-TE / T2)
+  } else if (isGRE) {
+    const faRad = (flipAngle * Math.PI) / 180
+    const e1 = Math.exp(-TR / T1)
+    s = Math.sin(faRad) * (1 - e1) / (1 - Math.cos(faRad) * e1 + 1e-10) * Math.exp(-TE / T2)
+  } else {
+    s = (1 - Math.exp(-TR / T1)) * Math.exp(-TE / T2)
+  }
+  return Math.max(0, s) * Math.sqrt(averages)
+}
 
 export function TissueContrastPanel() {
   const { params } = useProtocolStore()
@@ -9,6 +81,29 @@ export function TissueContrastPanel() {
   const cs = chemShift(params)
   const t2blur = calcT2Blur(params)
   const snr = calcSNR(params)
+
+  // 病変検出性プリセット
+  const [selectedPathology, setSelectedPathology] = useState<string | null>(null)
+
+  // 選択中プリセット情報
+  const activePreset = PATHOLOGY_PRESETS.find(p => p.id === selectedPathology) ?? null
+
+  // 検出容易性スコア計算
+  const detectabilityScore = useMemo(() => {
+    if (!activePreset) return null
+    const is3T = params.fieldStrength >= 2.5
+    const T1 = is3T ? activePreset.T1_30 : activePreset.T1_15
+    const T2 = is3T ? activePreset.T2_30 : activePreset.T2_15
+    const lesionSig = calcLesionSignal(T1, T2, params)
+    const bgSignal = signals.find(s => s.tissue.label === activePreset.backgroundLabel)?.signal ?? 0
+    // 最大非正規化信号を復元してlesionと同スケールにする
+    const maxSig = Math.max(...signals.map(s => s.signal), 0.001)
+    // lesionSigはrawなのでbgSigもrawスケールに戻す
+    const bgRaw = bgSignal * maxSig
+    const noiseEstimate = 1 / Math.max(snr, 1)
+    const cnr = Math.abs(lesionSig - bgRaw) / noiseEstimate
+    return Math.min(100, Math.round(cnr * 20))
+  }, [activePreset, params, signals, snr])
 
   // コントラスト種別の推定
   const isIR = params.TI > 0
@@ -87,6 +182,14 @@ export function TissueContrastPanel() {
 
         {/* Contrast ratios + CNR */}
         <ContrastRatios signals={signals} snr={snr} />
+
+        {/* Pathology detectability */}
+        <PathologyDetectability
+          selectedPathology={selectedPathology}
+          onSelect={setSelectedPathology}
+          activePreset={activePreset}
+          detectabilityScore={detectabilityScore}
+        />
 
         {/* Ernst angle */}
         {isGRE && (
@@ -173,12 +276,108 @@ export function TissueContrastPanel() {
           FA={params.flipAngle}
           fieldStrength={params.fieldStrength}
           turboFactor={params.turboFactor}
+          pathologyRecommendation={activePreset?.recommendation ?? null}
         />
 
         {/* Tissue reference */}
         <TissueReference fieldStrength={params.fieldStrength} />
 
       </div>
+    </div>
+  )
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 病変検出性パネル
+// ────────────────────────────────────────────────────────────────────────────
+function PathologyDetectability({
+  selectedPathology,
+  onSelect,
+  activePreset,
+  detectabilityScore,
+}: {
+  selectedPathology: string | null
+  onSelect: (id: string | null) => void
+  activePreset: PathologyPreset | null
+  detectabilityScore: number | null
+}) {
+  const scoreBadge = (score: number) => {
+    if (score >= 70) return { bg: '#14432a', color: '#34d399', border: '#166534', label: '検出容易' }
+    if (score >= 40) return { bg: '#2d2000', color: '#fbbf24', border: '#78350f', label: '要注意' }
+    return { bg: '#2d0a0a', color: '#f87171', border: '#7f1d1d', label: '検出困難' }
+  }
+
+  return (
+    <div className="p-2 rounded" style={{ background: '#111', border: '1px solid #1e1530' }}>
+      <div className="font-semibold mb-1.5" style={{ color: '#e88b00', fontSize: '10px', letterSpacing: '0.05em' }}>
+        PATHOLOGY DETECTABILITY
+      </div>
+
+      {/* Preset buttons */}
+      <div className="grid grid-cols-2 gap-1 mb-2">
+        {PATHOLOGY_PRESETS.map(preset => {
+          const isActive = selectedPathology === preset.id
+          return (
+            <button
+              key={preset.id}
+              onClick={() => onSelect(isActive ? null : preset.id)}
+              className="rounded py-1 px-1.5 text-left transition-colors"
+              style={{
+                fontSize: '9px',
+                background: isActive ? '#2a1800' : '#1a1a1a',
+                border: `1px solid ${isActive ? '#e88b00' : '#2a2a2a'}`,
+                color: isActive ? '#e88b00' : '#9ca3af',
+                cursor: 'pointer',
+              }}
+            >
+              {preset.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Detectability score */}
+      {activePreset && detectabilityScore !== null && (() => {
+        const badge = scoreBadge(detectabilityScore)
+        return (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span style={{ color: '#6b7280', fontSize: '9px' }}>
+                vs {activePreset.backgroundLabel} CNR スコア
+              </span>
+              <span
+                className="font-semibold px-1.5 py-0.5 rounded font-mono"
+                style={{
+                  background: badge.bg,
+                  color: badge.color,
+                  border: `1px solid ${badge.border}`,
+                  fontSize: '9px',
+                }}
+              >
+                {detectabilityScore}% — {badge.label}
+              </span>
+            </div>
+            {/* Score bar */}
+            <div className="w-full h-2 rounded overflow-hidden" style={{ background: '#1a1a1a' }}>
+              <div
+                className="h-full rounded transition-all duration-300"
+                style={{ width: `${detectabilityScore}%`, background: badge.color, opacity: 0.85 }}
+              />
+            </div>
+            <div className="flex justify-between" style={{ color: '#374151', fontSize: '8px' }}>
+              <span>0</span>
+              <span style={{ color: '#4b5563' }}>40 / 70</span>
+              <span>100</span>
+            </div>
+          </div>
+        )
+      })()}
+
+      {!activePreset && (
+        <div style={{ color: '#4b5563', fontSize: '9px' }}>
+          プリセットを選択して病変検出性を評価
+        </div>
+      )}
     </div>
   )
 }
@@ -295,10 +494,11 @@ function ContrastRatios({ signals, snr }: { signals: ReturnType<typeof calcTissu
 // シーケンス最適化のヒント
 function SequenceOptimizationTips({
   contrastLabel, isGRE, isIR, isFLAIR, isDWI,
-  TR, TE, FA, fieldStrength, turboFactor
+  TR, TE, FA, fieldStrength, turboFactor, pathologyRecommendation
 }: {
   contrastLabel: string; isGRE: boolean; isIR: boolean; isFLAIR: boolean; isDWI: boolean
   TR: number; TE: number; FA: number; fieldStrength: number; turboFactor: number
+  pathologyRecommendation: string | null
 }) {
   const is3T = fieldStrength >= 2.5
 
@@ -345,21 +545,32 @@ function SequenceOptimizationTips({
     return result.slice(0, 4) // max 4 tips
   }, [isDWI, isFLAIR, isIR, isGRE, TR, TE, FA, fieldStrength, turboFactor, is3T, contrastLabel])
 
-  if (tips.length === 0) return null
+  if (tips.length === 0 && !pathologyRecommendation) return null
 
   return (
     <div className="p-2 rounded" style={{ background: '#0e1218', border: '1px solid #1a2030' }}>
       <div className="font-semibold mb-1.5" style={{ color: '#60a5fa', fontSize: '9px', letterSpacing: '0.06em' }}>
         OPTIMIZATION TIPS — {contrastLabel}
       </div>
-      <div className="space-y-1">
-        {tips.map((tip, i) => (
-          <div key={i} className="flex gap-1.5" style={{ fontSize: '9px' }}>
-            <span style={{ color: tip.color, flexShrink: 0, width: '10px' }}>{tip.icon}</span>
-            <span style={{ color: '#9ca3af', lineHeight: 1.4 }}>{tip.text}</span>
-          </div>
-        ))}
-      </div>
+      {tips.length > 0 && (
+        <div className="space-y-1">
+          {tips.map((tip, i) => (
+            <div key={i} className="flex gap-1.5" style={{ fontSize: '9px' }}>
+              <span style={{ color: tip.color, flexShrink: 0, width: '10px' }}>{tip.icon}</span>
+              <span style={{ color: '#9ca3af', lineHeight: 1.4 }}>{tip.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {pathologyRecommendation && (
+        <div
+          className="mt-2 pt-1.5 flex gap-1.5"
+          style={{ borderTop: tips.length > 0 ? '1px solid #1e2a3a' : undefined, fontSize: '9px' }}
+        >
+          <span style={{ color: '#e88b00', flexShrink: 0 }}>→</span>
+          <span style={{ color: '#d1a854', lineHeight: 1.5 }}>{pathologyRecommendation}</span>
+        </div>
+      )}
     </div>
   )
 }

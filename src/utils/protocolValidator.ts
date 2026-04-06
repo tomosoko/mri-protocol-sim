@@ -726,6 +726,120 @@ const rules: Rule[] = [
     return null
   },
 
+  // ── 前立腺 DWI: b値が低すぎる（PI-RADS非対応）────────────────────────────
+  p => {
+    const isDWI = p.bValues.length > 1 && p.turboFactor <= 2
+    const maxB = Math.max(...p.bValues)
+    if (isDWI && maxB < 800 && maxB > 0) return {
+      id: 'prostate_dwi_low_b', severity: 'warning', category: 'DWI',
+      title: `DWI: 最大b値 ${maxB} s/mm² — 前立腺MRI には b≥1000 を推奨`,
+      detail: `PI-RADS v2.1 ガイドラインでは前立腺DWIに b≥1000 s/mm²（推奨: b=1500-2000の計算DWI）を要求します。低b値ではADC精度が低下し、PI-RADS評価が不正確になります。`,
+      params: ['bValues'],
+      quickFixes: [
+        { label: 'b値を [0, 1000] に設定', apply: () => ({ bValues: [0, 1000] }) },
+        { label: 'b値を [0, 800, 1500] に設定', apply: () => ({ bValues: [0, 800, 1500] }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 3T FLAIR: TI が水を完全抑制できない ──────────────────────────────────
+  p => {
+    const isFLAIR = p.TI > 1500 && p.turboFactor > 5
+    const is3T = p.fieldStrength >= 2.5
+    const idealTI = is3T ? 2500 : 2400  // approximate
+    if (isFLAIR && is3T && p.TI < 2200) return {
+      id: 'flair_3t_ti_short', severity: 'warning', category: 'FLAIR',
+      title: `3T FLAIR: TI ${p.TI}ms は水の完全抑制に不十分（推奨 ≥2400ms）`,
+      detail: `3T でのT1水 ≈ 4800ms。水の信号ゼロ点は TI_null = T1×ln(2) ≈ 3326ms ですが、IRのリフォーカス効果から実効的に ≈ ${idealTI}ms 付近が最適です。TI不足では水信号が残存し偽病変を形成します。`,
+      params: ['TI'],
+      quickFixes: [
+        { label: `TI を ${idealTI}ms に設定`, apply: () => ({ TI: idealTI }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 薄スライス高分解能: Partial Fourier OFF では SNR/時間効率が低い ────────
+  p => {
+    const is3D = p.turboFactor >= 3 && p.sliceThickness <= 1.5
+    if (is3D && p.partialFourier === 'Off' && p.TR > 2000 && p.averages <= 1) return {
+      id: '3d_thin_no_pf', severity: 'info', category: 'Sequence',
+      title: '3D薄スライス: Partial Fourier 6/8 で撮像時間を20%短縮可',
+      detail: `スライス厚 ${p.sliceThickness}mm の3D収集では Partial Fourier 6/8 を使用することで時間短縮しながらも診断的分解能を維持できます。SNRはわずかに低下しますが実用上問題ありません。`,
+      params: ['partialFourier'],
+      quickFixes: [
+        { label: 'PF を 6/8 に設定', apply: () => ({ partialFourier: '6/8' as const }) },
+        { label: 'PF を 7/8 に設定', apply: () => ({ partialFourier: '7/8' as const }) },
+      ],
+    }
+    return null
+  },
+
+  // ── MRCP: TE が短すぎて液体-組織コントラスト不十分 ────────────────────────
+  p => {
+    const isMRCP = p.turboFactor >= 100 || (p.TR > 5000 && p.TE > 300)
+    if (isMRCP && p.TE < 600) return {
+      id: 'mrcp_te_short', severity: 'warning', category: 'コントラスト',
+      title: `MRCP: TE ${p.TE}ms では胆管・膵管コントラストが不十分`,
+      detail: `MRCP（重T2法）は TE≥700ms で胆汁・膵液（T2≈1200ms）の高信号と周囲組織（T2≈80ms）の低信号コントラストを最大化します。TE短縮はコントラスト低下を招きます。`,
+      params: ['TE'],
+      quickFixes: [
+        { label: 'TE を 700ms に設定', apply: () => ({ TE: 700 }) },
+        { label: 'TE を 900ms に設定', apply: () => ({ TE: 900 }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 心臓シネ: 非ECGトリガーでは運動アーチファクト必発 ────────────────────
+  p => {
+    const isCine = p.TR < 50 && p.flipAngle >= 40 && p.flipAngle <= 80
+    if (isCine && !p.ecgTrigger) return {
+      id: 'cine_no_ecg', severity: 'error', category: '心臓',
+      title: '心臓シネ: ECGトリガーがOFF — 心拍同期なしでは診断不可',
+      detail: 'bSSFP シネMRIは心周期に同期した位相収集が必須です。ECGトリガーなしでは心筋が各フェーズでランダム位置に描出され、EF・壁運動評価が不可能になります。',
+      params: ['ecgTrigger'],
+      quickFixes: [
+        { label: 'ECGトリガーをONにする', apply: () => ({ ecgTrigger: true }) },
+      ],
+    }
+    return null
+  },
+
+  // ── 高b値 DWI: ADC計算のためには複数b値必要 ──────────────────────────────
+  p => {
+    const isDWI = p.bValues.length > 1 && p.turboFactor <= 2
+    const hasZero = p.bValues.includes(0)
+    if (isDWI && !hasZero) return {
+      id: 'dwi_no_b0', severity: 'error', category: 'DWI',
+      title: 'DWI: b=0 が含まれていないためADC計算不可',
+      detail: `ADC値は S(b) = S0 × exp(-b×ADC) の関係から算出します。b=0 画像（S0）がなければ ADC の絶対値計算ができません。b値に 0 s/mm² を追加してください。`,
+      params: ['bValues'],
+      quickFixes: [
+        { label: 'b=0 を追加', apply: (p) => ({ bValues: [0, ...p.bValues].sort((a, b) => a - b) }) },
+      ],
+    }
+    return null
+  },
+
+  // ── ECG + 呼吸同期の組み合わせ: navigator echo が必要な場合 ───────────────
+  p => {
+    const needsNav = p.ecgTrigger && p.respTrigger === 'Off'
+      && p.TR > 500 && p.slices > 5
+    if (needsNav) return {
+      id: 'cardiac_no_resp', severity: 'info', category: '生体信号',
+      title: '心臓MRI: 呼吸補正（PACE/RT）なしでは呼吸アーチファクト懸念',
+      detail: '心臓シネではBH（息止め）が標準ですが、長時間スキャンや複数ブレスホールドでは呼吸のずれが累積します。自由呼吸撮像の場合はPACE（Navigator Echo）の追加を検討してください。',
+      params: ['respTrigger'],
+      quickFixes: [
+        { label: 'PACE を追加', apply: () => ({ respTrigger: 'PACE' as const }) },
+        { label: '呼吸 BH に設定', apply: () => ({ respTrigger: 'BH' as const }) },
+      ],
+    }
+    return null
+  },
+
 ]
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -50,7 +50,7 @@ function seededRandom(seed: number): () => number {
 // 高品質ファントム生成
 // -----------------------------------------------------------------------
 
-export function generateBasePhantom(type: 'head' | 'abdomen' | 'spine'): Uint8ClampedArray {
+export function generateBasePhantom(type: 'head' | 'abdomen' | 'spine' | 'cardiac'): Uint8ClampedArray {
   const data = new Uint8ClampedArray(SIZE * SIZE)
   const cx = SIZE / 2
   const cy = SIZE / 2
@@ -259,7 +259,7 @@ export function generateBasePhantom(type: 'head' | 'abdomen' | 'spine'): Uint8Cl
         data[i] = Math.max(5, Math.min(255, data[i] + noise))
       }
     }
-  } else {
+  } else if (type === 'spine') {
     // --- 脊椎ファントム（腰椎矢状断 T1W想定）---
     // X: 前方=左, 後方=右  Y: 頭側=上, 尾側=下
 
@@ -352,6 +352,113 @@ export function generateBasePhantom(type: 'head' | 'abdomen' | 'spine'): Uint8Cl
     for (let i = 0; i < SIZE * SIZE; i++) {
       if (data[i] > 0) {
         const noise = Math.round((rng() - 0.5) * 12)
+        data[i] = Math.max(5, Math.min(255, data[i] + noise))
+      }
+    }
+  } else if (type === 'cardiac') {
+    // --- 心臓ファントム（短軸断面: bSSFP心臓シネ想定）---
+    // Y軸: 上=前方(胸骨側) / 下=後方(脊椎側)
+    // X軸: 左=患者右(RV側) / 右=患者左(LV側)
+    const HCX = 64  // 心臓中心X
+    const HCY = 60  // 心臓中心Y（前方よりに配置）
+    const LV_CX = 70, LV_CY = 62  // LV中心（やや右後方）
+    const RV_CX = 48, RV_CY = 54  // RV中心（前左方）
+
+    // 1. 胸壁筋肉（外郭）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, cx, cy, 60, 56)) data[y * SIZE + x] = 90
+      }
+    }
+
+    // 2. 皮下脂肪（最外層リング）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, cx, cy, 64, 60) && !isInsideEllipse(x, y, cx, cy, 60, 56))
+          data[y * SIZE + x] = 200
+      }
+    }
+
+    // 3. 肺野（両側: 超低信号）
+    for (let y = 10; y < SIZE - 10; y++) {
+      for (let x = 10; x < SIZE - 10; x++) {
+        if (isInsideEllipse(x, y, 20, 58, 16, 28)) data[y * SIZE + x] = 8   // 左肺（患者の右）
+        if (isInsideEllipse(x, y, 108, 58, 16, 28)) data[y * SIZE + x] = 8  // 右肺（患者の左）
+      }
+    }
+
+    // 4. 心膜 + 心筋（全体輪郭）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, HCX, HCY, 32, 30)) data[y * SIZE + x] = 100
+      }
+    }
+
+    // 5. RV腔（右室: 三日月状の血液プール, 高信号）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, RV_CX, RV_CY, 18, 16) &&
+            !isInsideEllipse(x, y, LV_CX, LV_CY, 22, 21))
+          data[y * SIZE + x] = 230
+      }
+    }
+
+    // 6. LV心筋（肉厚なリング）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, LV_CX, LV_CY, 22, 21)) data[y * SIZE + x] = 105
+      }
+    }
+
+    // 7. LV腔（血液プール: 高信号）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, LV_CX, LV_CY, 14, 13)) data[y * SIZE + x] = 230
+      }
+    }
+
+    // 8. 乳頭筋（LV腔内の小突起）
+    const papillaries = [{ px: LV_CX - 7, py: LV_CY - 4 }, { px: LV_CX + 5, py: LV_CY + 4 }]
+    for (const { px, py } of papillaries) {
+      for (let y = py - 3; y <= py + 3; y++) {
+        for (let x = px - 3; x <= px + 3; x++) {
+          if (x >= 0 && x < SIZE && y >= 0 && y < SIZE &&
+              (x - px) * (x - px) + (y - py) * (y - py) <= 9 &&
+              data[y * SIZE + x] === 230) {
+            data[y * SIZE + x] = 115
+          }
+        }
+      }
+    }
+
+    // 9. 下行大動脈（左後方: 小円形高信号）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, 90, 86, 5, 5)) data[y * SIZE + x] = 220
+      }
+    }
+
+    // 10. 脊椎（後方中央）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, cx, 108, 10, 9)) data[y * SIZE + x] = 165
+        if (isInsideEllipse(x, y, cx, 108, 11, 10) && !isInsideEllipse(x, y, cx, 108, 10, 9))
+          data[y * SIZE + x] = 30
+      }
+    }
+
+    // 11. 心外膜の脂肪（心臓外面の薄い高信号リング）
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (isInsideEllipse(x, y, HCX, HCY, 34, 32) && !isInsideEllipse(x, y, HCX, HCY, 32, 30))
+          data[y * SIZE + x] = 185
+      }
+    }
+
+    // 12. ガウスノイズ ±5
+    for (let i = 0; i < SIZE * SIZE; i++) {
+      if (data[i] > 0) {
+        const noise = Math.round((rng() - 0.5) * 10)
         data[i] = Math.max(5, Math.min(255, data[i] + noise))
       }
     }

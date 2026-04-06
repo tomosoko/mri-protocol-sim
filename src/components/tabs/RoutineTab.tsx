@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField, SectionHeader as SH } from '../ParamField'
 import { TISSUES, calcScanTime, calcTEmin, calcTRmin, identifySequence } from '../../store/calculators'
+import type { ProtocolParams } from '../../data/presets'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
 function ErnstAngleIndicator() {
@@ -522,6 +523,244 @@ function ContrastHeatmap() {
   )
 }
 
+// ── シーケンスプリセットバー ─────────────────────────────────────────────────
+// Siemens syngo MR コンソールのプロトコル一覧に相当するシーケンスプリセット選択UI
+// クリックすると全パラメータを一括設定（実際のコンソールと同様の挙動）
+type SeqPreset = {
+  name: string          // syngo MR 表示名
+  full: string          // フル名称
+  color: string         // アクセントカラー
+  category: 'T1' | 'T2' | 'GRE' | 'DWI' | 'Special'
+  apply: (p: ProtocolParams, is3T: boolean) => Partial<ProtocolParams>
+}
+
+const SEQ_PRESETS: SeqPreset[] = [
+  {
+    name: 'TSE T2',
+    full: 'Turbo Spin Echo T2w',
+    color: '#60a5fa',
+    category: 'T2',
+    apply: (_p, _) => ({
+      TR: 5000, TE: 100, TI: 0, flipAngle: 90,
+      turboFactor: 15, echoSpacing: 4.5,
+      sliceThickness: 5, matrixFreq: 256, matrixPhase: 256,
+      bandwidth: 200, partialFourier: 'Off', fatSat: 'None',
+      ipatMode: 'Off', bValues: [0],
+    }),
+  },
+  {
+    name: 'FLAIR',
+    full: 'Fluid Attenuated IR TSE',
+    color: '#a78bfa',
+    category: 'T2',
+    apply: (_p, is3T) => ({
+      TR: 9000, TE: 90, TI: is3T ? 2500 : 2200, flipAngle: 90,
+      turboFactor: 16, echoSpacing: 4.5,
+      sliceThickness: 5, matrixFreq: 256, matrixPhase: 192,
+      bandwidth: 200, partialFourier: '6/8', fatSat: 'None',
+      ipatMode: 'GRAPPA', ipatFactor: 2, bValues: [0],
+    }),
+  },
+  {
+    name: 'MPRAGE',
+    full: 'Magnetization Prepared Rapid GRE',
+    color: '#fbbf24',
+    category: 'T1',
+    apply: (_p, is3T) => ({
+      TR: is3T ? 2300 : 1900, TE: 3, TI: is3T ? 900 : 800, flipAngle: 9,
+      turboFactor: 1, echoSpacing: 7.0,
+      sliceThickness: 1, matrixFreq: 256, matrixPhase: 256,
+      bandwidth: 200, partialFourier: '6/8', fatSat: 'None',
+      ipatMode: 'GRAPPA', ipatFactor: 2, bValues: [0],
+    }),
+  },
+  {
+    name: 'SPACE',
+    full: '3D Sampling Perfection with Application optimized Contrasts',
+    color: '#34d399',
+    category: 'T2',
+    apply: (_p, _) => ({
+      TR: 3200, TE: 500, TI: 0, flipAngle: 120,
+      turboFactor: 120, echoSpacing: 3.8,
+      sliceThickness: 1, matrixFreq: 256, matrixPhase: 256,
+      bandwidth: 650, partialFourier: '6/8', fatSat: 'None',
+      ipatMode: 'GRAPPA', ipatFactor: 2, bValues: [0],
+    }),
+  },
+  {
+    name: 'HASTE',
+    full: 'Half-Fourier Acquisition Single-shot TSE',
+    color: '#38bdf8',
+    category: 'T2',
+    apply: (_p, _) => ({
+      TR: 1400, TE: 84, TI: 0, flipAngle: 90,
+      turboFactor: 256, echoSpacing: 3.4,
+      sliceThickness: 5, matrixFreq: 256, matrixPhase: 128,
+      bandwidth: 600, partialFourier: '5/8', fatSat: 'None',
+      ipatMode: 'Off', bValues: [0],
+    }),
+  },
+  {
+    name: 'trueFISP',
+    full: 'True Fast Imaging with Steady-state Precession',
+    color: '#f472b6',
+    category: 'GRE',
+    apply: (_p, _) => ({
+      TR: 4, TE: 2, TI: 0, flipAngle: 60,
+      turboFactor: 1, echoSpacing: 4,
+      sliceThickness: 4, matrixFreq: 192, matrixPhase: 192,
+      bandwidth: 1000, partialFourier: 'Off', fatSat: 'None',
+      ipatMode: 'Off', bValues: [0],
+    }),
+  },
+  {
+    name: 'VIBE',
+    full: 'Volumetric Interpolated Breath-hold Examination',
+    color: '#fb923c',
+    category: 'GRE',
+    apply: (_p, _) => ({
+      TR: 5, TE: 2, TI: 0, flipAngle: 15,
+      turboFactor: 1, echoSpacing: 4,
+      sliceThickness: 3, matrixFreq: 256, matrixPhase: 192,
+      bandwidth: 490, partialFourier: '6/8', fatSat: 'SPAIR',
+      ipatMode: 'GRAPPA', ipatFactor: 2, bValues: [0],
+    }),
+  },
+  {
+    name: 'DWI',
+    full: 'Diffusion Weighted EPI',
+    color: '#f87171',
+    category: 'DWI',
+    apply: (_p, is3T) => ({
+      TR: 4000, TE: 85, TI: 0, flipAngle: 90,
+      turboFactor: 1, echoSpacing: 0.77,
+      sliceThickness: 5, matrixFreq: 128, matrixPhase: 128,
+      bandwidth: 2000, partialFourier: '6/8', fatSat: 'CHESS',
+      ipatMode: 'GRAPPA', ipatFactor: is3T ? 3 : 2, bValues: [0, 500, 1000],
+    }),
+  },
+  {
+    name: 'SWI',
+    full: 'Susceptibility Weighted Imaging',
+    color: '#818cf8',
+    category: 'GRE',
+    apply: (_p, is3T) => ({
+      TR: 28, TE: is3T ? 20 : 40, TI: 0, flipAngle: 15,
+      turboFactor: 1, echoSpacing: 4,
+      sliceThickness: 2, matrixFreq: 448, matrixPhase: 448,
+      bandwidth: 120, partialFourier: '7/8', fatSat: 'None',
+      ipatMode: 'GRAPPA', ipatFactor: 2, bValues: [0],
+    }),
+  },
+  {
+    name: 'TOF',
+    full: 'Time-of-Flight MRA',
+    color: '#e879f9',
+    category: 'GRE',
+    apply: (_p, is3T) => ({
+      TR: is3T ? 22 : 25, TE: 3, TI: 0, flipAngle: 18,
+      turboFactor: 1, echoSpacing: 4,
+      sliceThickness: 1.5, matrixFreq: 320, matrixPhase: 256,
+      bandwidth: 160, partialFourier: 'Off', fatSat: 'None',
+      mt: true, ipatMode: 'Off', bValues: [0],
+    }),
+  },
+  {
+    name: 'STIR',
+    full: 'Short TI Inversion Recovery',
+    color: '#4ade80',
+    category: 'T2',
+    apply: (_p, is3T) => ({
+      TR: 5000, TE: 70, TI: is3T ? 220 : 150, flipAngle: 90,
+      turboFactor: 16, echoSpacing: 4.5,
+      sliceThickness: 4, matrixFreq: 256, matrixPhase: 192,
+      bandwidth: 200, partialFourier: 'Off', fatSat: 'STIR',
+      ipatMode: 'Off', bValues: [0],
+    }),
+  },
+  {
+    name: 'T1 TSE',
+    full: 'T1-weighted Turbo Spin Echo',
+    color: '#fbbf24',
+    category: 'T1',
+    apply: (_p, _) => ({
+      TR: 500, TE: 15, TI: 0, flipAngle: 90,
+      turboFactor: 3, echoSpacing: 4.0,
+      sliceThickness: 5, matrixFreq: 256, matrixPhase: 192,
+      bandwidth: 200, partialFourier: 'Off', fatSat: 'None',
+      ipatMode: 'Off', bValues: [0],
+    }),
+  },
+]
+
+function SequencePresetBar() {
+  const { params, setParam } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+  const [hoveredName, setHoveredName] = useState<string | null>(null)
+
+  // Detect which preset is currently active (rough match)
+  const detectActive = (p: SeqPreset): boolean => {
+    const applied = p.apply(params, is3T)
+    const keys = Object.keys(applied) as (keyof typeof applied)[]
+    // Must match at least TR/TE/turboFactor/flipAngle within tolerance
+    const trOk = Math.abs(params.TR - (applied.TR ?? params.TR)) < (applied.TR ?? 1) * 0.15
+    const teOk = Math.abs(params.TE - (applied.TE ?? params.TE)) < 15
+    const etlOk = Math.abs(params.turboFactor - (applied.turboFactor ?? params.turboFactor)) <= 2
+    return trOk && teOk && etlOk && keys.length > 4
+  }
+
+  const hovered = hoveredName ? SEQ_PRESETS.find(p => p.name === hoveredName) : null
+
+  return (
+    <div style={{ background: '#060809', borderBottom: '1px solid #1a2030' }}>
+      {/* Preset button row */}
+      <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none', gap: 0 }}>
+        {SEQ_PRESETS.map(p => {
+          const active = detectActive(p)
+          return (
+            <button
+              key={p.name}
+              onMouseEnter={() => setHoveredName(p.name)}
+              onMouseLeave={() => setHoveredName(null)}
+              onClick={() => {
+                const updates = p.apply(params, is3T)
+                ;(Object.entries(updates) as [keyof typeof params, unknown][]).forEach(([k, v]) => {
+                  setParam(k, v as never)
+                })
+              }}
+              style={{
+                background: active ? p.color + '18' : 'transparent',
+                color: active ? p.color : '#5a5a5a',
+                borderRight: '1px solid #111',
+                borderBottom: active ? `2px solid ${p.color}` : '2px solid transparent',
+                padding: '4px 8px',
+                fontSize: '9px',
+                fontFamily: 'monospace',
+                fontWeight: active ? 700 : 400,
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                letterSpacing: '0.02em',
+                flexShrink: 0,
+                transition: 'all 0.12s',
+              }}
+            >
+              {p.name}
+            </button>
+          )
+        })}
+      </div>
+      {/* Tooltip strip */}
+      {hovered && (
+        <div className="px-3 py-0.5 flex items-center gap-2" style={{ borderTop: '1px solid #111' }}>
+          <span className="font-mono font-bold" style={{ color: hovered.color, fontSize: '8px' }}>{hovered.name}</span>
+          <span style={{ color: '#374151', fontSize: '8px' }}>—</span>
+          <span style={{ color: '#4b5563', fontSize: '8px' }}>{hovered.full}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function RoutineTab() {
   const { params, setParam, activeRoutineTab, setActiveRoutineTab, highlightedParams } = useProtocolStore()
   const hl = (k: string) => highlightedParams.includes(k)
@@ -559,6 +798,9 @@ export function RoutineTab() {
 
       {activeRoutineTab === 'Part1' && (
         <div className="space-y-0">
+          {/* Sequence preset bar — syngo MR protocol selector */}
+          <SequencePresetBar />
+
           {/* Live sequence type indicator — syngo MR protocol header */}
           {(() => {
             const seqId = identifySequence(params)
@@ -623,6 +865,38 @@ export function RoutineTab() {
             onChange={v => setParam('sliceThickness', v as number)} highlight={hl('sliceThickness')} />
 
           <SH label="Timing" />
+          {/* Contrast quick-set buttons — syngo MR contrast preset shortcuts */}
+          <div className="flex gap-1 px-3 mb-1 flex-wrap">
+            {[
+              { label: 'T1w', tr: 500, te: 15, fa: 90, ti: 0, color: '#fbbf24' },
+              { label: 'T2w', tr: 4000, te: 90, fa: 90, ti: 0, color: '#60a5fa' },
+              { label: 'PDw', tr: 3000, te: 25, fa: 90, ti: 0, color: '#34d399' },
+              { label: 'FLAIR', tr: 9000, te: 90, fa: 90, ti: params.fieldStrength >= 2.5 ? 2500 : 2200, color: '#a78bfa' },
+              { label: 'GRE', tr: 120, te: 5, fa: 25, ti: 0, color: '#fb923c' },
+            ].map(({ label, tr, te, fa, ti, color }) => {
+              const isActive = Math.abs(params.TR - tr) < tr * 0.1 && Math.abs(params.TE - te) < 10
+              return (
+                <button
+                  key={label}
+                  onClick={() => {
+                    setParam('TR', tr)
+                    setParam('TE', te)
+                    setParam('flipAngle', fa)
+                    if (ti > 0 || label === 'FLAIR') setParam('TI', ti)
+                  }}
+                  className="px-1.5 py-0.5 rounded text-xs font-semibold transition-all"
+                  style={{
+                    background: isActive ? color + '28' : '#1a1a1a',
+                    color: isActive ? color : '#4b5563',
+                    border: `1px solid ${isActive ? color + '60' : '#2a2a2a'}`,
+                    fontSize: '9px',
+                  }}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
           <ParamField label="TR" hintKey="TR" value={params.TR} type="number" min={100} max={15000} step={100} unit="ms"
             onChange={v => setParam('TR', v as number)} highlight={hl('TR')} />
           {/* TR_min inline indicator */}
@@ -680,6 +954,44 @@ export function RoutineTab() {
           <ErnstAngleIndicator />
 
           <SignalCurveChart />
+
+          {/* Parameter coupling status — shows how current TR/TE drive key outcomes */}
+          {(() => {
+            const scanTime = calcScanTime(params)
+            const teMin = calcTEmin(params)
+            const trMin = calcTRmin(params)
+            const sarPct = Math.min(100, Math.round((params.flipAngle / 90) ** 2 * (2000 / Math.max(params.TR, 100)) * (Math.min(params.turboFactor, 200) / 50) * (params.fieldStrength / 1.5) ** 2 * 32))
+            const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
+
+            const items: { label: string; value: string; ok: boolean; note?: string }[] = [
+              { label: 'TA', value: fmt(scanTime), ok: scanTime < 300, note: scanTime > 300 ? '長い' : '' },
+              { label: 'TE_min', value: `${teMin}ms`, ok: params.TE >= teMin, note: params.TE < teMin ? `→${teMin}ms` : '' },
+              { label: 'TR_min', value: `${trMin}ms`, ok: params.TR >= trMin, note: params.TR < trMin ? `→${trMin}ms` : '' },
+              { label: 'SAR', value: `${sarPct}%`, ok: sarPct < 80, note: sarPct >= 90 ? 'OVER' : '' },
+            ]
+
+            return (
+              <div className="mx-3 mb-1 flex gap-1 flex-wrap">
+                {items.map(item => (
+                  <div key={item.label}
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded"
+                    style={{
+                      background: item.ok ? '#0a1208' : '#1a0505',
+                      border: `1px solid ${item.ok ? '#14532d40' : '#7f1d1d60'}`,
+                    }}>
+                    <span style={{ color: '#374151', fontSize: '7px' }}>{item.label}</span>
+                    <span className="font-mono font-semibold"
+                      style={{ color: item.ok ? '#34d399' : '#f87171', fontSize: '8px' }}>
+                      {item.value}
+                    </span>
+                    {item.note && (
+                      <span style={{ color: item.ok ? '#1f4a2f' : '#f87171', fontSize: '7px' }}>{item.note}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Live brain phantom signal preview */}
           <BrainPhantomPreview />
@@ -746,6 +1058,105 @@ export function RoutineTab() {
 
       {activeRoutineTab === 'Assistant' && (
         <div className="space-y-0">
+          {/* Protocol Quick Adjust — syngo MR Assistant like */}
+          {(() => {
+            const seqId = identifySequence(params)
+            const scanTime = calcScanTime(params)
+            const teMin = calcTEmin(params)
+
+            // Quick actions based on current protocol state
+            const actions: { label: string; color: string; bg: string; desc: string; apply: () => void }[] = []
+
+            // Faster: reduce averages, increase iPAT
+            if (scanTime > 120) {
+              actions.push({
+                label: '⚡ 高速化',
+                color: '#34d399', bg: '#0a1f16',
+                desc: `TA ${Math.round(scanTime)}s → ~${Math.round(scanTime * 0.6)}s`,
+                apply: () => {
+                  if (params.averages > 1) setParam('averages', params.averages - 1)
+                  if (params.ipatMode === 'Off') setParam('ipatMode', 'GRAPPA')
+                },
+              })
+            }
+
+            // Better SNR: add averages
+            if (params.averages < 4) {
+              actions.push({
+                label: '📶 SNR向上',
+                color: '#60a5fa', bg: '#0a1020',
+                desc: `NEX ${params.averages}→${params.averages + 1} (SNR+${Math.round((Math.sqrt(params.averages + 1) / Math.sqrt(params.averages) - 1) * 100)}%)`,
+                apply: () => setParam('averages', params.averages + 1),
+              })
+            }
+
+            // Reduce SAR: increase TR or reduce FA
+            const sarPct = Math.round((params.flipAngle / 90) ** 2 * (2000 / Math.max(params.TR, 100)) * (params.turboFactor / 50) * (params.fieldStrength / 1.5) ** 2 * 32)
+            if (sarPct > 60) {
+              actions.push({
+                label: '🌡 SAR低減',
+                color: '#f87171', bg: '#1a0505',
+                desc: `FA ${params.flipAngle}°→${Math.max(120, params.flipAngle - 20)}° でSAR-${Math.round((1 - (Math.max(120, params.flipAngle - 20) / params.flipAngle) ** 2) * 100)}%`,
+                apply: () => setParam('flipAngle', Math.max(120, params.flipAngle - 20)),
+              })
+            }
+
+            // Fix TE
+            if (params.TE < teMin) {
+              actions.push({
+                label: '⚠ TE修正',
+                color: '#fbbf24', bg: '#1a1000',
+                desc: `TE_min = ${teMin}ms (現在${params.TE}ms)`,
+                apply: () => setParam('TE', teMin),
+              })
+            }
+
+            // Remove gap if any
+            if ((params.sliceGap ?? 0) > 0) {
+              actions.push({
+                label: '📏 ギャップ解除',
+                color: '#a78bfa', bg: '#14102a',
+                desc: `SliceGap ${params.sliceGap}mm → 0 (連続スライス)`,
+                apply: () => setParam('sliceGap', 0),
+              })
+            }
+
+            if (actions.length === 0) return (
+              <div className="mx-3 mt-2 p-3 rounded text-xs flex items-center gap-2"
+                style={{ background: '#0a1208', border: '1px solid #14532d' }}>
+                <span style={{ color: '#34d399' }}>✓</span>
+                <span style={{ color: '#34d399' }}>プロトコル最適 — 改善提案なし</span>
+              </div>
+            )
+
+            return (
+              <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #252525' }}>
+                <div className="text-xs font-semibold mb-2" style={{ color: '#e88b00' }}>
+                  Quick Adjust ({seqId.type})
+                </div>
+                <div className="space-y-1.5">
+                  {actions.map((a, i) => (
+                    <button
+                      key={i}
+                      onClick={a.apply}
+                      className="w-full text-left flex items-center justify-between px-2 py-1.5 rounded transition-all"
+                      style={{
+                        background: a.bg,
+                        border: `1px solid ${a.color}40`,
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = a.color }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = a.color + '40' }}
+                    >
+                      <span className="font-semibold" style={{ color: a.color, fontSize: '10px' }}>{a.label}</span>
+                      <span style={{ color: '#6b7280', fontSize: '8px' }}>{a.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           <ScanTimeBreakdown />
 
           <SH label="SAR Control" />

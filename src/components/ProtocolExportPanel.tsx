@@ -3,7 +3,7 @@ import { useProtocolStore } from '../store/protocolStore'
 import { calcSNR, calcSARLevel, calcScanTime, calcT2Blur, chemShift, identifySequence } from '../store/calculators'
 import { validateProtocol } from '../utils/protocolValidator'
 import type { ProtocolParams } from '../data/presets'
-import { Copy, CheckCircle, FileText } from 'lucide-react'
+import { Copy, CheckCircle, FileText, Download } from 'lucide-react'
 
 function buildExportText(params: ProtocolParams, presetLabel: string): string {
   const seqId = identifySequence(params)
@@ -101,15 +101,67 @@ function buildExportText(params: ProtocolParams, presetLabel: string): string {
   return lines.join('\n')
 }
 
+function buildJsonExport(params: ProtocolParams, presetLabel: string): string {
+  const seqId = identifySequence(params)
+  const fovPhase = Math.round(params.fov * (params.phaseResolution / 100))
+  const voxelFreq = parseFloat((params.fov / params.matrixFreq).toFixed(2))
+  const voxelPhase = parseFloat((fovPhase / params.matrixPhase).toFixed(2))
+  const obj = {
+    meta: {
+      preset: presetLabel || '(カスタム)',
+      sequence: seqId.type,
+      exportedAt: new Date().toISOString(),
+      generator: 'MRI Protocol Simulator',
+    },
+    routine: {
+      TR: params.TR, TE: params.TE, TI: params.TI, flipAngle: params.flipAngle,
+      slices: params.slices, sliceThickness: params.sliceThickness, sliceGap: params.sliceGap,
+      averages: params.averages,
+    },
+    sequence: {
+      turboFactor: params.turboFactor, echoSpacing: params.echoSpacing,
+      partialFourier: params.partialFourier, bValues: params.bValues,
+    },
+    resolution: {
+      fov: params.fov, fovPhase, matrixFreq: params.matrixFreq, matrixPhase: params.matrixPhase,
+      voxelFreq, voxelPhase, voxelSlice: params.sliceThickness,
+      phaseResolution: params.phaseResolution, bandwidth: params.bandwidth, interpolation: params.interpolation,
+    },
+    contrast: { fatSat: params.fatSat, mt: params.mt },
+    geometry: { orientation: params.orientation, phaseEncDir: params.phaseEncDir, satBands: params.satBands },
+    system: {
+      fieldStrength: params.fieldStrength, coilType: params.coilType,
+      ipatMode: params.ipatMode, ipatFactor: params.ipatFactor,
+      gradientMode: params.gradientMode, shim: params.shim,
+    },
+    physio: {
+      ecgTrigger: params.ecgTrigger, respTrigger: params.respTrigger,
+      triggerDelay: params.triggerDelay, triggerWindow: params.triggerWindow,
+    },
+    inline: {
+      adc: params.inlineADC, mip: params.inlineMIP, mpr: params.inlineMPR, subtraction: params.inlineSubtraction,
+    },
+    metrics: {
+      snrRel: calcSNR(params),
+      sarPct: calcSARLevel(params),
+      scanTimeSec: calcScanTime(params),
+      t2blur: parseFloat(calcT2Blur(params).toFixed(3)),
+      chemShiftPx: chemShift(params),
+    },
+  }
+  return JSON.stringify(obj, null, 2)
+}
+
 export function ProtocolExportPanel() {
   const { params, activePresetId } = useProtocolStore()
   const [copied, setCopied] = useState(false)
-  const [format, setFormat] = useState<'text' | 'csv'>('text')
+  const [format, setFormat] = useState<'text' | 'csv' | 'json'>('text')
 
   // Find preset label
   const presetLabel = activePresetId ?? ''
 
   const exportText = buildExportText(params, presetLabel)
+  const jsonExport = buildJsonExport(params, presetLabel)
 
   const csvLines = [
     'Parameter,Value,Unit',
@@ -141,14 +193,30 @@ export function ProtocolExportPanel() {
     `ScanTime,${calcScanTime(params)},s`,
   ].join('\n')
 
+  const getContent = () => {
+    if (format === 'text') return exportText
+    if (format === 'csv') return csvLines
+    return jsonExport
+  }
+
   const handleCopy = () => {
-    const content = format === 'text' ? exportText : csvLines
-    navigator.clipboard.writeText(content).then(() => {
+    navigator.clipboard.writeText(getContent()).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    }).catch(() => {
-      // fallback: select text
-    })
+    }).catch(() => {})
+  }
+
+  const handleDownload = () => {
+    const ext = format === 'csv' ? 'csv' : format === 'json' ? 'json' : 'txt'
+    const mime = format === 'csv' ? 'text/csv' : format === 'json' ? 'application/json' : 'text/plain'
+    const blob = new Blob([getContent()], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const presetSlug = (activePresetId ?? 'custom').replace(/[^a-z0-9]/gi, '_')
+    a.href = url
+    a.download = `mri_protocol_${presetSlug}.${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -162,10 +230,10 @@ export function ProtocolExportPanel() {
         <div style={{ color: '#4b5563', fontSize: '9px' }}>プロトコルをテキストまたはCSVでエクスポート</div>
       </div>
 
-      {/* Format selector + Copy button */}
+      {/* Format selector */}
       <div className="px-3 py-2 shrink-0 flex items-center gap-2" style={{ borderBottom: '1px solid #1a1a1a' }}>
         <div className="flex gap-1">
-          {(['text', 'csv'] as const).map(f => (
+          {(['text', 'csv', 'json'] as const).map(f => (
             <button
               key={f}
               onClick={() => setFormat(f)}
@@ -181,20 +249,36 @@ export function ProtocolExportPanel() {
             </button>
           ))}
         </div>
-        <button
-          onClick={handleCopy}
-          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded transition-colors"
-          style={{
-            background: copied ? '#0d2010' : '#1a1a1a',
-            color: copied ? '#4ade80' : '#60a5fa',
-            border: `1px solid ${copied ? '#166534' : '#1d4ed8'}`,
-            fontSize: '9px',
-            fontWeight: 600,
-          }}
-        >
-          {copied ? <CheckCircle size={10} /> : <Copy size={10} />}
-          {copied ? 'コピー完了' : 'クリップボードにコピー'}
-        </button>
+        <div className="ml-auto flex gap-1">
+          <button
+            onClick={handleDownload}
+            className="flex items-center gap-1 px-2 py-0.5 rounded transition-colors"
+            style={{
+              background: '#1a1a1a',
+              color: '#9ca3af',
+              border: '1px solid #252525',
+              fontSize: '9px',
+              fontWeight: 600,
+            }}
+          >
+            <Download size={10} />
+            DL
+          </button>
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-1 px-2 py-0.5 rounded transition-colors"
+            style={{
+              background: copied ? '#0d2010' : '#1a1a1a',
+              color: copied ? '#4ade80' : '#60a5fa',
+              border: `1px solid ${copied ? '#166534' : '#1d4ed8'}`,
+              fontSize: '9px',
+              fontWeight: 600,
+            }}
+          >
+            {copied ? <CheckCircle size={10} /> : <Copy size={10} />}
+            {copied ? '完了' : 'コピー'}
+          </button>
+        </div>
       </div>
 
       {/* Preview */}
@@ -211,7 +295,7 @@ export function ProtocolExportPanel() {
             whiteSpace: 'pre',
           }}
         >
-          {format === 'text' ? exportText : csvLines}
+          {getContent()}
         </pre>
       </div>
     </div>

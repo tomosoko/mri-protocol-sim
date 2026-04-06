@@ -287,6 +287,297 @@ function GFactorChart() {
   )
 }
 
+// ── コイル素子マップ ──────────────────────────────────────────────────────────
+// 選択されたコイルのチャンネル数・配置を視覚化（syngo MR コイル設定UIに相当）
+function CoilElementMap() {
+  const { params } = useProtocolStore()
+  const coil = params.coilType ?? 'Body'
+
+  // Coil element topology definitions
+  type CoilDef = {
+    channels: number
+    rows: number
+    cols: number
+    label: string
+    coverage: string
+    color: string
+    elements: { x: number; y: number; w: number; h: number; active: boolean }[]
+  }
+
+  const COIL_DEFS: Record<string, CoilDef> = {
+    Head_64: {
+      channels: 64, rows: 4, cols: 8, label: 'Head 64ch', coverage: '頭部全域',
+      color: '#34d399',
+      elements: Array.from({ length: 32 }, (_, i) => ({ x: (i % 8), y: Math.floor(i / 8), w: 1, h: 1, active: true })),
+    },
+    Head_20: {
+      channels: 20, rows: 4, cols: 5, label: 'Head/Neck 20ch', coverage: '頭部+頸部',
+      color: '#60a5fa',
+      elements: Array.from({ length: 20 }, (_, i) => ({ x: (i % 5), y: Math.floor(i / 5), w: 1, h: 1, active: true })),
+    },
+    Spine_32: {
+      channels: 32, rows: 2, cols: 8, label: 'Spine 32ch', coverage: '頸椎→腰椎',
+      color: '#a78bfa',
+      elements: Array.from({ length: 16 }, (_, i) => ({ x: (i % 8), y: Math.floor(i / 8), w: 1, h: 1, active: true })),
+    },
+    Body: {
+      channels: 18, rows: 3, cols: 6, label: 'Body 18ch', coverage: '胸腹部',
+      color: '#fb923c',
+      elements: Array.from({ length: 18 }, (_, i) => ({ x: (i % 6), y: Math.floor(i / 6), w: 1, h: 1, active: i < 12 })),
+    },
+    Knee: {
+      channels: 15, rows: 5, cols: 3, label: 'Knee 15ch', coverage: '膝関節',
+      color: '#fbbf24',
+      elements: Array.from({ length: 15 }, (_, i) => ({ x: (i % 3), y: Math.floor(i / 3), w: 1, h: 1, active: true })),
+    },
+    Shoulder: {
+      channels: 16, rows: 4, cols: 4, label: 'Shoulder 16ch', coverage: '肩関節',
+      color: '#f87171',
+      elements: Array.from({ length: 16 }, (_, i) => ({ x: (i % 4), y: Math.floor(i / 4), w: 1, h: 1, active: i < 14 })),
+    },
+    Flex: {
+      channels: 4, rows: 2, cols: 2, label: 'Flex 4ch', coverage: '四肢・小部位',
+      color: '#e88b00',
+      elements: Array.from({ length: 4 }, (_, i) => ({ x: (i % 2), y: Math.floor(i / 2), w: 1, h: 1, active: true })),
+    },
+  }
+
+  const def = COIL_DEFS[coil] ?? COIL_DEFS.Body
+  const activeCount = def.elements.filter(e => e.active).length
+
+  const W = 120, H = 60
+  const cols = Math.max(def.cols, ...def.elements.map(e => e.x + 1))
+  const rows = Math.max(def.rows, ...def.elements.map(e => e.y + 1))
+  const cellW = Math.min((W - 4) / cols, 14)
+  const cellH = Math.min((H - 4) / rows, 14)
+  const gap = 1
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080c10', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: def.color, fontSize: '9px', letterSpacing: '0.05em' }}>
+          COIL — {def.label}
+        </span>
+        <div className="flex items-center gap-2" style={{ fontSize: '8px' }}>
+          <span style={{ color: def.color }}>{activeCount}ch active</span>
+          <span style={{ color: '#374151' }}>/ {def.channels}ch total</span>
+        </div>
+      </div>
+
+      <div className="flex gap-3 items-start">
+        {/* Element grid visualization */}
+        <svg width={W} height={H}>
+          {def.elements.map((el, i) => {
+            const x = 2 + el.x * (cellW + gap)
+            const y = 2 + el.y * (cellH + gap)
+            return (
+              <g key={i}>
+                <rect x={x} y={y} width={cellW} height={cellH} rx={1}
+                  fill={el.active ? def.color + '30' : '#111'}
+                  stroke={el.active ? def.color : '#2a2a2a'}
+                  strokeWidth={el.active ? 0.8 : 0.5}
+                />
+                {el.active && (
+                  <text x={x + cellW / 2} y={y + cellH / 2 + 2.5}
+                    textAnchor="middle" fill={def.color} opacity={0.8}
+                    style={{ fontSize: '5px' }}>
+                    {i + 1}
+                  </text>
+                )}
+              </g>
+            )
+          })}
+          {/* iPAT reference lines indicator */}
+          {params.ipatMode !== 'Off' && (
+            <text x={W - 2} y={H - 2} textAnchor="end" fill="#fbbf24" style={{ fontSize: '6px' }}>
+              iPAT×{params.ipatFactor}
+            </text>
+          )}
+        </svg>
+
+        {/* Coil stats */}
+        <div className="flex flex-col gap-1 flex-1">
+          <div>
+            <div style={{ color: '#374151', fontSize: '7px' }}>Coverage</div>
+            <div style={{ color: '#9ca3af', fontSize: '8px' }}>{def.coverage}</div>
+          </div>
+          <div>
+            <div style={{ color: '#374151', fontSize: '7px' }}>Channels</div>
+            <div className="font-mono" style={{ color: def.color, fontSize: '9px' }}>{def.channels} ch</div>
+          </div>
+          <div>
+            <div style={{ color: '#374151', fontSize: '7px' }}>Array Type</div>
+            <div style={{ color: '#4b5563', fontSize: '8px' }}>Phased Array</div>
+          </div>
+          {params.ipatMode !== 'Off' && (
+            <div>
+              <div style={{ color: '#fbbf24', fontSize: '7px' }}>iPAT factor</div>
+              <div className="font-mono" style={{ color: '#fbbf24', fontSize: '9px' }}>×{params.ipatFactor}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── プリスキャン/シムステータスパネル ────────────────────────────────────────
+// 実際の syngo MR コンソールのプリスキャン結果表示を模倣
+// B0 フィールドマップ・中心周波数・シム係数をリアルタイム表示
+function PrescanStatusPanel() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+  const [prescanState, setPrescanState] = useState<'ready' | 'running' | 'done'>('done')
+  const [runMs, setRunMs] = useState(0)
+
+  // Simulated prescan results (deterministic based on field strength and body part)
+  const larmor = is3T ? 127.74 : 63.87  // MHz
+  const centerFreqOffset = is3T ? 23 : 12  // Hz offset from nominal
+  const fieldUniformityPpm = is3T ? 1.8 : 0.9
+  const fieldUniformityHz = Math.round(fieldUniformityPpm * larmor)
+
+  // Simulated shim currents (Z1/X/Y/Z2/XY/XZ — first-order+second-order shim coils)
+  const shimCoeffs = useMemo(() => {
+    const seed = params.fov * 0.1 + params.slices * 0.3
+    return [
+      { axis: 'Z1', val: Math.round(12 + Math.sin(seed) * 18), unit: 'mA', color: '#60a5fa' },
+      { axis: 'X',  val: Math.round(-8 + Math.cos(seed * 1.3) * 15), unit: 'mA', color: '#34d399' },
+      { axis: 'Y',  val: Math.round(5 + Math.sin(seed * 0.7) * 20), unit: 'mA', color: '#a78bfa' },
+      { axis: 'Z2', val: Math.round(Math.cos(seed * 2.1) * 10), unit: 'mA', color: '#fbbf24' },
+    ]
+  }, [params.fov, params.slices])
+
+  // Fat-water beat frequency
+  const csFatHz = is3T ? 447 : 224
+  const inPhaseTE = Math.round(1000 / csFatHz * 1000) / 2  // first in-phase at ~2.2ms (3T) or ~4.4ms (1.5T)
+
+  // B0 residual histogram (simulated)
+  const histBins = useMemo(() => {
+    const bins: number[] = []
+    for (let i = 0; i < 20; i++) {
+      const hz = -100 + i * 10
+      const sigma = is3T ? 35 : 18
+      bins.push(Math.round(Math.exp(-(hz * hz) / (2 * sigma * sigma)) * 80 + Math.random() * 5))
+    }
+    return bins
+  }, [is3T])
+  const maxBin = Math.max(...histBins)
+
+  const runPrescan = () => {
+    setPrescanState('running')
+    setRunMs(0)
+    const start = Date.now()
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start
+      setRunMs(elapsed)
+      if (elapsed >= 2500) {
+        clearInterval(timer)
+        setPrescanState('done')
+      }
+    }, 50)
+  }
+
+  const W = 180, H = 50
+  const binW = W / histBins.length
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#060c12', border: '1px solid #1a2a3a' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#34d399', fontSize: '9px', letterSpacing: '0.06em' }}>
+          PRESCAN STATUS
+        </span>
+        <div className="flex items-center gap-2">
+          {prescanState === 'running' && (
+            <span className="font-mono" style={{ color: '#fbbf24', fontSize: '8px' }}>
+              {(runMs / 1000).toFixed(1)}s...
+            </span>
+          )}
+          <span style={{
+            fontSize: '8px',
+            color: prescanState === 'done' ? '#34d399' : prescanState === 'running' ? '#fbbf24' : '#4b5563',
+            fontWeight: 600,
+          }}>
+            {prescanState === 'done' ? '● COMPLETE' : prescanState === 'running' ? '● RUNNING' : '○ READY'}
+          </span>
+          <button
+            onClick={runPrescan}
+            disabled={prescanState === 'running'}
+            style={{
+              background: prescanState === 'running' ? '#1a1a1a' : '#0a1f16',
+              color: prescanState === 'running' ? '#374151' : '#34d399',
+              border: `1px solid ${prescanState === 'running' ? '#2a2a2a' : '#14532d'}`,
+              borderRadius: 2, fontSize: '8px', padding: '1px 5px', cursor: prescanState === 'running' ? 'default' : 'pointer',
+            }}
+          >
+            Run
+          </button>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        {/* Left: key readouts */}
+        <div className="flex flex-col gap-1" style={{ minWidth: 120 }}>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: '#4b5563', fontSize: '8px' }}>Center Freq</span>
+            <span className="font-mono" style={{ color: '#e88b00', fontSize: '9px' }}>
+              {larmor.toFixed(2)} MHz
+              <span style={{ color: '#6b7280', fontSize: '7px' }}> +{centerFreqOffset}Hz</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: '#4b5563', fontSize: '8px' }}>B0 Uniformity</span>
+            <span className="font-mono" style={{ color: fieldUniformityPpm > 2 ? '#f87171' : '#34d399', fontSize: '9px' }}>
+              {fieldUniformityPpm}ppm
+              <span style={{ color: '#6b7280', fontSize: '7px' }}> ±{fieldUniformityHz}Hz</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: '#4b5563', fontSize: '8px' }}>Fat-Water Δf</span>
+            <span className="font-mono" style={{ color: '#fbbf24', fontSize: '9px' }}>{csFatHz} Hz</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ color: '#4b5563', fontSize: '8px' }}>In-phase TE</span>
+            <span className="font-mono" style={{ color: '#60a5fa', fontSize: '9px' }}>{inPhaseTE.toFixed(1)} / {(inPhaseTE*2).toFixed(1)} ms</span>
+          </div>
+          {/* Shim currents */}
+          <div className="mt-1 pt-1" style={{ borderTop: '1px solid #111' }}>
+            <div style={{ color: '#374151', fontSize: '7px', marginBottom: '3px' }}>SHIM CURRENTS</div>
+            <div className="grid grid-cols-2 gap-x-2">
+              {shimCoeffs.map(({ axis, val, color }) => (
+                <div key={axis} className="flex items-center justify-between">
+                  <span style={{ color: '#374151', fontSize: '7px' }}>{axis}:</span>
+                  <span className="font-mono" style={{ color, fontSize: '8px' }}>{val > 0 ? '+' : ''}{val}mA</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: B0 residual histogram */}
+        <div className="flex flex-col items-center">
+          <div style={{ color: '#374151', fontSize: '7px', marginBottom: 2 }}>B0残差 分布</div>
+          <svg width={W} height={H}>
+            <line x1={0} y1={H - 1} x2={W} y2={H - 1} stroke="#1a2030" strokeWidth={1} />
+            {histBins.map((v, i) => {
+              const h = (v / maxBin) * (H - 8)
+              const x = i * binW
+              const isCenter = Math.abs(i - 10) <= 1
+              return (
+                <rect key={i} x={x + 0.5} y={H - 1 - h} width={Math.max(0, binW - 0.5)} height={h}
+                  fill={isCenter ? '#34d399' : '#1a3a2a'} opacity={0.9} />
+              )
+            })}
+            {/* Center line */}
+            <line x1={W / 2} y1={0} x2={W / 2} y2={H - 1} stroke="#374151" strokeWidth={0.5} strokeDasharray="2,2" />
+            <text x={2} y={H - 3} fill="#374151" style={{ fontSize: '7px' }}>-100Hz</text>
+            <text x={W - 2} y={H - 3} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>+100Hz</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type SubTab = 'Misc' | 'Adjustments' | 'Adj.Volume' | 'pTx' | 'Tx-Rx'
 
 const subTabStyle = (active: boolean) => ({
@@ -385,6 +676,9 @@ export function SystemTab() {
             options={['Flat', 'Center']}
             onChange={v => setCoilFocus(v as string)} />
 
+          {/* Coil element visualization */}
+          <CoilElementMap />
+
           <div className="border-t my-1" style={{ borderColor: '#252525' }} />
 
           <ParamField label="Gradient Mode" hintKey="gradientMode" value={params.gradientMode} type="select"
@@ -420,6 +714,9 @@ export function SystemTab() {
 
       {subTab === 'Adjustments' && (
         <div className="space-y-0.5">
+          {/* Prescan / shimming status */}
+          <PrescanStatusPanel />
+
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Adjustment Strategy</div>
           <ParamField label="Adjustment Strategy" value={adjStrategy} type="select"
             options={['Standard', 'FastAdjust', 'Advanced']}

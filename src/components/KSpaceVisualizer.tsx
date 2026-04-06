@@ -246,6 +246,9 @@ function drawKSpace(
   } else {
     // 充填済みラインを描画
     const filledLines = lines.slice(0, filledUpTo)
+    // k空間中心±20%の閾値
+    const centerThreshold = Math.floor(matrixPhase * 0.10) // ±10% → 合計20%
+
     for (const line of filledLines) {
       if (line.isSkipped) {
         ctx.fillStyle = '#3f0d0d'
@@ -262,12 +265,19 @@ function drawKSpace(
 
       // TSEのスピンエコー主エコー（echoIndex=0）は少し明るく
       const isTSEMainEcho = isTSE && line.echoIndex === 0
+      // k空間中心±20%のラインかどうか
+      const isCenterLine = Math.abs(line.ky) <= centerThreshold
       const y = kyToY(line.ky)
 
       if (isEPI) {
         // EPIはechoIndexで方向が変わる（zigzag矢印は別途オーバーレイ）
         ctx.fillStyle = kyToColor(line.ky, matrixPhase)
         ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+        // 中心ラインをハイライト
+        if (isCenterLine) {
+          ctx.fillStyle = 'rgba(200,240,255,0.20)'
+          ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+        }
       } else {
         ctx.fillStyle = isTSEMainEcho
           ? kyToColor(line.ky, matrixPhase, 1) // 主エコーも同色（後で明るいオーバーレイ）
@@ -277,6 +287,11 @@ function drawKSpace(
         // TSE主エコー（echoIndex=0）に明るいオーバーレイ
         if (isTSEMainEcho) {
           ctx.fillStyle = 'rgba(255,255,255,0.18)'
+          ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
+        }
+        // k空間中心±20%に淡いシアンオーバーレイ（コントラスト支配領域を可視化）
+        if (isCenterLine) {
+          ctx.fillStyle = 'rgba(200,240,255,0.18)'
           ctx.fillRect(0, y, CANVAS_SIZE, clampedLineH)
         }
       }
@@ -369,6 +384,7 @@ interface InnerProps {
   partialFourier: string
   seqType: SequenceType
   turboFactor: number
+  echoSpacing: number
   ipatMode: string
   ipatFactor: number
 }
@@ -380,6 +396,7 @@ function KSpaceVisualizerInner({
   partialFourier,
   seqType,
   turboFactor,
+  echoSpacing,
   ipatMode,
   ipatFactor,
 }: InnerProps) {
@@ -471,6 +488,26 @@ function KSpaceVisualizerInner({
   const fillRatio = totalLines > 0 ? filledUpTo / totalLines : 0
   const blurPx = Math.round((1 - fillRatio) * 4)
 
+  // ── T2ブラーリング予測 ──────────────────────────────────────────
+  // TE_eff = ETL × echoSpacing / 2
+  const T2_BRAIN_MS = 100 // 脳白質の代表T2値
+  const teEff = turboFactor * echoSpacing / 2
+  const blurScore = 1 - Math.exp(-teEff / T2_BRAIN_MS) // 0=シャープ, 1=重度ブラー
+  const blurPct = Math.round(blurScore * 100)
+  // グリーン→イエロー→レッド のグラデーション色
+  const blurBarColor =
+    blurPct < 33 ? '#22c55e' : blurPct < 66 ? '#f59e0b' : '#ef4444'
+  const blurLabel =
+    blurPct < 25 ? 'シャープ' : blurPct < 50 ? '軽度ブラー' : blurPct < 75 ? '中度ブラー' : '重度ブラー'
+
+  // ── k空間充填率 ───────────────────────────────────────────────────
+  const pfRatioMap: Record<string, number> = {
+    'Off': 1.0, '7/8': 0.875, '6/8': 0.75, '5/8': 0.625, '4/8': 0.5,
+  }
+  const pfRatio = pfRatioMap[partialFourier] ?? 1.0
+  const acquisitionFillRatio = (1 / ipatFactor) * pfRatio
+  const acquisitionFillPct = Math.round(acquisitionFillRatio * 100)
+
   return (
     <>
       {/* k空間 + IFTプレビュー 縦並び */}
@@ -513,34 +550,91 @@ function KSpaceVisualizerInner({
               : '完全取得: 鮮明'}
           </div>
         </div>
+
+        {/* T2ブラーリング予測 */}
+        <div className="w-full" style={{ maxWidth: CANVAS_SIZE }}>
+          <div className="flex justify-between items-center mb-0.5">
+            <span style={{ fontSize: '8px', color: '#4b5563', fontFamily: 'monospace' }}>T2ブラーリング予測</span>
+            <span style={{ fontSize: '8px', color: blurBarColor, fontFamily: 'monospace', fontWeight: 600 }}>
+              {blurPct}% {blurLabel}
+            </span>
+          </div>
+          {/* バー */}
+          <div style={{ width: '100%', height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden', border: '1px solid #252525' }}>
+            <div style={{
+              width: `${blurPct}%`, height: '100%',
+              background: `linear-gradient(90deg, #22c55e, ${blurBarColor})`,
+              borderRadius: 3, transition: 'width 0.3s',
+            }} />
+          </div>
+          {/* スケール注釈 */}
+          <div className="flex justify-between mt-0.5">
+            <span style={{ fontSize: '7px', color: '#374151' }}>0% シャープ</span>
+            <span style={{ fontSize: '7px', color: '#374151' }}>100% 重度</span>
+          </div>
+          {/* 計算式ノート */}
+          <div style={{ fontSize: '7px', color: '#374151', fontFamily: 'monospace', marginTop: 2 }}>
+            TE_eff = ETL×ESP/2 = {teEff.toFixed(1)}ms　(T2脳={T2_BRAIN_MS}ms)
+          </div>
+        </div>
+
+        {/* k空間充填率 */}
+        <div className="w-full" style={{ maxWidth: CANVAS_SIZE }}>
+          <div className="flex justify-between items-center mb-0.5">
+            <span style={{ fontSize: '8px', color: '#4b5563', fontFamily: 'monospace' }}>k空間充填率</span>
+            <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'monospace', fontWeight: 600 }}>
+              {acquisitionFillPct}%
+            </span>
+          </div>
+          <div style={{ width: '100%', height: 6, background: '#1a1a1a', borderRadius: 3, overflow: 'hidden', border: '1px solid #252525' }}>
+            <div style={{
+              width: `${acquisitionFillPct}%`, height: '100%',
+              background: 'linear-gradient(90deg, #1d4ed8, #60a5fa)',
+              borderRadius: 3,
+            }} />
+          </div>
+          <div style={{ fontSize: '7px', color: '#374151', fontFamily: 'monospace', marginTop: 2 }}>
+            1/iPAT({ipatFactor}) × PF({partialFourier === 'Off' ? '1.0' : partialFourier}) = {acquisitionFillRatio.toFixed(3)}
+          </div>
+        </div>
       </div>
 
       {/* 凡例 */}
       <div
-        className="px-3 py-1.5 shrink-0 flex items-center gap-3 flex-wrap"
+        className="px-3 py-2 shrink-0"
         style={{ borderBottom: '1px solid #1a1a1a', background: '#0e0e0e' }}
       >
-        {[
-          { color: 'rgb(120,200,220)', label: '充填(中心)', gradient: 'linear-gradient(90deg, rgb(20,100,180), rgb(255,255,255))' },
-          { color: '#f97316', label: 'ACS' },
-          { color: '#3f0d0d', label: 'スキップ' },
-          { color: '#141414', label: 'PF省略', border: '1px solid #2a2a2a' },
-        ].map(({ color, label, border, gradient }) => (
-          <span key={label} className="flex items-center gap-1" style={{ fontSize: '9px', color: '#6b7280' }}>
-            <span style={{
-              display: 'inline-block', width: 24, height: 4,
-              background: gradient ?? color,
-              border, borderRadius: 1,
-            }} />
-            {label}
-          </span>
-        ))}
-        {seqType === 'TSE' && (
-          <span className="flex items-center gap-1" style={{ fontSize: '9px', color: '#6b7280' }}>
-            <span style={{ display: 'inline-block', width: 10, height: 4, background: 'rgba(255,255,255,0.5)', borderRadius: 1 }} />
-            主エコー
-          </span>
-        )}
+        {/* 1行目: 基本凡例 */}
+        <div className="flex items-center gap-3 flex-wrap mb-1.5">
+          {[
+            { label: '充填(外周)', gradient: 'linear-gradient(90deg, rgb(20,100,180), rgb(120,180,220))', title: '外周ライン: 空間解像度を決定' },
+            { label: '充填(中心)', gradient: 'linear-gradient(90deg, rgb(200,240,255), rgb(255,255,255))', title: 'k空間中心±20%: コントラスト・SNRを支配' },
+            { label: 'ACS', color: '#f97316', title: 'Auto-Calibration Signal: iPAT展開に必要なキャリブレーションライン' },
+            { label: 'スキップ', color: '#3f0d0d', title: 'iPATで間引かれた未取得ライン' },
+            { label: 'PF省略', color: '#141414', border: '1px solid #2a2a2a', title: 'Partial Fourier: 非対称取得により省略された領域' },
+          ].map(({ color, label, border, gradient, title }) => (
+            <span key={label} className="flex items-center gap-1" style={{ fontSize: '9px', color: '#6b7280' }} title={title}>
+              <span style={{
+                display: 'inline-block', width: 24, height: 4,
+                background: gradient ?? color,
+                border, borderRadius: 1,
+              }} />
+              {label}
+            </span>
+          ))}
+          {seqType === 'TSE' && (
+            <span className="flex items-center gap-1" style={{ fontSize: '9px', color: '#6b7280' }} title="echoIndex=0の主エコーライン（コントラスト形成に最も寄与）">
+              <span style={{ display: 'inline-block', width: 10, height: 4, background: 'rgba(255,255,255,0.5)', borderRadius: 1 }} />
+              主エコー
+            </span>
+          )}
+        </div>
+        {/* 2行目: 色域の意味の補足説明 */}
+        <div style={{ fontSize: '7.5px', color: '#374151', lineHeight: 1.5 }}>
+          <span style={{ color: '#e5e7eb', fontWeight: 600 }}>中心±20%:</span> コントラスト・SNR支配 &nbsp;|&nbsp;
+          <span style={{ color: '#f97316', fontWeight: 600 }}>ACS:</span> iPAT展開キャリブ &nbsp;|&nbsp;
+          <span style={{ color: '#6b7280', fontWeight: 600 }}>外周:</span> 空間解像度・エッジ
+        </div>
       </div>
 
       {/* Controls */}
@@ -690,7 +784,7 @@ export function KSpaceVisualizer() {
   })
 
   // パラメータが変わるとkeyが変わりInnerが再マウント（state自動リセット）
-  const innerKey = `${seqType}_${params.matrixPhase}_${params.turboFactor}_${params.partialFourier}_${params.ipatMode}_${params.ipatFactor}`
+  const innerKey = `${seqType}_${params.matrixPhase}_${params.turboFactor}_${params.partialFourier}_${params.ipatMode}_${params.ipatFactor}_${params.echoSpacing}`
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#141414' }}>
@@ -729,6 +823,7 @@ export function KSpaceVisualizer() {
         partialFourier={params.partialFourier}
         seqType={seqType}
         turboFactor={params.turboFactor}
+        echoSpacing={params.echoSpacing}
         ipatMode={params.ipatMode}
         ipatFactor={params.ipatFactor}
       />

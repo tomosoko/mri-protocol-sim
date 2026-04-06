@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { scenarios, type Scenario } from '../data/scenarioData'
 import { useProtocolStore } from '../store/protocolStore'
 import { Stethoscope, CheckCircle, XCircle, ChevronRight, RotateCcw } from 'lucide-react'
+import { addAllScenariesToAnki } from '../utils/ankiConnect'
 
 type CategoryFilter = Scenario['category'] | 'すべて'
 type DifficultyFilter = 0 | 1 | 2 | 3
@@ -25,6 +26,49 @@ const DIFF_COLOR = ['', '#6b7280', '#f59e0b', '#ef4444']
 const ALL_CATEGORIES: CategoryFilter[] = [
   'すべて', '急患', '小児', '閉所恐怖症', '金属', '体動', '呼吸困難', '造影', 'SAR超過', 'アーチファクト', '心臓',
 ]
+
+// ===== Anki送信ボタン =====
+type AnkiStatus = 'idle' | 'sending' | 'ok' | 'dup' | 'err'
+
+function ScenarioAnkiButton() {
+  const [status, setStatus] = useState<AnkiStatus>('idle')
+  const [result, setResult] = useState<{ added: number; skipped: number } | null>(null)
+
+  async function handleSend() {
+    setStatus('sending')
+    setResult(null)
+    try {
+      const res = await addAllScenariesToAnki(scenarios)
+      setResult(res)
+      setStatus(res.added > 0 ? 'ok' : 'dup')
+      setTimeout(() => setStatus('idle'), 4000)
+    } catch {
+      setStatus('err')
+      setTimeout(() => setStatus('idle'), 4000)
+    }
+  }
+
+  const label = status === 'sending' ? '送信中...'
+    : status === 'ok' ? `追加完了 +${result?.added}シナリオ`
+    : status === 'dup' ? `重複のみ (${result?.skipped}件スキップ)`
+    : status === 'err' ? 'Anki未起動?'
+    : `全${scenarios.length}シナリオをAnkiへ`
+
+  const color = status === 'ok' ? '#4ade80' : status === 'dup' ? '#fbbf24' : status === 'err' ? '#f87171' : '#a78bfa'
+  const bg = status === 'ok' ? '#052e16' : status === 'dup' ? '#2d1f00' : status === 'err' ? '#2d1515' : '#1e1535'
+  const border = status === 'ok' ? '#166534' : status === 'dup' ? '#78350f' : status === 'err' ? '#7f1d1d' : '#5b21b6'
+
+  return (
+    <button
+      onClick={handleSend}
+      disabled={status === 'sending'}
+      className="w-full py-1.5 rounded text-xs font-semibold transition-all"
+      style={{ background: bg, color, border: `1px solid ${border}`, opacity: status === 'sending' ? 0.7 : 1 }}
+    >
+      {label}
+    </button>
+  )
+}
 
 export function ScenarioExercisePanel() {
   const { loadPreset, setHighlightedParams } = useProtocolStore()
@@ -335,6 +379,7 @@ export function ScenarioExercisePanel() {
             )}
           </div>
         </div>
+        <ScenarioAnkiButton />
       </div>
 
       {/* Scenario list */}

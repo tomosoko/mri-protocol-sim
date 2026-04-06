@@ -4,27 +4,34 @@ import { useProtocolStore } from '../store/protocolStore'
 // ── T1 mapping: VFA (Variable Flip Angle) シミュレーション ──────────────────
 function T1MappingVFA({ fieldStrength }: { fieldStrength: number }) {
   const is3T = fieldStrength >= 2.5
-  const TR = 10  // ms — typical FLASH TR for VFA
+
+  // Interactive sliders
+  const [fa1, setFa1] = useState(5)    // deg
+  const [fa2, setFa2] = useState(20)   // deg
+  const [tr, setTr] = useState(800)    // ms
 
   const tissues = [
-    { label: 'WM',    T1: is3T ? 1084 : 780,  color: '#60a5fa' },
-    { label: 'GM',    T1: is3T ? 1820 : 1300, color: '#a78bfa' },
-    { label: 'CSF',   T1: is3T ? 4500 : 4300, color: '#38bdf8' },
-    { label: 'Liver', T1: is3T ? 812  : 576,  color: '#fb923c' },
-    { label: 'Fat',   T1: is3T ? 382  : 260,  color: '#fbbf24' },
+    { label: 'WM',  T1: is3T ? 1080 : 780,  color: '#60a5fa' },
+    { label: 'GM',  T1: is3T ? 1600 : 1300, color: '#a78bfa' },
+    { label: 'Fat', T1: is3T ? 380  : 260,  color: '#fbbf24' },
   ]
 
   // VFA: S(FA) = M0 * sin(FA) * (1-E1) / (1-cos(FA)*E1)  where E1 = exp(-TR/T1)
   // Linearized: S/sin(FA) = S/tan(FA) * E1 + M0*(1-E1)  → slope = E1
-  const angles = [4, 8, 15, 22, 30, 40]  // degrees (FA sweep)
-  const W = 280, H = 100
+  const angles = useMemo(() => {
+    // Use the two user-selected FAs plus 4 interpolated points
+    const step = (fa2 - fa1) / 3
+    const pts = [fa1, fa1 + step, fa1 + step * 2, fa2]
+    return [...new Set(pts.map(v => Math.max(1, Math.round(v))))]
+  }, [fa1, fa2])
+
+  const W = 280, H = 110
   const PAD = { l: 30, r: 8, t: 8, b: 20 }
   const innerW = W - PAD.l - PAD.r
   const innerH = H - PAD.t - PAD.b
 
-  // Compute S(FA) for each tissue, then S/sinFA vs S/tanFA plot (Deoni linearization)
   const tissueData = useMemo(() => tissues.map(t => {
-    const E1 = Math.exp(-TR / t.T1)
+    const E1 = Math.exp(-tr / t.T1)
     const M0 = 1.0
     const pts = angles.map(a => {
       const rad = a * Math.PI / 180
@@ -40,9 +47,9 @@ function T1MappingVFA({ fieldStrength }: { fieldStrength: number }) {
     const sumXY = pts.reduce((s, p) => s + p.x * p.y, 0)
     const sumX2 = pts.reduce((s, p) => s + p.x * p.x, 0)
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
-    const T1_est = -TR / Math.log(Math.max(0.001, slope))
+    const T1_est = -tr / Math.log(Math.max(0.001, slope))
     return { ...t, pts, slope, T1_est }
-  }), [fieldStrength])
+  }), [fieldStrength, tr, fa1, fa2])
 
   const allX = tissueData.flatMap(t => t.pts.map(p => p.x))
   const allY = tissueData.flatMap(t => t.pts.map(p => p.y))
@@ -52,11 +59,51 @@ function T1MappingVFA({ fieldStrength }: { fieldStrength: number }) {
   const tx = (v: number) => PAD.l + (v / maxX) * innerW
   const ty = (v: number) => PAD.t + (1 - v / maxY) * innerH
 
+  const sliderCls = 'w-full h-1 rounded appearance-none cursor-pointer'
+  const sliderStyle = { accentColor: '#60a5fa' }
+
   return (
     <div className="p-2 rounded" style={{ background: '#080808', border: '1px solid #1a2030' }}>
       <div className="flex items-center justify-between mb-1">
-        <span className="font-semibold" style={{ color: '#60a5fa', fontSize: '9px' }}>VFA T1 Mapping (Deoni法) — TR={TR}ms / {fieldStrength}T</span>
+        <span className="font-semibold" style={{ color: '#60a5fa', fontSize: '9px' }}>
+          VFA T1 Mapping (Deoni法) — TR={tr}ms / {fieldStrength}T
+        </span>
       </div>
+
+      {/* Sliders */}
+      <div className="grid grid-cols-3 gap-x-3 mb-2" style={{ fontSize: '7px', color: '#6b7280' }}>
+        <div>
+          <div className="flex justify-between mb-0.5">
+            <span>FA1</span><span style={{ color: '#60a5fa' }}>{fa1}°</span>
+          </div>
+          <input
+            type="range" min={5} max={20} step={1} value={fa1}
+            onChange={e => setFa1(Number(e.target.value))}
+            className={sliderCls} style={sliderStyle}
+          />
+        </div>
+        <div>
+          <div className="flex justify-between mb-0.5">
+            <span>FA2</span><span style={{ color: '#60a5fa' }}>{fa2}°</span>
+          </div>
+          <input
+            type="range" min={20} max={70} step={1} value={fa2}
+            onChange={e => setFa2(Number(e.target.value))}
+            className={sliderCls} style={sliderStyle}
+          />
+        </div>
+        <div>
+          <div className="flex justify-between mb-0.5">
+            <span>TR</span><span style={{ color: '#60a5fa' }}>{tr}ms</span>
+          </div>
+          <input
+            type="range" min={50} max={2000} step={50} value={tr}
+            onChange={e => setTr(Number(e.target.value))}
+            className={sliderCls} style={sliderStyle}
+          />
+        </div>
+      </div>
+
       <svg width={W} height={H}>
         {/* Grid */}
         {[0.25, 0.5, 0.75, 1.0].map(v => (
@@ -109,48 +156,79 @@ function T1MappingVFA({ fieldStrength }: { fieldStrength: number }) {
 function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
   const is3T = fieldStrength >= 2.5
 
+  // Interactive sliders
+  const [maxTE, setMaxTE] = useState(200)  // ms
+  const [etl, setEtl] = useState(8)         // echo train length
+
   // T2 values for key tissues (ms)
   const tissues = [
-    { label: 'WM',      T2: is3T ? 69 : 72,   color: '#60a5fa' },
-    { label: 'GM',      T2: is3T ? 83 : 95,   color: '#a78bfa' },
-    { label: 'CSF',     T2: is3T ? 1500 : 1800, color: '#38bdf8' },
-    { label: 'Cartilage', T2: is3T ? 32 : 35, color: '#4ade80' },
-    { label: 'Liver',   T2: is3T ? 34 : 40,   color: '#fb923c' },
-    { label: 'Muscle',  T2: is3T ? 30 : 38,   color: '#fbbf24' },
+    { label: 'WM',    T2: is3T ? 69 : 80,   color: '#60a5fa' },
+    { label: 'GM',    T2: is3T ? 83 : 90,   color: '#a78bfa' },
+    { label: 'CSF',   T2: is3T ? 1500 : 1800, color: '#38bdf8' },
+    { label: 'Liver', T2: is3T ? 34 : 35,   color: '#fb923c' },
   ]
 
-  // Echo times for T2 mapping (typical MSME or TSE with multiple TEs)
-  const echos = [10, 20, 40, 60, 80, 100, 120, 150]
-
-  const W = 280, H = 90
+  const W = 280, H = 100
   const PAD = { l: 28, r: 8, t: 8, b: 18 }
   const innerW = W - PAD.l - PAD.r
   const innerH = H - PAD.t - PAD.b
-  const maxTE = 160
 
   const tx = (te: number) => PAD.l + (te / maxTE) * innerW
   const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
 
+  // Echo times derived from ETL
+  const echos = useMemo(() =>
+    Array.from({ length: etl }, (_, i) => (maxTE / etl) * (i + 1)),
+    [maxTE, etl]
+  )
+
   const tissueData = useMemo(() => tissues.map(t => {
-    const pts = echos.map(te => ({
-      te,
-      s: Math.exp(-te / t.T2),
-    }))
+    const pts = echos.map(te => ({ te, s: Math.exp(-te / t.T2) }))
     // Smooth curve
-    const nPts = 60
+    const nPts = 80
     const d = Array.from({ length: nPts + 1 }, (_, i) => {
       const te = (i / nPts) * maxTE
       const s = Math.exp(-te / t.T2)
       return `${i === 0 ? 'M' : 'L'}${tx(te).toFixed(1)},${ty(s).toFixed(1)}`
     }).join(' ')
     return { ...t, pts, d }
-  }), [fieldStrength])
+  }), [fieldStrength, maxTE, etl])
+
+  const sliderCls = 'w-full h-1 rounded appearance-none cursor-pointer'
+  const sliderStyle = { accentColor: '#a78bfa' }
 
   return (
     <div className="p-2 rounded mt-2" style={{ background: '#080808', border: '1px solid #1a1a30' }}>
       <div className="flex items-center justify-between mb-1">
-        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px' }}>T2 Mapping (Multi-Echo SE) — {fieldStrength}T</span>
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px' }}>
+          T2 Mapping (Multi-Echo SE) — {fieldStrength}T
+        </span>
       </div>
+
+      {/* Sliders */}
+      <div className="grid grid-cols-2 gap-x-3 mb-2" style={{ fontSize: '7px', color: '#6b7280' }}>
+        <div>
+          <div className="flex justify-between mb-0.5">
+            <span>Max TE</span><span style={{ color: '#a78bfa' }}>{maxTE}ms</span>
+          </div>
+          <input
+            type="range" min={50} max={500} step={10} value={maxTE}
+            onChange={e => setMaxTE(Number(e.target.value))}
+            className={sliderCls} style={sliderStyle}
+          />
+        </div>
+        <div>
+          <div className="flex justify-between mb-0.5">
+            <span>ETL (エコー数)</span><span style={{ color: '#a78bfa' }}>{etl}</span>
+          </div>
+          <input
+            type="range" min={4} max={16} step={1} value={etl}
+            onChange={e => setEtl(Number(e.target.value))}
+            className={sliderCls} style={sliderStyle}
+          />
+        </div>
+      </div>
+
       <svg width={W} height={H}>
         {/* Grid */}
         {[0.25, 0.5, 0.75, 1.0].map(v => (
@@ -174,13 +252,16 @@ function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
           </g>
         ))}
         {/* X labels */}
-        {[0, 40, 80, 120, 160].map(t => (
-          <text key={t} x={tx(t)} y={H - 3} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>{t}</text>
-        ))}
+        {[0, 0.25, 0.5, 0.75, 1.0].map(f => {
+          const v = Math.round(f * maxTE)
+          return (
+            <text key={f} x={tx(v)} y={H - 3} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>{v}</text>
+          )
+        })}
         <text x={PAD.l + innerW / 2} y={H} textAnchor="middle" fill="#252525" style={{ fontSize: '7px' }}>TE (ms)</text>
       </svg>
       {/* Legend */}
-      <div className="grid grid-cols-3 gap-x-2 gap-y-0.5 mt-1" style={{ fontSize: '7px' }}>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 mt-1" style={{ fontSize: '7px' }}>
         {tissueData.map(t => (
           <div key={t.label} className="flex items-center gap-1">
             <span style={{ color: t.color }}>—</span>
@@ -372,6 +453,55 @@ function MRSExplainer({ fieldStrength }: { fieldStrength: number }) {
   )
 }
 
+// ── 定量MRI まとめテーブル (常時表示) ────────────────────────────────────────
+function QMRISummaryTable() {
+  // Normal tissue T1/T2 values at 1.5T and 3T
+  const rows: { tissue: string; t1_15: string; t2_15: string; t1_3: string; t2_3: string }[] = [
+    { tissue: 'WM',        t1_15: '780',  t2_15: '80',   t1_3: '1080', t2_3: '69'   },
+    { tissue: 'GM',        t1_15: '1300', t2_15: '90',   t1_3: '1600', t2_3: '83'   },
+    { tissue: 'CSF',       t1_15: '4300', t2_15: '1800', t1_3: '4500', t2_3: '1500' },
+    { tissue: 'Liver',     t1_15: '576',  t2_15: '40',   t1_3: '812',  t2_3: '34'   },
+    { tissue: 'Muscle',    t1_15: '1008', t2_15: '38',   t1_3: '1412', t2_3: '30'   },
+    { tissue: 'Fat',       t1_15: '260',  t2_15: '80',   t1_3: '380',  t2_3: '70'   },
+    { tissue: 'Cartilage', t1_15: '1000', t2_15: '35',   t1_3: '1240', t2_3: '32'   },
+  ]
+
+  return (
+    <div className="mt-3 p-2 rounded shrink-0" style={{ background: '#080808', border: '1px solid #252525' }}>
+      <div className="font-semibold mb-1" style={{ color: '#e88b00', fontSize: '9px' }}>
+        定量MRIまとめ — 正常組織 T1/T2 参照値 (ms)
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs" style={{ borderCollapse: 'collapse', fontSize: '7px' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #1f2937' }}>
+              <th className="text-left py-0.5 pr-2 font-semibold" style={{ color: '#6b7280' }}>組織</th>
+              <th className="text-right py-0.5 px-1 font-semibold" style={{ color: '#38bdf8' }}>T1 (1.5T)</th>
+              <th className="text-right py-0.5 px-1 font-semibold" style={{ color: '#a78bfa' }}>T2 (1.5T)</th>
+              <th className="text-right py-0.5 px-1 font-semibold" style={{ color: '#60a5fa' }}>T1 (3T)</th>
+              <th className="text-right py-0.5 pl-1 font-semibold" style={{ color: '#c084fc' }}>T2 (3T)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={r.tissue} style={{ borderTop: i > 0 ? '1px solid #111' : undefined }}>
+                <td className="py-0.5 pr-2 font-semibold" style={{ color: '#9ca3af' }}>{r.tissue}</td>
+                <td className="text-right py-0.5 px-1 font-mono" style={{ color: '#38bdf8' }}>{r.t1_15}</td>
+                <td className="text-right py-0.5 px-1 font-mono" style={{ color: '#a78bfa' }}>{r.t2_15}</td>
+                <td className="text-right py-0.5 px-1 font-mono" style={{ color: '#60a5fa' }}>{r.t1_3}</td>
+                <td className="text-right py-0.5 pl-1 font-mono" style={{ color: '#c084fc' }}>{r.t2_3}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-1" style={{ fontSize: '6px', color: '#374151' }}>
+        参考値: Stanisz et al. 2005, Bojorquez et al. 2017。個人差・測定法により変動あり。
+      </div>
+    </div>
+  )
+}
+
 type QSubTab = 'T1map' | 'T2map' | 'SWI' | 'MRS'
 
 const subTabStyle = (active: boolean) => ({
@@ -497,6 +627,9 @@ export function QuantitativeMRIPanel() {
             </div>
           </div>
         )}
+
+        {/* Always-visible summary table */}
+        <QMRISummaryTable />
       </div>
     </div>
   )

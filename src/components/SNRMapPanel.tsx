@@ -346,14 +346,84 @@ function drawContours(
   ctx.restore()
 }
 
+/** Coil channel count map */
+const COIL_CHANNELS: Record<string, number> = {
+  'Head 64ch': 64,
+  'Head 20ch': 20,
+  'Body': 18,
+  'Surface': 8,
+}
+
+/** Compute SNR statistics (min/max/mean) for pixels inside the body ellipse */
+function computeSNRStats(
+  snrGrid: number[][],
+): { min: number; max: number; mean: number } | null {
+  let sum = 0
+  let count = 0
+  let minVal = Infinity
+  let maxVal = -Infinity
+  for (let row = 0; row < snrGrid.length; row++) {
+    for (let col = 0; col < snrGrid[row].length; col++) {
+      const v = snrGrid[row][col]
+      if (v <= 0) continue
+      if (v < minVal) minVal = v
+      if (v > maxVal) maxVal = v
+      sum += v
+      count++
+    }
+  }
+  if (count === 0) return null
+  return { min: minVal, max: maxVal, mean: sum / count }
+}
+
+/** Draw g-factor overlay on canvas: semi-transparent red where g is high */
+function drawGFactorOverlay(
+  ctx: CanvasRenderingContext2D,
+  section: CrossSectionConfig,
+  ipatFactor: number,
+): void {
+  const o = section.outline
+  const maxRadius = Math.sqrt(o.rx * o.rx + o.ry * o.ry) // rough max radius in normalised coords
+  const overlayData = ctx.createImageData(CANVAS_SIZE, CANVAS_SIZE)
+  const data = overlayData.data
+
+  for (let py = 0; py < CANVAS_SIZE; py++) {
+    for (let px = 0; px < CANVAS_SIZE; px++) {
+      const nx = (px + 0.5) / CANVAS_SIZE
+      const ny = (py + 0.5) / CANVAS_SIZE
+      if (!isInsideEllipse(nx, ny, o.cx, o.cy, o.rx, o.ry)) continue
+
+      const dx = nx - o.cx
+      const dy = ny - o.cy
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      const rNorm = dist / maxRadius
+      const g = 1 + (ipatFactor - 1) * 0.55 * Math.exp(-(rNorm * rNorm) / 0.32)
+      // Normalise g so that g=1 → 0 alpha, g=ipatFactor → max alpha
+      const t = Math.min(1, (g - 1) / Math.max(0.001, ipatFactor - 1))
+      const alpha = Math.round(t * 140)  // max 140/255 for semi-transparency
+
+      const idx = (py * CANVAS_SIZE + px) * 4
+      data[idx] = 220
+      data[idx + 1] = 40
+      data[idx + 2] = 40
+      data[idx + 3] = alpha
+    }
+  }
+
+  ctx.putImageData(overlayData, 0, 0)
+}
+
 export function SNRMapPanel() {
   const { params } = useProtocolStore()
   const [activeSectionId, setActiveSectionId] = useState<BodyCrossSection>('head_axial')
   const [showContours, setShowContours] = useState(true)
+  const [showGFactor, setShowGFactor] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('snr')
   const [hoverSNR, setHoverSNR] = useState<number | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
+  const [snrStats, setSnrStats] = useState<{ min: number; max: number; mean: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const gOverlayRef = useRef<HTMLCanvasElement>(null)
 
   const section = crossSections.find(s => s.id === activeSectionId)!
   const coilFromParams = getCoilProfile(params.coil)
@@ -384,7 +454,23 @@ export function SNRMapPanel() {
       params.ipatMode, params.ipatFactor, params.fieldStrength,
       showContours, viewMode,
     )
+
+    // Compute SNR stats for the stat section
+    setSnrStats(computeSNRStats(grid))
   }, [params, section, displayCoil, globalSNR, showContours, viewMode])
+
+  // Draw g-factor overlay on separate canvas
+  useEffect(() => {
+    const overlayCanvas = gOverlayRef.current
+    if (!overlayCanvas) return
+    const ctx = overlayCanvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    if (showGFactor && params.ipatMode !== 'Off' && viewMode === 'snr') {
+      drawGFactorOverlay(ctx, section, params.ipatFactor)
+    }
+  }, [showGFactor, section, params.ipatFactor, params.ipatMode, viewMode])
 
   // Mouse hover handler
   function handleMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
@@ -419,6 +505,8 @@ export function SNRMapPanel() {
     params.ipatMode !== 'Off'
       ? Math.round((1 - 1 / (Math.sqrt(params.ipatFactor) * 1.15)) * 100)
       : 0
+
+  const effectiveChannels = COIL_CHANNELS[displayCoil.label] ?? displayCoil.channels
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: '#141414' }}>
@@ -477,19 +565,36 @@ export function SNRMapPanel() {
 
         {/* Contour toggle (only in SNR mode) */}
         {viewMode === 'snr' && (
-          <button
-            onClick={() => setShowContours(v => !v)}
-            style={{
-              fontSize: '9px',
-              padding: '2px 7px',
-              borderRadius: '3px',
-              background: showContours ? '#001a2a' : 'transparent',
-              color: showContours ? '#60b8ff' : '#4b5563',
-              border: `1px solid ${showContours ? '#60b8ff' : '#333'}`,
-            }}
-          >
-            等高線
-          </button>
+          <div className="flex gap-1">
+            <button
+              onClick={() => setShowContours(v => !v)}
+              style={{
+                fontSize: '9px',
+                padding: '2px 7px',
+                borderRadius: '3px',
+                background: showContours ? '#001a2a' : 'transparent',
+                color: showContours ? '#60b8ff' : '#4b5563',
+                border: `1px solid ${showContours ? '#60b8ff' : '#333'}`,
+              }}
+            >
+              等高線
+            </button>
+            <button
+              onClick={() => setShowGFactor(v => !v)}
+              title={params.ipatMode === 'Off' ? 'iPATがOffの場合は無効' : ''}
+              style={{
+                fontSize: '9px',
+                padding: '2px 7px',
+                borderRadius: '3px',
+                background: showGFactor && params.ipatMode !== 'Off' ? '#1f0808' : 'transparent',
+                color: showGFactor && params.ipatMode !== 'Off' ? '#f87171' : '#4b5563',
+                border: `1px solid ${showGFactor && params.ipatMode !== 'Off' ? '#f87171' : '#333'}`,
+                opacity: params.ipatMode === 'Off' ? 0.4 : 1,
+              }}
+            >
+              g-factor
+            </button>
+          </div>
         )}
       </div>
 
@@ -506,6 +611,19 @@ export function SNRMapPanel() {
             style={{ display: 'block', border: '1px solid #252525', cursor: 'crosshair' }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
+          />
+          {/* g-factor overlay canvas, drawn on top */}
+          <canvas
+            ref={gOverlayRef}
+            width={CANVAS_SIZE}
+            height={CANVAS_SIZE}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              pointerEvents: 'none',
+              display: 'block',
+            }}
           />
           {/* Crosshair + tooltip */}
           {hoverPos && hoverSNR !== null && (
@@ -603,6 +721,16 @@ export function SNRMapPanel() {
           <div className="text-xs mt-0.5" style={{ color: '#6b7280', fontSize: '9px' }}>
             {displayCoil.channels}ch — {displayCoil.description}
           </div>
+          {/* Channel count indicator */}
+          <div
+            className="mt-1.5 rounded px-2 py-1"
+            style={{ background: '#111', border: '1px solid #2a2a2a' }}
+          >
+            <span style={{ color: '#9ca3af', fontSize: '9px' }}>実効チャンネル数: </span>
+            <span style={{ color: '#e88b00', fontSize: '9px', fontFamily: 'monospace' }}>{effectiveChannels}ch</span>
+            <span style={{ color: '#9ca3af', fontSize: '9px' }}> → SNR理論値 </span>
+            <span style={{ color: '#4ade80', fontSize: '9px', fontFamily: 'monospace' }}>√{effectiveChannels}≈{Math.round(Math.sqrt(effectiveChannels) * 10) / 10}倍</span>
+          </div>
         </div>
 
         {/* SNR score */}
@@ -671,6 +799,41 @@ export function SNRMapPanel() {
             {Math.round(globalSNR * 0.72)} <span style={{ color: '#4b5563', fontSize: '9px' }}>（コイル感度平均×補正）</span>
           </div>
         </div>
+
+        {/* SNR統計 */}
+        {snrStats !== null && (
+          <div className="rounded p-2.5" style={{ background: '#1a1a1a', border: '1px solid #252525' }}>
+            <div className="text-xs mb-1.5" style={{ color: '#4b5563', fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              SNR統計
+            </div>
+            <div className="font-mono mb-1.5" style={{ color: '#9ca3af', fontSize: '9px' }}>
+              {'最小: '}
+              <span style={{ color: '#f87171' }}>{Math.round(snrStats.min)}%</span>
+              {' | 平均: '}
+              <span style={{ color: '#e88b00' }}>{Math.round(snrStats.mean)}%</span>
+              {' | 最大: '}
+              <span style={{ color: '#4ade80' }}>{Math.round(snrStats.max)}%</span>
+            </div>
+            {(() => {
+              const uniformity = Math.round((snrStats.min / snrStats.max) * 100)
+              const uColor = uniformity >= 70 ? '#4ade80' : uniformity >= 50 ? '#e88b00' : '#f87171'
+              return (
+                <div className="flex items-center gap-1.5">
+                  <span style={{ color: '#4b5563', fontSize: '9px' }}>均一性:</span>
+                  <span style={{ color: uColor, fontSize: '9px', fontFamily: 'monospace', fontWeight: 600 }}>
+                    {uniformity}%
+                  </span>
+                  <div className="flex-1 h-1 rounded overflow-hidden" style={{ background: '#252525' }}>
+                    <div
+                      className="h-full rounded transition-all duration-300"
+                      style={{ width: `${uniformity}%`, background: uColor }}
+                    />
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        )}
 
         {/* Params summary */}
         <div className="rounded p-2.5 space-y-1" style={{ background: '#1a1a1a', border: '1px solid #252525' }}>

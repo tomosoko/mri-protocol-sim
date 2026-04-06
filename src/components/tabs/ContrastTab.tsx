@@ -1,7 +1,92 @@
 import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
-import { TISSUES } from '../../store/calculators'
+import { TISSUES, calcTissueContrast } from '../../store/calculators'
+
+// ── ライブ組織コントラストバー ────────────────────────────────────────────────
+// 現在の TR/TE/TI/FA 設定に基づき全組織の信号強度をリアルタイム比較表示
+function LiveTissueSignalBar() {
+  const { params } = useProtocolStore()
+  const signals = useMemo(() => calcTissueContrast(params), [
+    params.TR, params.TE, params.TI, params.flipAngle, params.fatSat, params.fieldStrength, params.turboFactor, params.averages
+  ])
+
+  // Sort by signal strength for display
+  const sorted = [...signals].sort((a, b) => b.signal - a.signal)
+
+  return (
+    <div className="mx-3 mt-2 p-2.5 rounded" style={{ background: '#080c10', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="font-semibold" style={{ color: '#e88b00', fontSize: '9px', letterSpacing: '0.05em' }}>
+          TISSUE SIGNAL — Live
+        </span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>
+          {params.TR}/{params.TE}ms{params.TI > 0 ? ` TI${params.TI}` : ''}
+        </span>
+      </div>
+      <div className="space-y-1.5">
+        {sorted.map(({ tissue, signal, nulled }) => {
+          const pct = Math.round(signal * 100)
+          return (
+            <div key={tissue.label}>
+              <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: tissue.color, display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ color: nulled ? '#4b5563' : tissue.color, fontSize: '8px', textDecoration: nulled ? 'line-through' : 'none' }}>
+                    {tissue.label}
+                  </span>
+                  {nulled && <span style={{ color: '#f87171', fontSize: '7px' }}>null</span>}
+                </div>
+                <span className="font-mono font-semibold" style={{ color: nulled ? '#374151' : tissue.color, fontSize: '9px' }}>
+                  {pct}%
+                </span>
+              </div>
+              <div className="h-2 rounded overflow-hidden" style={{ background: '#111' }}>
+                <div className="h-full rounded transition-all duration-300"
+                  style={{
+                    width: `${pct}%`,
+                    background: nulled ? '#1a1a1a' : tissue.color,
+                    opacity: nulled ? 0.3 : 0.75,
+                  }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {/* Contrast ratios for key pairs */}
+      {(() => {
+        const gmSig = signals.find(s => s.tissue.label === 'GM')?.signal ?? 0
+        const wmSig = signals.find(s => s.tissue.label === 'WM')?.signal ?? 0
+        const csfSig = signals.find(s => s.tissue.label === 'CSF')?.signal ?? 0
+        const fatSig = signals.find(s => s.tissue.label === 'Fat')?.signal ?? 0
+        const minS = Math.min(gmSig, wmSig)
+        const maxS = Math.max(gmSig, wmSig)
+        const cnr = minS > 0 ? (maxS - minS) / ((maxS + minS) / 2) : 0
+        const higher = gmSig > wmSig ? 'GM' : 'WM'
+        return (
+          <div className="mt-2 pt-1.5 flex gap-3 flex-wrap" style={{ borderTop: '1px solid #111', fontSize: '7px' }}>
+            <div>
+              <span style={{ color: '#4b5563' }}>GM/WM CNR: </span>
+              <span className="font-mono" style={{ color: cnr > 0.15 ? '#34d399' : cnr > 0.05 ? '#fbbf24' : '#f87171' }}>
+                {(cnr * 100).toFixed(0)}%
+              </span>
+              <span style={{ color: '#374151' }}> ({higher}↑)</span>
+            </div>
+            {csfSig > 0.1 && (
+              <div>
+                <span style={{ color: '#4b5563' }}>CSF: </span>
+                <span className="font-mono" style={{ color: '#38bdf8' }}>{Math.round(csfSig * 100)}%</span>
+              </div>
+            )}
+            {fatSig < 0.05 && params.fatSat !== 'None' && (
+              <div style={{ color: '#34d399' }}>脂肪抑制 ✓</div>
+            )}
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
 
 type SubTab = 'Common' | 'Dynamic'
 
@@ -120,6 +205,9 @@ export function ContrastTab() {
               T2* ≈ 組織の磁化率差による信号損失速度。3Tでは1.5Tの約1/2に短縮。GRE/EPI/SWIのTE設計に重要。
             </div>
           </div>
+
+          {/* Live tissue signal bars */}
+          <LiveTissueSignalBar />
         </div>
       )}
 

@@ -210,7 +210,7 @@ function getSliderConfig(artifactId: ArtifactType): SliderConfig | null {
 export function ArtifactSimPanel({ onShowArtifactGuide }: ArtifactSimPanelProps) {
   const { params } = useProtocolStore()
   const [activeArtifact, setActiveArtifact] = useState<ArtifactType>('aliasing')
-  const [phantomType, setPhantomType] = useState<'head' | 'abdomen' | 'spine'>('head')
+  const [phantomType, setPhantomType] = useState<'head' | 'abdomen' | 'spine' | 'cardiac'>('head')
   const [activeView, setActiveView] = useState<'normal' | 'artifact' | 'diff'>('artifact')
 
   // デモスライダー用ローカルstate（storeを更新しない）
@@ -326,7 +326,7 @@ export function ArtifactSimPanel({ onShowArtifactGuide }: ArtifactSimPanelProps)
         className="shrink-0 flex"
         style={{ borderBottom: '1px solid #252525' }}
       >
-        {(['head', 'abdomen', 'spine'] as const).map(t => (
+        {(['head', 'abdomen', 'spine', 'cardiac'] as const).map(t => (
           <button
             key={t}
             onClick={() => setPhantomType(t)}
@@ -338,7 +338,7 @@ export function ArtifactSimPanel({ onShowArtifactGuide }: ArtifactSimPanelProps)
               fontSize: '10px',
             }}
           >
-            {t === 'head' ? '頭部' : t === 'abdomen' ? '腹部' : '脊椎'}
+            {t === 'head' ? '頭部' : t === 'abdomen' ? '腹部' : t === 'spine' ? '脊椎' : '心臓'}
           </button>
         ))}
       </div>
