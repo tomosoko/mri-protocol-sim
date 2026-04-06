@@ -648,6 +648,70 @@ function SystemEventLog() {
   )
 }
 
+// ── K-space fill order ───────────────────────────────────────────────────────
+function kFillOrder(n: number, centric: boolean): number[] {
+  if (!centric) return Array.from({ length: n }, (_, i) => i)
+  const order: number[] = []
+  const c = Math.floor(n / 2)
+  order.push(c)
+  for (let d = 1; order.length < n; d++) {
+    if (c + d < n) order.push(c + d)
+    if (c - d >= 0) order.push(c - d)
+  }
+  return order
+}
+
+// K-space fill canvas (animated during scan)
+function KSpaceFillCanvas({ progress, centric }: { progress: number; centric: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const W = 80, H = 22, N = 32
+    ctx.fillStyle = '#03080c'
+    ctx.fillRect(0, 0, W, H)
+    // Vertical k-space grid lines
+    ctx.strokeStyle = '#081518'
+    ctx.lineWidth = 0.5
+    for (let i = 0; i <= 4; i++) {
+      ctx.beginPath(); ctx.moveTo(i * W / 4, 0); ctx.lineTo(i * W / 4, H); ctx.stroke()
+    }
+    const order = kFillOrder(N, centric)
+    const filledCount = Math.floor(progress / 100 * N)
+    const rowH = H / N
+    for (let i = 0; i < filledCount && i < N; i++) {
+      const row = order[i]
+      const y = (row / N) * H
+      const dist = Math.abs(row - N / 2) / (N / 2)
+      const bright = 0.2 + (1 - dist) * 0.8
+      ctx.fillStyle = `rgba(52,211,153,${bright})`
+      ctx.fillRect(0, y, W, Math.max(1, rowH - 0.3))
+    }
+    // Active acquisition line (bright cursor)
+    if (filledCount < N) {
+      const row = order[filledCount] ?? 0
+      const y = (row / N) * H
+      ctx.save()
+      ctx.shadowBlur = 6; ctx.shadowColor = '#34d399'
+      ctx.fillStyle = '#a7f3d0'
+      ctx.fillRect(0, y, W, Math.max(1.5, rowH))
+      ctx.restore()
+    }
+  }, [progress, centric])
+
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <canvas ref={canvasRef} width={80} height={22}
+        style={{ display: 'block', borderRadius: 2, border: '1px solid #0a1e18' }} />
+      <span style={{ position: 'absolute', bottom: 1, right: 2, fontSize: '5px', color: '#0a2018', lineHeight: 1 }}>kx→</span>
+      <span style={{ position: 'absolute', top: 1, left: 2, fontSize: '5px', color: '#0a2018', lineHeight: 1 }}>ky</span>
+    </div>
+  )
+}
+
 // ── Console Parameter Strip ──────────────────────────────────────────────────
 // syngo MR コンソール風の生パラメータ表示ストリップ
 // TE_min/TR_min を物理計算し、設定値が不正な場合はリアルタイムで警告する
@@ -681,6 +745,48 @@ function ConsoleParamStrip() {
   const [reconStep, setReconStep] = useState(-1)       // index into recon steps
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const scanStartRef = useRef<number>(0)
+
+  // Gradient coil temperature — heats during scanning, cools when idle
+  const [gradTemp, setGradTemp] = useState(28.5)
+  useEffect(() => {
+    const heatRate = scanState === 'scanning'
+      ? (params.gradientMode === 'Fast' ? 0.12 : params.gradientMode === 'Whisper' ? 0.04 : 0.07)
+      : -0.02
+    const id = setInterval(() => {
+      setGradTemp(t => {
+        const next = t + heatRate
+        return Math.max(28.5, Math.min(55, next))
+      })
+    }, 1000)
+    return () => clearInterval(id)
+  }, [scanState, params.gradientMode])
+
+  // Larmor frequency (MHz) — 42.577 MHz/T for ¹H
+  const larmorMHz = (params.fieldStrength * 42.577).toFixed(2)
+
+  // Estimated acoustic noise level (dB SPL)
+  const noiseDb = useMemo(() => {
+    const isEPI = params.bValues.length > 1 && params.turboFactor <= 2
+    const isTSE = params.turboFactor > 1
+    const isSSFP = params.TR < 8 && params.TE < 3
+    let db = isEPI ? 120 : isSSFP ? 103 : isTSE ? (90 + Math.min(params.turboFactor, 8)) : 84
+    if (params.gradientMode === 'Fast') db += 7
+    else if (params.gradientMode === 'Whisper') db -= 15
+    return Math.round(db)
+  }, [params.bValues.length, params.turboFactor, params.TR, params.TE, params.gradientMode])
+
+  // Gradient duty cycle (%)
+  const gdc = useMemo(() => {
+    const isEPI = params.bValues.length > 1 && params.turboFactor <= 2
+    const isTSE = params.turboFactor > 1
+    const isSSFP = params.TR < 8
+    let pct = isEPI ? 78 : isSSFP ? 85 : isTSE ? Math.min(20 + params.turboFactor * 2, 65) : 30
+    if (params.gradientMode === 'Fast') pct = Math.min(pct * 1.15, 95)
+    return Math.round(pct)
+  }, [params.bValues.length, params.turboFactor, params.TR, params.gradientMode])
+
+  // K-space fill mode: centric for TSE/IR, linear for EPI/SE/GRE
+  const kCentric = params.turboFactor > 1 || params.TI > 0
 
   // Prescan results — computed once from current params
   const prescanResults = useMemo(() => {
@@ -928,9 +1034,40 @@ function ConsoleParamStrip() {
         </span>
       </div>
 
-      {/* Field strength */}
+      {/* Field strength + Larmor freq */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
         <span className="font-mono font-semibold" style={{ color: '#e88b00', fontSize: '9px' }}>{params.fieldStrength}T</span>
+        <span className="font-mono" style={{ color: '#3a2800', fontSize: '8px' }}>{larmorMHz}MHz</span>
+      </div>
+
+      {/* Gradient duty cycle */}
+      <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
+        <span style={{ color: '#374151', fontSize: '7px' }}>GDC</span>
+        <span className="font-mono" style={{
+          color: gdc > 70 ? '#f87171' : gdc > 45 ? '#fbbf24' : '#4b5563',
+          fontSize: '8px'
+        }}>{gdc}%</span>
+      </div>
+
+      {/* Acoustic noise */}
+      <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
+        <span style={{ color: '#374151', fontSize: '7px' }}>dB</span>
+        <span className="font-mono" style={{
+          color: noiseDb >= 115 ? '#f87171' : noiseDb >= 95 ? '#fbbf24' : '#4b5563',
+          fontSize: '8px'
+        }}>{noiseDb}</span>
+      </div>
+
+      {/* Gradient coil temperature */}
+      <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
+        <span style={{ color: '#374151', fontSize: '7px' }}>GC°</span>
+        <span className="font-mono" style={{
+          color: gradTemp > 45 ? '#f87171' : gradTemp > 38 ? '#fbbf24' : '#4b5563',
+          fontSize: '8px'
+        }}>{gradTemp.toFixed(1)}°C</span>
+        {gradTemp > 38 && (
+          <span style={{ fontSize: '6px', color: gradTemp > 45 ? '#f87171' : '#fbbf24' }}>▲</span>
+        )}
       </div>
 
       {/* SAR Operating Mode (IEC 60601-2-33) */}
@@ -974,26 +1111,24 @@ function ConsoleParamStrip() {
           </div>
         )}
 
-        {/* Scanning progress */}
+        {/* Scanning progress — k-space fill canvas + stats */}
         {scanState === 'scanning' && (
           <div className="flex items-center gap-1.5">
-            {/* k-space fill progress bar */}
-            <div className="relative overflow-hidden rounded" style={{ width: 80, height: 12, background: '#111' }}>
-              <div className="h-full transition-none rounded"
-                style={{ width: `${scanProgress}%`, background: `linear-gradient(90deg, #1a2a1a, #34d399)` }}
-              />
-              <div className="absolute top-0 bottom-0" style={{
-                left: `${scanProgress}%`, width: 1,
-                background: '#34d399', boxShadow: '0 0 4px #34d399',
-              }} />
+            <KSpaceFillCanvas progress={scanProgress} centric={kCentric} />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono" style={{ color: '#34d399', fontSize: '8px' }}>
+                {scanProgress.toFixed(0)}%
+              </span>
+              <span className="font-mono" style={{ color: '#1d4a34', fontSize: '7px' }}>
+                SL {Math.min(params.slices, Math.max(1, Math.ceil(scanProgress / 100 * params.slices)))}/{params.slices}
+              </span>
             </div>
-            <span className="font-mono" style={{ color: '#34d399', fontSize: '8px', minWidth: 28 }}>
-              {scanProgress.toFixed(0)}%
-            </span>
-            <span className="font-mono" style={{ color: '#1d4a34', fontSize: '8px' }}>
-              SL {Math.min(params.slices, Math.max(1, Math.ceil(scanProgress / 100 * params.slices)))}/{params.slices}
-            </span>
-            <span style={{ color: '#374151', fontSize: '7px' }}>{scanElapsed.toFixed(0)}s</span>
+            <div className="flex flex-col gap-0.5">
+              <span style={{ color: '#374151', fontSize: '7px' }}>{scanElapsed.toFixed(0)}s / {fmt(scanTime)}</span>
+              <span style={{ color: '#1a2a1a', fontSize: '6.5px', fontFamily: 'monospace' }}>
+                {kCentric ? 'CENTRIC' : 'LINEAR'} k-fill
+              </span>
+            </div>
           </div>
         )}
 
