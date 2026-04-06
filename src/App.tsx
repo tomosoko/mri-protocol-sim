@@ -651,6 +651,17 @@ function SystemEventLog() {
 // ── Console Parameter Strip ──────────────────────────────────────────────────
 // syngo MR コンソール風の生パラメータ表示ストリップ
 // TE_min/TR_min を物理計算し、設定値が不正な場合はリアルタイムで警告する
+// ── Prescan steps (auto-prescan sequence) ────────────────────────────────────
+// syngo MR の自動プリスキャンは毎回スキャン前に自動実行される
+// Frequency Scout → B0 Shim → Flip Angle Cal → Noise Cal → SAR Check
+const PRESCAN_STEPS = [
+  { label: 'Frequency Scout',    dur: 380 },
+  { label: 'B0 Shim Optimize',   dur: 480 },
+  { label: 'Tx Ref Cal',         dur: 320 },
+  { label: 'Noise Calibration',  dur: 220 },
+  { label: 'SAR Pre-Check',      dur: 100 },
+] as const
+
 function ConsoleParamStrip() {
   const { params, setParam } = useProtocolStore()
 
@@ -662,11 +673,32 @@ function ConsoleParamStrip() {
   const seqId = identifySequence(params)
 
   // Scan simulation state
-  const [scanState, setScanState] = useState<'idle' | 'preparing' | 'scanning' | 'done'>('idle')
+  const [scanState, setScanState] = useState<'idle' | 'preparing' | 'scanning' | 'recon' | 'done'>('idle')
   const [scanProgress, setScanProgress] = useState(0)  // 0-100
   const [scanElapsed, setScanElapsed] = useState(0)    // seconds
+  const [prescanStep, setPrescanStep] = useState(-1)   // -1=not started, 0-4=step index
+  const [prescanDone, setPrescanDone] = useState<boolean[]>([])
+  const [reconStep, setReconStep] = useState(-1)       // index into recon steps
   const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const scanStartRef = useRef<number>(0)
+
+  // Prescan results — computed once from current params
+  const prescanResults = useMemo(() => {
+    const is3T = params.fieldStrength >= 2.5
+    const b0Offset = 12 + Math.floor(Math.random() * 18)  // 12-29 Hz
+    const b0Residual = 2 + Math.floor(Math.random() * 6)  // 2-7 Hz rms
+    const txVoltage = is3T ? (180 + Math.floor(Math.random() * 40)) : (310 + Math.floor(Math.random() * 60))
+    const snrEst = 40 + Math.floor(Math.random() * 20)
+    const sarPct = Math.round((params.TR > 0 ? (params.flipAngle / 90) ** 2 * (params.slices / 20) * 50 : 30))
+    return [
+      `Δf₀: +${b0Offset}Hz → 0Hz`,
+      `ΔB0: ${b0Residual}Hz rms`,
+      `Tx: ${txVoltage}V`,
+      `SNR est: ${snrEst}`,
+      `SAR: ${Math.min(sarPct, 95)}%  OK`,
+    ]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanState])
 
   const stopScan = useCallback(() => {
     if (scanTimerRef.current) {
@@ -680,12 +712,25 @@ function ConsoleParamStrip() {
     setScanState('preparing')
     setScanProgress(0)
     setScanElapsed(0)
-    // Preparation phase (1.5s)
+    setPrescanStep(0)
+    setPrescanDone([])
+
+    // Step through prescan steps
+    let elapsed = 0
+    PRESCAN_STEPS.forEach((step, idx) => {
+      elapsed += step.dur
+      setTimeout(() => {
+        setPrescanStep(idx + 1)
+        setPrescanDone(prev => { const next = [...prev]; next[idx] = true; return next })
+      }, elapsed)
+    })
+
+    // After all prescan steps, start actual scanning
+    const totalPrescanMs = PRESCAN_STEPS.reduce((s, st) => s + st.dur, 0)
     setTimeout(() => {
       setScanState('scanning')
+      setPrescanStep(-1)
       scanStartRef.current = Date.now()
-      // Simulate real-time scan progress
-      // Use real scanTime but speed up for UI (max 30s display)
       const displayDuration = Math.min(scanTime * 1000, 30000)
       scanTimerRef.current = setInterval(() => {
         const elapsed = (Date.now() - scanStartRef.current) / 1000
@@ -694,11 +739,32 @@ function ConsoleParamStrip() {
         setScanElapsed(elapsed)
         if (progress >= 100) {
           stopScan()
-          setScanState('done')
-          setTimeout(() => setScanState('idle'), 3000)
+          setScanState('recon')
+          setReconStep(0)
+          // Build inline recon steps based on sequence type
+          const isDWISeq = params.bValues.length > 1 && params.turboFactor <= 2
+          const hasInlineMIP = params.inlineMIP
+          const reconSteps = [
+            { label: 'Image Reconstruction', dur: 350 },
+            { label: 'Phase Correction',     dur: 180 },
+            ...(isDWISeq ? [{ label: 'Inline ADC Map', dur: 280 }, { label: 'Inline Trace', dur: 220 }] : []),
+            ...(hasInlineMIP ? [{ label: 'Inline MIP', dur: 240 }] : []),
+            { label: 'Sending → PACS',       dur: 160 },
+          ]
+          let reconElapsed = 0
+          reconSteps.forEach((_, idx) => {
+            reconElapsed += reconSteps[idx].dur
+            setTimeout(() => setReconStep(idx + 1), reconElapsed)
+          })
+          const totalReconMs = reconSteps.reduce((s, r) => s + r.dur, 0)
+          setTimeout(() => {
+            setScanState('done')
+            setReconStep(-1)
+            setTimeout(() => setScanState('idle'), 2500)
+          }, totalReconMs + 100)
         }
       }, 50)
-    }, 1500)
+    }, totalPrescanMs + 100)
   }, [scanTime, stopScan])
 
   // Cleanup on unmount
@@ -872,59 +938,107 @@ function ConsoleParamStrip() {
 
       {/* Scan simulation button + progress */}
       <div className="flex items-center gap-1.5 px-2 ml-auto shrink-0">
-        {(scanState === 'scanning' || scanState === 'preparing') && (
+
+        {/* Prescan step indicators */}
+        {scanState === 'preparing' && (
+          <div className="flex items-center gap-0" style={{ borderRight: '1px solid #111d27', paddingRight: 6, marginRight: 2 }}>
+            {PRESCAN_STEPS.map((step, i) => {
+              const done = prescanDone[i]
+              const active = prescanStep === i
+              return (
+                <div key={i} className="flex items-center gap-1 px-1.5" style={{ borderRight: i < PRESCAN_STEPS.length - 1 ? '1px solid #0f1a24' : 'none' }}>
+                  <span style={{
+                    fontSize: '7px',
+                    color: done ? '#34d399' : active ? '#e88b00' : '#1f3020',
+                    transition: 'color 0.2s',
+                  }}>
+                    {done ? '●' : active ? '◉' : '○'}
+                  </span>
+                  <span style={{
+                    fontSize: '7px',
+                    color: done ? '#1f4a2f' : active ? '#c8ccd6' : '#1a2520',
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'monospace',
+                    transition: 'color 0.2s',
+                  }}>
+                    {step.label}
+                  </span>
+                  {done && (
+                    <span className="font-mono" style={{ fontSize: '6.5px', color: '#1a4a30' }}>
+                      {prescanResults[i]}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Scanning progress */}
+        {scanState === 'scanning' && (
           <div className="flex items-center gap-1.5">
             {/* k-space fill progress bar */}
             <div className="relative overflow-hidden rounded" style={{ width: 80, height: 12, background: '#111' }}>
               <div className="h-full transition-none rounded"
-                style={{
-                  width: `${scanProgress}%`,
-                  background: `linear-gradient(90deg, #1a2a1a, #34d399)`,
-                }}
+                style={{ width: `${scanProgress}%`, background: `linear-gradient(90deg, #1a2a1a, #34d399)` }}
               />
-              {/* Scanning line */}
-              {scanState === 'scanning' && (
-                <div className="absolute top-0 bottom-0" style={{
-                  left: `${scanProgress}%`,
-                  width: 1,
-                  background: '#34d399',
-                  boxShadow: '0 0 4px #34d399',
-                }} />
-              )}
+              <div className="absolute top-0 bottom-0" style={{
+                left: `${scanProgress}%`, width: 1,
+                background: '#34d399', boxShadow: '0 0 4px #34d399',
+              }} />
             </div>
             <span className="font-mono" style={{ color: '#34d399', fontSize: '8px', minWidth: 28 }}>
-              {scanState === 'preparing' ? 'PREP...' : `${scanProgress.toFixed(0)}%`}
+              {scanProgress.toFixed(0)}%
             </span>
-            {/* Slice counter */}
-            {scanState === 'scanning' && (
-              <span className="font-mono" style={{ color: '#1d4a34', fontSize: '8px' }}>
-                SL {Math.min(params.slices, Math.max(1, Math.ceil(scanProgress / 100 * params.slices)))}/{params.slices}
-              </span>
-            )}
-            <span style={{ color: '#374151', fontSize: '7px' }}>
-              {scanState === 'scanning' ? `${scanElapsed.toFixed(0)}s` : ''}
+            <span className="font-mono" style={{ color: '#1d4a34', fontSize: '8px' }}>
+              SL {Math.min(params.slices, Math.max(1, Math.ceil(scanProgress / 100 * params.slices)))}/{params.slices}
             </span>
+            <span style={{ color: '#374151', fontSize: '7px' }}>{scanElapsed.toFixed(0)}s</span>
           </div>
         )}
+
+        {/* Inline recon steps */}
+        {scanState === 'recon' && (() => {
+          const isDWISeq = params.bValues.length > 1 && params.turboFactor <= 2
+          const hasInlineMIP = params.inlineMIP
+          const steps = [
+            'Image Recon', 'Phase Corr',
+            ...(isDWISeq ? ['ADC Map', 'Trace'] : []),
+            ...(hasInlineMIP ? ['MIP'] : []),
+            '→ PACS',
+          ]
+          return (
+            <div className="flex items-center gap-0" style={{ borderRight: '1px solid #111d27', paddingRight: 6, marginRight: 2 }}>
+              {steps.map((label, i) => (
+                <div key={i} className="flex items-center gap-1 px-1.5" style={{ borderRight: i < steps.length - 1 ? '1px solid #0f1a24' : 'none' }}>
+                  <span style={{ fontSize: '7px', color: i < reconStep ? '#60a5fa' : i === reconStep ? '#a78bfa' : '#1a1f40' }}>
+                    {i < reconStep ? '●' : i === reconStep ? '◉' : '○'}
+                  </span>
+                  <span style={{ fontSize: '7px', color: i < reconStep ? '#1a2a4a' : i === reconStep ? '#c8ccd6' : '#1a1f40', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
         {scanState === 'done' && (
-          <span className="font-mono" style={{ color: '#34d399', fontSize: '8px' }}>✓ COMPLETE</span>
+          <span className="font-mono" style={{ color: '#60a5fa', fontSize: '8px' }}>✓ IMAGES STORED</span>
         )}
+
         <button
           onClick={scanState === 'idle' || scanState === 'done' ? startScan : stopScan}
           style={{
-            background: scanState === 'scanning' ? '#1a0505' : scanState === 'done' ? '#0a1208' : '#0a1f16',
-            color: scanState === 'scanning' ? '#f87171' : scanState === 'done' ? '#34d399' : '#34d399',
-            border: `1px solid ${scanState === 'scanning' ? '#7f1d1d' : scanState === 'done' ? '#14532d' : '#14532d'}`,
-            borderRadius: 3,
-            fontSize: '9px',
-            fontWeight: 700,
-            padding: '2px 8px',
-            cursor: 'pointer',
-            letterSpacing: '0.05em',
-            fontFamily: 'monospace',
+            background: scanState === 'scanning' ? '#1a0505' : scanState === 'recon' ? '#0a0f1f' : scanState === 'done' ? '#0a0f1f' : '#0a1f16',
+            color: scanState === 'scanning' ? '#f87171' : scanState === 'recon' ? '#60a5fa' : scanState === 'done' ? '#60a5fa' : '#34d399',
+            border: `1px solid ${scanState === 'scanning' ? '#7f1d1d' : (scanState === 'recon' || scanState === 'done') ? '#1d3d7f' : '#14532d'}`,
+            borderRadius: 3, fontSize: '9px', fontWeight: 700,
+            padding: '2px 8px', cursor: 'pointer',
+            letterSpacing: '0.05em', fontFamily: 'monospace',
           }}
         >
-          {scanState === 'scanning' ? '■ STOP' : scanState === 'preparing' ? '...' : '▶ SCAN'}
+          {scanState === 'scanning' ? '■ STOP' : scanState === 'preparing' ? '…' : scanState === 'recon' ? 'RECON' : '▶ SCAN'}
         </button>
       </div>
     </div>

@@ -3,6 +3,132 @@ import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcT2Blur } from '../../store/calculators'
 
+// ── RF パルス形状 + スライスプロファイル ──────────────────────────────────────
+// MRI の選択的励起には sinc 型 RF パルスを使う
+// スライスプロファイル = RF パルスのフーリエ変換（理想: 矩形、実際: ギブスリンギング）
+function RFPulseSliceProfile() {
+  const { params } = useProtocolStore()
+
+  const N = 64   // DFT points
+  const nLobes = 4  // number of sinc lobes (each side)
+
+  // Time-domain RF pulse: Hamming-windowed sinc
+  const rfTime = useMemo(() => {
+    return Array.from({ length: N }, (_, i) => {
+      const t = (i / (N - 1) - 0.5) * 2 * nLobes  // -nLobes…+nLobes
+      const sincVal = Math.abs(t) < 1e-6 ? 1 : Math.sin(Math.PI * t) / (Math.PI * t)
+      const hamming = 0.54 - 0.46 * Math.cos(2 * Math.PI * i / (N - 1))
+      return sincVal * hamming
+    })
+  }, [])
+
+  // Slice profile = |DFT(rfTime)| with fftshift
+  const sliceProfile = useMemo(() => {
+    const profile: number[] = []
+    for (let k = 0; k < N; k++) {
+      const kc = (k + N / 2) % N  // fftshift
+      let re = 0, im = 0
+      for (let j = 0; j < N; j++) {
+        const angle = 2 * Math.PI * j * kc / N
+        re += rfTime[j] * Math.cos(angle)
+        im -= rfTime[j] * Math.sin(angle)
+      }
+      profile.push(Math.sqrt(re * re + im * im))
+    }
+    return profile
+  }, [rfTime])
+
+  const maxProfile = Math.max(...sliceProfile)
+
+  // Slice thickness mm
+  const sliceThickMm = params.sliceThickness
+
+  // For SE: refocus pulse is a Hamming-windowed sinc (same shape but 2× duration)
+  const isTSE = params.turboFactor > 1
+
+  const W = 280, H = 80
+  const PAD = { l: 8, r: 8, t: 6, b: 16 }
+  const innerW = W - PAD.l - PAD.r
+  const halfW = innerW / 2 - 4
+  const innerH = H - PAD.t - PAD.b
+
+  // RF pulse path (left half)
+  const rfPath = rfTime.map((v, i) => {
+    const x = PAD.l + (i / (N - 1)) * halfW
+    const y = PAD.t + innerH * 0.6 - v * innerH * 0.55
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+
+  // Slice profile path (right half)
+  const xOffset = PAD.l + halfW + 8
+  const profilePath = sliceProfile.map((v, i) => {
+    const x = xOffset + (i / (N - 1)) * halfW
+    const y = PAD.t + innerH - (v / maxProfile) * innerH * 0.85
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+
+  // Slice boundaries in profile
+  // The main lobe of the profile covers roughly the central 50% of the display range
+  const sliceL = xOffset + innerW * 0.25
+  const sliceR = xOffset + innerW * 0.75
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080810', border: '1px solid #1a1a30' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px', letterSpacing: '0.05em' }}>
+          RF PULSE / SLICE PROFILE
+        </span>
+        <div className="flex items-center gap-2" style={{ fontSize: '8px', color: '#4b5563' }}>
+          <span>Slice: <span className="font-mono" style={{ color: '#c8ccd6' }}>{sliceThickMm}mm</span></span>
+          <span>Window: <span style={{ color: '#c084fc' }}>Hamming</span></span>
+          {isTSE && <span style={{ color: '#fbbf24' }}>180°=×2 dur</span>}
+        </div>
+      </div>
+
+      <svg width={W} height={H}>
+        {/* Divider */}
+        <line x1={PAD.l + halfW + 4} y1={PAD.t} x2={PAD.l + halfW + 4} y2={H - PAD.b}
+          stroke="#1a1a2a" strokeWidth={1} />
+
+        {/* Left: RF pulse */}
+        <text x={PAD.l} y={PAD.t + 5} fill="#4b5563" style={{ fontSize: '7px' }}>RF pulse (time)</text>
+        {/* Baseline */}
+        <line x1={PAD.l} y1={PAD.t + innerH * 0.6} x2={PAD.l + halfW} y2={PAD.t + innerH * 0.6}
+          stroke="#1a1a2a" strokeWidth={0.5} />
+        {/* RF shape */}
+        <path d={rfPath} fill="none" stroke="#e88b00" strokeWidth={1.5} opacity={0.9} />
+        {/* Duration label */}
+        <text x={PAD.l} y={H - 3} fill="#374151" style={{ fontSize: '6px' }}>−{nLobes}π</text>
+        <text x={PAD.l + halfW} y={H - 3} textAnchor="end" fill="#374151" style={{ fontSize: '6px' }}>+{nLobes}π</text>
+
+        {/* Right: Slice profile */}
+        <text x={xOffset} y={PAD.t + 5} fill="#4b5563" style={{ fontSize: '7px' }}>Slice profile (z)</text>
+        {/* Ideal rect */}
+        <line x1={sliceL} y1={PAD.t + 2} x2={sliceL} y2={PAD.t + innerH}
+          stroke="#a78bfa30" strokeWidth={1} strokeDasharray="2,2" />
+        <line x1={sliceR} y1={PAD.t + 2} x2={sliceR} y2={PAD.t + innerH}
+          stroke="#a78bfa30" strokeWidth={1} strokeDasharray="2,2" />
+        <rect x={sliceL} y={PAD.t + 2} width={sliceR - sliceL} height={innerH - 2}
+          fill="#a78bfa08" />
+        {/* Profile curve */}
+        <path d={profilePath} fill="none" stroke="#a78bfa" strokeWidth={1.5} opacity={0.9} />
+        {/* Thickness marker */}
+        <text x={(sliceL + sliceR) / 2} y={H - 3} textAnchor="middle"
+          fill="#4b5563" style={{ fontSize: '6px' }}>{sliceThickMm}mm</text>
+        {/* Gibbs label */}
+        <text x={xOffset + halfW} y={PAD.t + 14} textAnchor="end"
+          fill="#374151" style={{ fontSize: '6px' }}>Gibbs ~9%</text>
+      </svg>
+
+      <div className="flex items-center gap-3 mt-0.5" style={{ fontSize: '7px', color: '#374151' }}>
+        <span style={{ color: '#e88b00' }}>── RF sinc</span>
+        <span style={{ color: '#a78bfa' }}>── Slice profile</span>
+        <span style={{ color: '#4b5563' }}>Hamming windowing → side lobe ≪9%</span>
+      </div>
+    </div>
+  )
+}
+
 // ── TE 物理計算 ──────────────────────────────────────────────────────────────
 function MinTECalculator() {
   const { params } = useProtocolStore()
@@ -1205,6 +1331,9 @@ export function SequenceTab() {
       <ParamField label="Partial Fourier" hintKey="PartialFourier" value={params.partialFourier} type="select"
         options={['Off', '7/8', '6/8', '5/8', '4/8']}
         onChange={v => setParam('partialFourier', v as typeof params.partialFourier)} highlight={hl('partialFourier')} />
+
+      {/* RF pulse shape + slice profile */}
+      <RFPulseSliceProfile />
 
       {/* TE 関連の物理パラメータ */}
       <MinTECalculator />
