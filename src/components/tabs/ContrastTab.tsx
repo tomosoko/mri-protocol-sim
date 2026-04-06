@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { TISSUES, calcTissueContrast } from '../../store/calculators'
+// TISSUES imported above and used in IRSignalEvolution + LiveTissueSignalBar
 
 // ── ライブ組織コントラストバー ────────────────────────────────────────────────
 // 現在の TR/TE/TI/FA 設定に基づき全組織の信号強度をリアルタイム比較表示
@@ -198,6 +199,9 @@ export function ContrastTab() {
           {/* TI 自動計算器 */}
           <TICalculator />
 
+          {/* IR signal evolution — only shown when TI > 0 */}
+          <IRSignalEvolution />
+
           {/* T2* decay chart — always visible as TE reference */}
           <div className="mx-3 mt-2">
             <T2StarDecayChart fieldStrength={params.fieldStrength} TE={params.TE} />
@@ -348,6 +352,140 @@ function IRCurveChart({ fieldStrength, TI }: { fieldStrength: number; TI: number
             {tissue.label} null={nullTI}ms
           </span>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── IR 磁化回復カーブ (Inversion Recovery Mz evolution) ──────────────────────
+// TI に対する各組織の縦磁化 Mz(TI) = M0 × |1 - 2·exp(-TI/T1)| を可視化
+// 現在のTIでの各組織の信号強度をリアルタイム表示
+function IRSignalEvolution() {
+  const { params, setParam } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // Only show when TI > 0 (IR sequence)
+  if (params.TI <= 0) return null
+
+  const W = 290, H = 100
+  const PAD = { l: 28, r: 10, t: 8, b: 20 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+
+  const maxTI = Math.min(Math.max(params.TR, 8000), 12000)
+  const nPts = 100
+
+  const tx = (t: number) => PAD.l + (t / maxTI) * innerW
+  const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, (s + 1) / 2))) * innerH  // s in [-1, 1]
+
+  const irSignal = (TI: number, T1: number, showMagnitude: boolean) => {
+    const s = 1 - 2 * Math.exp(-TI / T1)
+    return showMagnitude ? Math.abs(s) : s
+  }
+
+  // Use magnitude (STIR/FLAIR) or phase-sensitive
+  const isMagnitude = true
+
+  const tissues = TISSUES.filter(t => ['GM', 'WM', 'CSF', 'Fat'].includes(t.label))
+
+  const paths = useMemo(() => tissues.map(t => {
+    const T1 = is3T ? t.T1_30 : t.T1_15
+    const d = Array.from({ length: nPts + 1 }, (_, i) => {
+      const ti = (i / nPts) * maxTI
+      const s = irSignal(ti, T1, isMagnitude)
+      return `${i === 0 ? 'M' : 'L'}${tx(ti).toFixed(1)},${ty(s).toFixed(1)}`
+    }).join(' ')
+    const nullTI = Math.round(T1 * Math.log(2))
+    const sigAtCurrentTI = irSignal(params.TI, T1, isMagnitude)
+    return { ...t, T1, d, nullTI, sigAtCurrentTI }
+  }), [is3T, maxTI, params.TI, isMagnitude])
+
+  const currentTIx = tx(params.TI)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080808', border: '1px solid #1a1a2a' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px' }}>IR 磁化回復 Mz(TI) — {params.fieldStrength}T</span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>TI={params.TI}ms</span>
+      </div>
+      <svg width={W} height={H} style={{ cursor: 'ew-resize' }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const x = e.clientX - rect.left - PAD.l
+          const newTI = Math.max(0, Math.min(maxTI, Math.round(x / innerW * maxTI / 10) * 10))
+          if (e.buttons === 1) setParam('TI', newTI)
+        }}
+        onClick={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          const x = e.clientX - rect.left - PAD.l
+          const newTI = Math.max(0, Math.min(maxTI, Math.round(x / innerW * maxTI / 10) * 10))
+          setParam('TI', newTI)
+        }}>
+
+        {/* Zero line */}
+        <line x1={PAD.l} y1={ty(0)} x2={PAD.l + innerW} y2={ty(0)}
+          stroke="#252525" strokeWidth={1} />
+
+        {/* Grid */}
+        {[500, 1000, 2000, 4000, 6000].filter(v => v < maxTI).map(v => (
+          <line key={v} x1={tx(v)} y1={PAD.t} x2={tx(v)} y2={PAD.t + innerH}
+            stroke="#1a1a1a" strokeWidth={1} />
+        ))}
+
+        {/* Axes */}
+        <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
+        <text x={PAD.l - 2} y={PAD.t + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>1.0</text>
+        <text x={PAD.l - 2} y={ty(0) + 3} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+
+        {/* Tissue curves */}
+        {paths.map(p => (
+          <g key={p.label}>
+            <path d={p.d} fill="none" stroke={p.color} strokeWidth={1.2} opacity={0.75} />
+            {/* Null point marker */}
+            <circle cx={tx(p.nullTI)} cy={ty(0)} r={2}
+              fill={p.color} opacity={0.6} />
+          </g>
+        ))}
+
+        {/* Current TI indicator */}
+        <line x1={currentTIx} y1={PAD.t} x2={currentTIx} y2={PAD.t + innerH}
+          stroke="#e88b00" strokeWidth={1} strokeDasharray="2,2" opacity={0.8} />
+        <text x={currentTIx + 2} y={PAD.t + 9} fill="#e88b00" style={{ fontSize: '7px' }}>
+          TI={params.TI}
+        </text>
+
+        {/* Signal dots at current TI */}
+        {paths.map(p => (
+          <circle key={p.label}
+            cx={currentTIx}
+            cy={ty(p.sigAtCurrentTI)}
+            r={3}
+            fill={p.color}
+            stroke="#000"
+            strokeWidth={0.5}
+          />
+        ))}
+
+        {/* X axis */}
+        <line x1={PAD.l} y1={PAD.t + innerH} x2={PAD.l + innerW} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
+        <text x={PAD.l + innerW / 2} y={H - 4} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>TI (ms)</text>
+        {[0, 1000, 2000, 4000].filter(v => v <= maxTI).map(v => (
+          <text key={v} x={tx(v)} y={H - 4} textAnchor="middle" fill="#252525" style={{ fontSize: '6px' }}>{v}</text>
+        ))}
+      </svg>
+
+      {/* Legend + current signals */}
+      <div className="flex gap-2 flex-wrap mt-1" style={{ fontSize: '7px' }}>
+        {paths.map(p => (
+          <div key={p.label} className="flex items-center gap-1">
+            <span style={{ color: p.color }}>●</span>
+            <span style={{ color: p.color }}>{p.label}</span>
+            <span style={{ color: '#374151' }}>null:{p.nullTI}ms</span>
+          </div>
+        ))}
+      </div>
+      <div style={{ color: '#374151', fontSize: '7px', marginTop: 2 }}>
+        ドラッグ/クリックで TI を変更 · ● = 現在TIの信号
       </div>
     </div>
   )

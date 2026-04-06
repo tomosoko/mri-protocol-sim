@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useProtocolStore } from './store/protocolStore'
 import { StatusBar } from './components/StatusBar'
 import { ProtocolTree } from './components/ProtocolTree'
@@ -112,7 +112,15 @@ export default function App() {
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
           </div>
-          <span className="text-xs font-semibold" style={{ color: '#6b7280' }}>syngo MR — Protocol Simulator</span>
+          <div className="flex items-center gap-2">
+          <span className="font-mono font-bold" style={{ color: '#e88b00', fontSize: '10px', letterSpacing: '0.05em' }}>
+            MAGNETOM
+          </span>
+          <span className="font-mono" style={{ color: '#9ca3af', fontSize: '10px' }}>
+            {params.fieldStrength >= 2.5 ? 'Prisma 3T' : 'Aera 1.5T'}
+          </span>
+          <span style={{ color: '#374151', fontSize: '9px' }}>syngo MR E11</span>
+        </div>
           <div className="flex items-center gap-1">
             <button
               onClick={undo}
@@ -501,6 +509,49 @@ function ConsoleParamStrip() {
   const scanTime = calcScanTime(params)
   const seqId = identifySequence(params)
 
+  // Scan simulation state
+  const [scanState, setScanState] = useState<'idle' | 'preparing' | 'scanning' | 'done'>('idle')
+  const [scanProgress, setScanProgress] = useState(0)  // 0-100
+  const [scanElapsed, setScanElapsed] = useState(0)    // seconds
+  const scanTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const scanStartRef = useRef<number>(0)
+
+  const stopScan = useCallback(() => {
+    if (scanTimerRef.current) {
+      clearInterval(scanTimerRef.current)
+      scanTimerRef.current = null
+    }
+  }, [])
+
+  const startScan = useCallback(() => {
+    stopScan()
+    setScanState('preparing')
+    setScanProgress(0)
+    setScanElapsed(0)
+    // Preparation phase (1.5s)
+    setTimeout(() => {
+      setScanState('scanning')
+      scanStartRef.current = Date.now()
+      // Simulate real-time scan progress
+      // Use real scanTime but speed up for UI (max 30s display)
+      const displayDuration = Math.min(scanTime * 1000, 30000)
+      scanTimerRef.current = setInterval(() => {
+        const elapsed = (Date.now() - scanStartRef.current) / 1000
+        const progress = Math.min(100, (elapsed / (displayDuration / 1000)) * 100)
+        setScanProgress(progress)
+        setScanElapsed(elapsed)
+        if (progress >= 100) {
+          stopScan()
+          setScanState('done')
+          setTimeout(() => setScanState('idle'), 3000)
+        }
+      }, 50)
+    }, 1500)
+  }, [scanTime, stopScan])
+
+  // Cleanup on unmount
+  useEffect(() => () => stopScan(), [stopScan])
+
   const isTSE = params.turboFactor > 1
   const isDWI = params.bValues.length > 1 && params.turboFactor <= 2
   const isIR = params.TI > 0
@@ -644,8 +695,60 @@ function ConsoleParamStrip() {
       <ChipDiv />
 
       {/* Field strength */}
-      <div className="flex items-center gap-1 px-2 shrink-0">
+      <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
         <span className="font-mono font-semibold" style={{ color: '#e88b00', fontSize: '9px' }}>{params.fieldStrength}T</span>
+      </div>
+
+      {/* Scan simulation button + progress */}
+      <div className="flex items-center gap-1.5 px-2 ml-auto shrink-0">
+        {(scanState === 'scanning' || scanState === 'preparing') && (
+          <div className="flex items-center gap-1.5">
+            {/* k-space fill progress bar */}
+            <div className="relative overflow-hidden rounded" style={{ width: 80, height: 12, background: '#111' }}>
+              <div className="h-full transition-none rounded"
+                style={{
+                  width: `${scanProgress}%`,
+                  background: `linear-gradient(90deg, #1a2a1a, #34d399)`,
+                }}
+              />
+              {/* Scanning line */}
+              {scanState === 'scanning' && (
+                <div className="absolute top-0 bottom-0" style={{
+                  left: `${scanProgress}%`,
+                  width: 1,
+                  background: '#34d399',
+                  boxShadow: '0 0 4px #34d399',
+                }} />
+              )}
+            </div>
+            <span className="font-mono" style={{ color: '#34d399', fontSize: '8px', minWidth: 28 }}>
+              {scanState === 'preparing' ? 'PREP' : `${scanProgress.toFixed(0)}%`}
+            </span>
+            <span style={{ color: '#374151', fontSize: '7px' }}>
+              {scanState === 'scanning' ? `${scanElapsed.toFixed(0)}s` : ''}
+            </span>
+          </div>
+        )}
+        {scanState === 'done' && (
+          <span className="font-mono" style={{ color: '#34d399', fontSize: '8px' }}>✓ COMPLETE</span>
+        )}
+        <button
+          onClick={scanState === 'idle' || scanState === 'done' ? startScan : stopScan}
+          style={{
+            background: scanState === 'scanning' ? '#1a0505' : scanState === 'done' ? '#0a1208' : '#0a1f16',
+            color: scanState === 'scanning' ? '#f87171' : scanState === 'done' ? '#34d399' : '#34d399',
+            border: `1px solid ${scanState === 'scanning' ? '#7f1d1d' : scanState === 'done' ? '#14532d' : '#14532d'}`,
+            borderRadius: 3,
+            fontSize: '9px',
+            fontWeight: 700,
+            padding: '2px 8px',
+            cursor: 'pointer',
+            letterSpacing: '0.05em',
+            fontFamily: 'monospace',
+          }}
+        >
+          {scanState === 'scanning' ? '■ STOP' : scanState === 'preparing' ? '...' : '▶ SCAN'}
+        </button>
       </div>
     </div>
   )

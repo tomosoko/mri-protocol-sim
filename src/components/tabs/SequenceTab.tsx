@@ -825,6 +825,111 @@ function LegendItem({ color, label, opacity = 1, border = false, borderColor }: 
   )
 }
 
+// ── ADC 組織信号減衰チャート ──────────────────────────────────────────────────
+// DWI の b値に対する組織信号の減衰を ADC 値とともに可視化
+// S(b) = S0 × exp(-b × ADC)
+function ADCSignalChart() {
+  const { params } = useProtocolStore()
+
+  const isDWI = params.turboFactor <= 1 && params.bValues.length > 1
+  if (!isDWI) return null
+
+  // Known tissue ADC values (×10⁻³ mm²/s) — clinically referenced
+  const adcTissues = [
+    { label: 'CSF',         adc: 3.0,  color: '#38bdf8', hint: '3.0×10⁻³ mm²/s' },
+    { label: '正常脳WM',   adc: 0.8,  color: '#60a5fa', hint: '0.8×10⁻³' },
+    { label: '正常脳GM',   adc: 0.95, color: '#a78bfa', hint: '0.95×10⁻³' },
+    { label: '急性梗塞',   adc: 0.3,  color: '#f87171', hint: '0.3×10⁻³ — 拡散制限↑' },
+    { label: '正常肝',     adc: 1.1,  color: '#fb923c', hint: '1.1×10⁻³' },
+    { label: '悪性肝腫瘍', adc: 0.75, color: '#f43f5e', hint: '0.75×10⁻³ — 制限あり' },
+    { label: '前立腺正常', adc: 1.6,  color: '#4ade80', hint: '1.6×10⁻³ PZ' },
+    { label: '前立腺癌',   adc: 0.65, color: '#ef4444', hint: '0.65×10⁻³ — PI-RADS 4/5' },
+  ]
+
+  const maxB = Math.max(...params.bValues, 1200)
+  const W = 290, H = 100
+  const PAD = { l: 28, r: 10, t: 8, b: 22 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+
+  const nPts = 60
+  const bPts = Array.from({ length: nPts + 1 }, (_, i) => (i / nPts) * maxB)
+
+  const tx = (b: number) => PAD.l + (b / maxB) * innerW
+  const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+
+  const paths = useMemo(() => adcTissues.map(t => {
+    const d = bPts.map((b, i) => {
+      const s = Math.exp(-b * t.adc / 1000)  // ADC in 10^-3 mm²/s, b in s/mm²
+      return `${i === 0 ? 'M' : 'L'}${tx(b).toFixed(1)},${ty(s).toFixed(1)}`
+    }).join(' ')
+    return { ...t, d }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [maxB, params.bValues])
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080c10', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#f87171', fontSize: '9px', letterSpacing: '0.05em' }}>
+          ADC 信号減衰 S(b) = S₀·exp(-b·ADC)
+        </span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>b₀→{maxB} s/mm²</span>
+      </div>
+      <svg width={W} height={H}>
+        {/* Grid */}
+        {[0.25, 0.5, 0.75, 1.0].map(v => (
+          <line key={v} x1={PAD.l} y1={ty(v)} x2={PAD.l + innerW} y2={ty(v)}
+            stroke="#111" strokeWidth={1} />
+        ))}
+        {/* b-value markers from current params */}
+        {params.bValues.map(b => (
+          <line key={b} x1={tx(b)} y1={PAD.t} x2={tx(b)} y2={PAD.t + innerH}
+            stroke="#e88b0030" strokeWidth={1} strokeDasharray="2,2" />
+        ))}
+
+        {/* Y axis */}
+        <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
+        <text x={PAD.l - 2} y={PAD.t + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>1.0</text>
+        <text x={PAD.l - 2} y={PAD.t + innerH} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+
+        {/* Tissue curves */}
+        {paths.map(p => (
+          <path key={p.label} d={p.d} fill="none" stroke={p.color} strokeWidth={1} opacity={0.8} />
+        ))}
+
+        {/* Current b-value signal dots */}
+        {params.bValues.filter(b => b > 0).map(bVal => (
+          paths.map(p => {
+            const s = Math.exp(-bVal * p.adc / 1000)
+            return (
+              <circle key={`${p.label}-${bVal}`}
+                cx={tx(bVal)} cy={ty(s)} r={2}
+                fill={p.color} opacity={0.9}
+              />
+            )
+          })
+        ))}
+
+        {/* X axis */}
+        <line x1={PAD.l} y1={PAD.t + innerH} x2={PAD.l + innerW} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
+        <text x={PAD.l + innerW / 2} y={H - 4} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>b値 (s/mm²)</text>
+        {[0, 500, 1000].filter(v => v <= maxB).map(v => (
+          <text key={v} x={tx(v)} y={H - 4} textAnchor="middle" fill="#252525" style={{ fontSize: '6px' }}>{v}</text>
+        ))}
+      </svg>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1" style={{ fontSize: '7px' }}>
+        {adcTissues.map(t => (
+          <span key={t.label} style={{ color: t.color }}>{t.label}({t.adc})</span>
+        ))}
+      </div>
+      <div style={{ color: '#374151', fontSize: '7px', marginTop: 2 }}>
+        縦軸=正規化信号 · 現在のb値={params.bValues.join('+')} s/mm² · ●=各b値での信号強度
+      </div>
+    </div>
+  )
+}
+
 // 臨床用 b値プリセット
 const B_VALUE_PRESETS: { label: string; values: number[]; hint: string }[] = [
   { label: '脳梗塞', values: [0, 1000], hint: 'b=0+1000 | 急性期梗塞の標準' },
@@ -1005,6 +1110,9 @@ export function SequenceTab() {
             })}
           </div>
         </div>
+
+        {/* ADC signal decay chart for DWI */}
+        <ADCSignalChart />
 
         {isDWI && (
           <div className="mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
