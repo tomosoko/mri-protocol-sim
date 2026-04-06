@@ -227,6 +227,50 @@ const fatSatDesc: Record<string, string> = {
   Dixon: '水脂肪分離 — 定量評価・造影ダイナミックに最適',
 }
 
+// ── MT比 (Magnetization Transfer Ratio) 可視化 ────────────────────────────────
+// MTRを組織別に表示。MRA/造影後のMTCの効果を定量的に示す
+function MTRatioDisplay() {
+  // Clinical MTR values (literature, % = (S0 - Smt)/S0 × 100)
+  const tissues = [
+    { label: 'White Matter', mtr: 42, color: '#60a5fa', note: 'MS plaque検出に重要' },
+    { label: 'Gray Matter',  mtr: 35, color: '#a78bfa', note: '脱髄の鑑別' },
+    { label: 'Muscle',       mtr: 40, color: '#f87171', note: '筋疾患スクリーニング' },
+    { label: 'Cartilage',    mtr: 28, color: '#34d399', note: '関節軟骨評価' },
+    { label: 'Free Water',   mtr: 3,  color: '#38bdf8', note: 'CSF/浮腫は低MTR' },
+    { label: 'Fat',          mtr: 5,  color: '#fbbf24', note: '脂肪は低MTR' },
+  ]
+
+  return (
+    <div className="mx-3 mt-1 p-2 rounded" style={{ background: '#0a0f0a', border: '1px solid #1a2a1a' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#34d399', fontSize: '9px', letterSpacing: '0.05em' }}>
+          MTR — Magnetization Transfer Ratio
+        </span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>MTR = (S₀−Smt)/S₀ × 100%</span>
+      </div>
+      <div className="space-y-1">
+        {tissues.map(t => (
+          <div key={t.label}>
+            <div className="flex items-center justify-between mb-0.5">
+              <span style={{ color: t.color, fontSize: '8px' }}>{t.label}</span>
+              <div className="flex items-center gap-2">
+                <span style={{ color: '#374151', fontSize: '7px' }}>{t.note}</span>
+                <span className="font-mono font-bold" style={{ color: t.color, fontSize: '9px' }}>{t.mtr}%</span>
+              </div>
+            </div>
+            <div className="h-1.5 rounded overflow-hidden" style={{ background: '#111' }}>
+              <div className="h-full rounded" style={{ width: `${t.mtr / 50 * 100}%`, background: t.color, opacity: 0.75 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1.5 pt-1" style={{ borderTop: '1px solid #0f1f0f', fontSize: '7px', color: '#374151' }}>
+        MTCは白質・筋肉で顕著。脱髄プラーク(MS)は正常WMより低い。SAR+10-15%増加に注意。
+      </div>
+    </div>
+  )
+}
+
 export function ContrastTab() {
   const { params, setParam, highlightedParams } = useProtocolStore()
   const hl = (k: string) => highlightedParams.includes(k)
@@ -356,11 +400,7 @@ export function ContrastTab() {
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Contrast Options</div>
           <ParamField label="MTC" value={params.mt} type="toggle"
             onChange={v => setParam('mt', v as boolean)} />
-          {params.mt && (
-            <div className="mx-3 p-2 rounded text-xs" style={{ background: '#111111', color: '#9ca3af', border: '1px solid #252525' }}>
-              MT: 自由水の信号を抑制 → 造影増強効果を相対的に強調。MRAや脊髄造影後に有効。SAR↑に注意。
-            </div>
-          )}
+          {params.mt && <MTRatioDisplay />}
           <ParamField label="Dark Blood" value={darkBlood} type="toggle"
             onChange={v => setDarkBlood(v as boolean)} />
           <ParamField label="Flip Angle Mode" value={flipAngleMode} type="select"
