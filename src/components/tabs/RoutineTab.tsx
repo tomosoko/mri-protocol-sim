@@ -339,6 +339,102 @@ function ScanTimeBreakdown() {
   )
 }
 
+// ── 定常状態収束シミュレーション ─────────────────────────────────────────────
+// 最初のN回のTR後の磁化の推移をシミュレート。ダミースキャンの必要性を示す
+function SteadyStateConvergence() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  const isTSE = params.turboFactor > 1
+  const isGRE = params.turboFactor <= 1 && params.TR < 200
+
+  if (!isGRE && !isTSE) return null  // SE/DWI always start from equilibrium
+
+  const fa = params.flipAngle * Math.PI / 180
+  const t1WM = is3T ? 1000 : 800  // ms
+
+  const N = 12  // number of TR periods to show
+  const mzHistory: number[] = [1.0]  // start from equilibrium
+
+  for (let i = 0; i < N; i++) {
+    const mzPrev = mzHistory[mzHistory.length - 1]
+    // Apply FA then T1 recovery
+    const mzAfterRF = mzPrev * Math.cos(fa)
+    const mzAfterTR = mzAfterRF * Math.exp(-params.TR / t1WM) + (1 - Math.exp(-params.TR / t1WM))
+    mzHistory.push(mzAfterTR)
+  }
+
+  // Steady state Mz
+  const mzSS = (1 - Math.exp(-params.TR / t1WM)) / (1 - Math.cos(fa) * Math.exp(-params.TR / t1WM))
+
+  // How many TRs to reach 95% of steady state?
+  const trToSS = mzHistory.findIndex(mz => Math.abs(mz - mzSS) < 0.05 * Math.abs(1 - mzSS))
+  const reachedSS = trToSS >= 0 && trToSS <= N
+
+  const W = 280, H = 50
+  const PAD = { l: 20, r: 10, t: 6, b: 14 }
+  const innerW = W - PAD.l - PAD.r
+  const innerH = H - PAD.t - PAD.b
+
+  const maxMz = 1.0
+  const minMz = Math.min(0, ...mzHistory)
+  const mzRange = maxMz - minMz
+
+  const tx = (i: number) => PAD.l + (i / N) * innerW
+  const ty = (mz: number) => PAD.t + (1 - (mz - minMz) / mzRange) * innerH
+
+  const mzPath = mzHistory.map((mz, i) => `${i === 0 ? 'M' : 'L'}${tx(i).toFixed(1)},${ty(mz).toFixed(1)}`).join(' ')
+  const ssSignal = Math.abs(Math.sin(fa)) * mzSS
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080a06', border: '1px solid #1a2010' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#4ade80', fontSize: '9px', letterSpacing: '0.05em' }}>
+          STEADY-STATE CONVERGENCE
+        </span>
+        <div className="flex items-center gap-2" style={{ fontSize: '8px' }}>
+          <span style={{ color: '#374151' }}>Mz_SS = {mzSS.toFixed(3)}</span>
+          <span style={{ color: '#4ade80' }}>S_SS = {(ssSignal * 100).toFixed(1)}%</span>
+        </div>
+      </div>
+
+      <svg width={W} height={H}>
+        {/* Equilibrium line */}
+        <line x1={PAD.l} y1={ty(1.0)} x2={PAD.l + innerW} y2={ty(1.0)}
+          stroke="#1a2010" strokeWidth={0.8} strokeDasharray="3,3" />
+        {/* SS line */}
+        <line x1={PAD.l} y1={ty(mzSS)} x2={PAD.l + innerW} y2={ty(mzSS)}
+          stroke="#34d39930" strokeWidth={0.8} strokeDasharray="2,2" />
+        {/* Mz path */}
+        <path d={mzPath} fill="none" stroke="#4ade80" strokeWidth={1.5} />
+        {/* Data points */}
+        {mzHistory.map((mz, i) => (
+          <circle key={i} cx={tx(i)} cy={ty(mz)} r={2}
+            fill={reachedSS && i === trToSS ? '#fbbf24' : '#4ade80'} />
+        ))}
+        {/* SS reached marker */}
+        {reachedSS && trToSS <= N && (
+          <line x1={tx(trToSS)} y1={PAD.t} x2={tx(trToSS)} y2={PAD.t + innerH}
+            stroke="#fbbf2440" strokeWidth={1} />
+        )}
+        {/* Y axis labels */}
+        <text x={PAD.l - 2} y={PAD.t + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>M0</text>
+        <text x={PAD.l - 2} y={ty(mzSS) + 3} textAnchor="end" fill="#34d399" style={{ fontSize: '6px' }}>SS</text>
+        {/* X axis labels */}
+        <text x={PAD.l} y={H - 2} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+        <text x={PAD.l + innerW} y={H - 2} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>{N} TR</text>
+      </svg>
+
+      <div style={{ fontSize: '7px', color: '#374151', marginTop: 2 }}>
+        {reachedSS
+          ? `▸ TR #${trToSS} でSS到達 (95%) — ダミースキャン${trToSS}回推奨`
+          : `▸ ${N}TR内にSS未達 — 連続撮像後に信号安定化`}
+        {' '}· WM T1={t1WM}ms, TR={params.TR}ms, FA={params.flipAngle}°
+      </div>
+    </div>
+  )
+}
+
 // ── シミュレーション脳断面 Phantom ──────────────────────────────────────────
 // 現在のTR/TE/TI/FAに基づいて各組織の信号強度をリアルタイム計算し
 // syngo MR-like な疑似MR断面画像として表示する
@@ -1044,6 +1140,9 @@ export function RoutineTab() {
             min={5} max={180} step={5} unit="°"
             onChange={v => setParam('flipAngle', v as number)} highlight={hl('flipAngle')} />
           <ErnstAngleIndicator />
+
+          {/* Steady-state convergence — for GRE/TSE sequences */}
+          <SteadyStateConvergence />
 
           <SignalCurveChart />
 

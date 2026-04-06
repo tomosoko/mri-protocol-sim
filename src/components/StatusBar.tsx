@@ -55,8 +55,10 @@ export function StatusBar() {
 
       <Sep />
 
-      {/* Field strength */}
+      {/* Field strength + Larmor freq */}
       <Metric label="B0" value={`${params.fieldStrength}T`} valueColor="#e88b00" />
+      <Metric label="f₀" value={`${params.fieldStrength >= 2.5 ? '127.7' : '63.9'}MHz`} valueColor="#e88b0066"
+        title={`Larmor周波数: ${params.fieldStrength >= 2.5 ? '127.74' : '63.87'} MHz`} />
 
       <Sep />
 

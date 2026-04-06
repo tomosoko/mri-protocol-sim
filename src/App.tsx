@@ -101,6 +101,13 @@ export default function App() {
     return null
   }
 
+  // Live clock
+  const [liveTime, setLiveTime] = useState(() => new Date().toTimeString().slice(0, 8))
+  useEffect(() => {
+    const id = setInterval(() => setLiveTime(new Date().toTimeString().slice(0, 8)), 1000)
+    return () => clearInterval(id)
+  }, [])
+
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#141414', color: '#c8ccd6' }}>
       {/* Title bar */}
@@ -120,6 +127,8 @@ export default function App() {
             {params.fieldStrength >= 2.5 ? 'Prisma 3T' : 'Aera 1.5T'}
           </span>
           <span style={{ color: '#374151', fontSize: '9px' }}>syngo MR E11</span>
+          {/* Live clock */}
+          <span className="font-mono" style={{ color: '#1e3a1e', fontSize: '9px', letterSpacing: '0.08em' }}>{liveTime}</span>
         </div>
           <div className="flex items-center gap-1">
             <button
