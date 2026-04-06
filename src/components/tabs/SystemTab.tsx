@@ -3,6 +3,172 @@ import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcSARLevel, calcScanTime } from '../../store/calculators'
 
+// ── スキャナーボア断面図 ────────────────────────────────────────────────────────
+// 超電導磁石 → 傾斜磁場コイル → RFボディコイル → 患者 の同心円構造を可視化
+// Siemens MAGNETOM ボア内断面の教育的表示
+function ScannerBoreDiagram() {
+  const { params } = useProtocolStore()
+  const coil = params.coilType ?? 'Body'
+  const is3T = params.fieldStrength >= 2.5
+
+  const W = 280, H = 160
+  const CX = W / 2, CY = H / 2 + 5
+
+  // Bore radii (approximate, to scale at 70cm bore)
+  const R_CRYO   = 115   // Cryostat (outermost)
+  const R_GRAD   = 90    // Gradient coil
+  const R_RF     = 74    // RF body coil
+  const R_BORE   = 62    // Inner bore (free space)
+  const R_PAT_X  = 35    // Patient ellipse (L/R)
+  const R_PAT_Y  = 24    // Patient ellipse (H/F ... shown as A/P)
+
+  // Coil element positions (distributed around patient)
+  const COIL_CONFIGS: Record<string, { n: number; color: string; r: number; label: string }> = {
+    Head_64:  { n: 32, color: '#34d399', r: R_PAT_X + 8,  label: 'Head 64ch' },
+    Head_20:  { n: 20, color: '#60a5fa', r: R_PAT_X + 8,  label: 'Head 20ch' },
+    Spine_32: { n: 16, color: '#a78bfa', r: R_PAT_X + 10, label: 'Spine 32ch' },
+    Body:     { n: 12, color: '#fb923c', r: R_PAT_X + 11, label: 'Body 18ch' },
+    Knee:     { n: 8,  color: '#fbbf24', r: R_PAT_X + 7,  label: 'Knee 15ch' },
+    Shoulder: { n: 8,  color: '#f87171', r: R_PAT_X + 8,  label: 'Shoulder 16ch' },
+    Flex:     { n: 4,  color: '#e88b00', r: R_PAT_X + 9,  label: 'Flex 4ch' },
+  }
+  const coilCfg = COIL_CONFIGS[coil] ?? COIL_CONFIGS.Body
+
+  // Coil element positions on circle around patient
+  const coilElements = useMemo(() => {
+    return Array.from({ length: coilCfg.n }, (_, i) => {
+      const angle = (i / coilCfg.n) * 2 * Math.PI - Math.PI / 2
+      return {
+        x: CX + coilCfg.r * Math.cos(angle),
+        y: CY + coilCfg.r * Math.sin(angle),
+        angle,
+      }
+    })
+  }, [coilCfg.n, coilCfg.r])
+
+  // B0 field lines (horizontal, pointing along Z = bore axis = perpendicular to cross-section)
+  // Shown as dots in cross-section (field into the screen)
+  const fieldDots = useMemo(() => {
+    const dots: { x: number; y: number; inBore: boolean }[] = []
+    for (let y = CY - R_BORE + 8; y <= CY + R_BORE - 8; y += 12) {
+      for (let x = CX - R_BORE + 8; x <= CX + R_BORE - 8; x += 14) {
+        const d = Math.sqrt((x - CX) ** 2 + (y - CY) ** 2)
+        const inBore = d < R_BORE - 4
+        const inPatient = ((x - CX) / R_PAT_X) ** 2 + ((y - CY) / R_PAT_Y) ** 2 < 1
+        if (inBore && !inPatient) dots.push({ x, y, inBore })
+      }
+    }
+    return dots
+  }, [])
+
+  // SAR level color
+  const sarPct = calcSARLevel(params)
+  const rfColor = sarPct > 85 ? '#ef4444' : sarPct > 55 ? '#fbbf24' : '#e88b00'
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#060809', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-semibold" style={{ color: '#60a5fa', fontSize: '9px', letterSpacing: '0.05em' }}>
+          SCANNER BORE (Cross-Section)
+        </span>
+        <span style={{ fontSize: '8px', color: '#374151' }}>
+          {is3T ? 'MAGNETOM Prisma 3T' : 'MAGNETOM Aera 1.5T'} — 70cm bore
+        </span>
+      </div>
+
+      <svg width={W} height={H}>
+        {/* ── Cryostat (superconducting magnet) */}
+        <ellipse cx={CX} cy={CY} rx={R_CRYO} ry={R_CRYO * 0.55}
+          fill="none" stroke="#1a3050" strokeWidth={8} />
+        <ellipse cx={CX} cy={CY} rx={R_CRYO} ry={R_CRYO * 0.55}
+          fill="none" stroke="#0a1820" strokeWidth={6} opacity={0.5} />
+
+        {/* ── Gradient coil (aluminum, water-cooled) */}
+        <ellipse cx={CX} cy={CY} rx={R_GRAD} ry={R_GRAD * 0.55}
+          fill="#0a1a28" stroke="#1e4060" strokeWidth={3} />
+        <text x={CX - R_GRAD + 2} y={CY - R_GRAD * 0.55 + 8}
+          fill="#1e4060" style={{ fontSize: '6px' }}>Gradient Coil</text>
+
+        {/* ── RF body coil (birdcage) */}
+        <ellipse cx={CX} cy={CY} rx={R_RF} ry={R_RF * 0.55}
+          fill="#08101a" stroke={rfColor} strokeWidth={1.5} opacity={0.7} />
+        {/* Birdcage rungs (12 rungs) */}
+        {Array.from({ length: 12 }, (_, i) => {
+          const a = (i / 12) * 2 * Math.PI
+          const x1 = CX + R_RF * Math.cos(a)
+          const y1 = CY + R_RF * 0.55 * Math.sin(a)
+          return <circle key={i} cx={x1} cy={y1} r={2} fill={rfColor} opacity={0.5} />
+        })}
+        <text x={CX + R_RF - 14} y={CY - R_RF * 0.55 + 8}
+          fill={rfColor + '80'} style={{ fontSize: '6px' }}>RF Coil</text>
+
+        {/* ── Inner bore (free space / air) */}
+        <ellipse cx={CX} cy={CY} rx={R_BORE} ry={R_BORE * 0.55}
+          fill="#040608" stroke="#0f1820" strokeWidth={1} />
+
+        {/* ── B0 field dots (field going into the screen = Z direction) */}
+        {fieldDots.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={1.2}
+            fill={is3T ? '#1a2a50' : '#102030'} opacity={0.8} />
+        ))}
+
+        {/* ── Patient cross-section (ellipse) */}
+        <ellipse cx={CX} cy={CY} rx={R_PAT_X} ry={R_PAT_Y}
+          fill="#1a0f0a" stroke="#2a1810" strokeWidth={1.5} />
+        {/* Subcutaneous fat ring */}
+        <ellipse cx={CX} cy={CY} rx={R_PAT_X - 3} ry={R_PAT_Y - 3}
+          fill="none" stroke="#2a1505" strokeWidth={2} opacity={0.6} />
+        {/* Spinal cord approximation */}
+        <circle cx={CX} cy={CY + R_PAT_Y * 0.5} r={3}
+          fill="#0f0f1a" stroke="#1a1a30" strokeWidth={0.8} />
+
+        {/* ── Phased array coil elements */}
+        {coilElements.map((el, i) => (
+          <g key={i}>
+            <rect
+              x={el.x - 3.5} y={el.y - 2}
+              width={7} height={4}
+              rx={1}
+              fill={coilCfg.color + '25'}
+              stroke={coilCfg.color}
+              strokeWidth={0.8}
+              transform={`rotate(${el.angle * 180 / Math.PI + 90}, ${el.x}, ${el.y})`}
+            />
+          </g>
+        ))}
+
+        {/* ── Table (patient support) */}
+        <rect x={CX - 30} y={CY + R_PAT_Y - 1} width={60} height={6}
+          fill="#0a0a0a" stroke="#1a1a1a" strokeWidth={0.8} rx={1} />
+
+        {/* ── Labels */}
+        <text x={8} y={14} fill="#1a3050" style={{ fontSize: '7px' }}>Superconducting Magnet</text>
+        <text x={CX} y={CY} textAnchor="middle" dominantBaseline="middle"
+          fill="#2a1810" style={{ fontSize: '7px' }}>Patient</text>
+
+        {/* ── Isocenter cross */}
+        <line x1={CX - 6} y1={CY} x2={CX + 6} y2={CY} stroke="#e88b0030" strokeWidth={0.8} />
+        <line x1={CX} y1={CY - 6} x2={CX} y2={CY + 6} stroke="#e88b0030" strokeWidth={0.8} />
+        <text x={CX + 4} y={CY - 4} fill="#e88b0050" style={{ fontSize: '6px' }}>iso</text>
+
+        {/* ── Field direction indicator */}
+        <text x={W - 8} y={H - 4} textAnchor="end" fill="#1a3050" style={{ fontSize: '6px' }}>
+          B₀ ⊙ Z-axis
+        </text>
+      </svg>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-3 gap-y-0 mt-1" style={{ fontSize: '7px', color: '#374151' }}>
+        <span style={{ color: '#1e4060' }}>■ Gradient</span>
+        <span style={{ color: rfColor }}>○ RF Coil</span>
+        <span style={{ color: coilCfg.color }}>■ {coilCfg.label}</span>
+        <span style={{ color: '#1a3050' }}>• B₀ field</span>
+        <span style={{ color: '#2a1810' }}>◯ Patient</span>
+      </div>
+    </div>
+  )
+}
+
 // ── 傾斜磁場パフォーマンスモニター ────────────────────────────────────────────
 function GradientMonitor() {
   const { params } = useProtocolStore()
@@ -775,6 +941,139 @@ function PrescanStatusPanel() {
   )
 }
 
+// ── 2D B0 フィールドマップ ───────────────────────────────────────────────────
+// プリスキャン（シム）後の残差 B0 分布を 2D カラーマップで可視化
+// 実際の syngo フィールドマップと同様、±Hz でカラーエンコード
+function B0FieldMap2D() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // Residual B0 distribution model (post-shim)
+  // Realistic: main remnants are Z2 quadratic + tissue susceptibility hotspots
+  const sigma = is3T ? 30 : 15  // typical residual spread (Hz) after shimming
+
+  const NX = 20, NY = 14  // grid cells
+  const map = useMemo(() => {
+    const seed = params.fov * 0.07 + params.slices * 0.13
+    return Array.from({ length: NY }, (_, yi) => {
+      return Array.from({ length: NX }, (_, xi) => {
+        // Normalized coordinates (-1 to 1)
+        const nx = (xi / (NX - 1) - 0.5) * 2
+        const ny = (yi / (NY - 1) - 0.5) * 2
+        const r2 = nx * nx + ny * ny
+        // Only inside ellipse
+        if (r2 > 1.0) return null
+        // Residual B0 = Z2 remnant + linear drift + local susceptibility
+        const z2 = (2 * ny * ny - nx * nx) * sigma * 0.5  // Z2 quadratic remnant
+        const linear = (nx * Math.sin(seed) + ny * Math.cos(seed * 0.7)) * sigma * 0.3
+        // Local susceptibility: hotspots at anatomically plausible positions
+        const sus1 = Math.exp(-((nx + 0.3) ** 2 + (ny - 0.6) ** 2) * 8) * sigma * 0.8   // air-tissue (top)
+        const sus2 = Math.exp(-((nx - 0.5) ** 2 + (ny + 0.4) ** 2) * 10) * sigma * 0.6  // bowel/sinus
+        return z2 + linear + sus1 - sus2 * 0.5
+      })
+    })
+  }, [is3T, params.fov, params.slices, sigma, NX, NY])
+
+  // Color scale: -maxHz (blue) → 0 (green) → +maxHz (red)
+  const maxHz = sigma * 1.5
+  const hzToColor = (hz: number) => {
+    const t = Math.max(-1, Math.min(1, hz / maxHz))
+    if (t < 0) {
+      // blue to green
+      const s = -t
+      const r = Math.round(s * 0 + (1 - s) * 0)
+      const g = Math.round(s * 0 + (1 - s) * 120 + 40)
+      const b = Math.round(s * 200 + (1 - s) * 60)
+      return `rgb(${r},${g},${b})`
+    } else {
+      // green to red
+      const s = t
+      const r = Math.round(s * 220 + (1 - s) * 0)
+      const g = Math.round(s * 60 + (1 - s) * 160)
+      const b = Math.round(0)
+      return `rgb(${r},${g},${b})`
+    }
+  }
+
+  const W = 200, H = 100
+  const cellW = W / NX, cellH = H / NY
+
+  // Statistics
+  const allValues = map.flat().filter(v => v !== null) as number[]
+  const maxAbsHz = Math.round(Math.max(...allValues.map(Math.abs)))
+  const stdHz = Math.round(Math.sqrt(allValues.reduce((s, v) => s + v * v, 0) / allValues.length))
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#060a10', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#34d399', fontSize: '9px', letterSpacing: '0.05em' }}>
+          B0 FIELD MAP (Post-Shim)
+        </span>
+        <div style={{ fontSize: '8px', color: '#374151' }}>
+          rms: <span className="font-mono" style={{ color: stdHz > 20 ? '#f87171' : '#34d399' }}>{stdHz}Hz</span>
+          {' '}peak: <span className="font-mono" style={{ color: '#4b5563' }}>±{maxAbsHz}Hz</span>
+        </div>
+      </div>
+
+      <div className="flex gap-2 items-start">
+        {/* 2D color map */}
+        <svg width={W} height={H} style={{ borderRadius: 3, overflow: 'hidden' }}>
+          {map.map((row, yi) =>
+            row.map((hz, xi) => {
+              if (hz === null) return null
+              const x = xi * cellW
+              const y = yi * cellH
+              return (
+                <rect key={`${xi}_${yi}`} x={x} y={y} width={cellW + 0.5} height={cellH + 0.5}
+                  fill={hzToColor(hz)} />
+              )
+            })
+          )}
+          {/* Ellipse boundary overlay */}
+          <ellipse cx={W / 2} cy={H / 2} rx={W / 2 - 1} ry={H / 2 - 1}
+            fill="none" stroke="#0a0a0a" strokeWidth={2} />
+          {/* Center crosshair */}
+          <line x1={W / 2 - 8} y1={H / 2} x2={W / 2 + 8} y2={H / 2} stroke="#ffffff20" strokeWidth={0.8} />
+          <line x1={W / 2} y1={H / 2 - 8} x2={W / 2} y2={H / 2 + 8} stroke="#ffffff20" strokeWidth={0.8} />
+          {/* Label */}
+          <text x={4} y={10} fill="#ffffff30" style={{ fontSize: '6px' }}>Hz offset</text>
+        </svg>
+
+        {/* Color scale bar */}
+        <div className="flex flex-col items-center gap-0.5" style={{ minWidth: 24 }}>
+          <span style={{ fontSize: '6px', color: '#f87171' }}>+{Math.round(maxHz)}Hz</span>
+          <svg width={10} height={60}>
+            {Array.from({ length: 30 }, (_, i) => (
+              <rect key={i} x={0} y={i * 2} width={10} height={2}
+                fill={hzToColor(maxHz * (1 - i / 15))} />
+            ))}
+          </svg>
+          <span style={{ fontSize: '6px', color: '#38bdf8' }}>-{Math.round(maxHz)}Hz</span>
+        </div>
+
+        {/* Stats */}
+        <div className="flex flex-col gap-1" style={{ fontSize: '7px' }}>
+          <div>
+            <span style={{ color: '#374151' }}>Field: </span>
+            <span style={{ color: is3T ? '#fbbf24' : '#9ca3af' }}>{params.fieldStrength}T</span>
+          </div>
+          <div>
+            <span style={{ color: '#374151' }}>RMS: </span>
+            <span className="font-mono" style={{ color: stdHz > 20 ? '#f87171' : '#34d399' }}>{stdHz}Hz</span>
+          </div>
+          <div>
+            <span style={{ color: '#374151' }}>IQR: </span>
+            <span className="font-mono" style={{ color: '#4b5563' }}>±{Math.round(stdHz * 0.67)}Hz</span>
+          </div>
+          <div style={{ marginTop: 4, color: '#252525', lineHeight: 1.4 }}>
+            {stdHz < 15 ? '✓ Excellent' : stdHz < 25 ? '○ Adequate' : '⚠ Poor shim'}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type SubTab = 'Misc' | 'Adjustments' | 'Adj.Volume' | 'pTx' | 'Tx-Rx'
 
 const subTabStyle = (active: boolean) => ({
@@ -910,6 +1209,9 @@ export function SystemTab() {
           {/* Cryo System Monitor */}
           <CryoMonitor />
 
+          {/* Scanner Bore Cross-Section Diagram */}
+          <ScannerBoreDiagram />
+
           {/* SAR Breakdown */}
           <SARBreakdown />
 
@@ -925,6 +1227,9 @@ export function SystemTab() {
         <div className="space-y-0.5">
           {/* Prescan / shimming status */}
           <PrescanStatusPanel />
+
+          {/* 2D B0 field map */}
+          <B0FieldMap2D />
 
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Adjustment Strategy</div>
           <ParamField label="Adjustment Strategy" value={adjStrategy} type="select"
