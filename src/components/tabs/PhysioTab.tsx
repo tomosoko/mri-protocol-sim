@@ -338,6 +338,31 @@ export function PhysioTab() {
               </div>
             </>
           )}
+          {/* VENC / Phase Contrast calculator */}
+          <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0a0e14', border: '1px solid #1a2a3a' }}>
+            <div className="font-semibold mb-2" style={{ color: '#60a5fa' }}>Phase Contrast VENC 設定</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {[
+                { label: '大動脈（収縮期）', venc: 150, note: '最大流速の1.2倍設定', color: '#f87171' },
+                { label: '大動脈（拡張期）', venc: 80,  note: '低流速期は下げる',   color: '#fb923c' },
+                { label: '肺動脈',           venc: 100, note: '右心系は大動脈より低', color: '#fbbf24' },
+                { label: '冠動脈',           venc: 60,  note: '最大流速~40-50cm/s', color: '#34d399' },
+                { label: '頸動脈',           venc: 120, note: '狭窄部は高VENC設定', color: '#60a5fa' },
+                { label: '脳静脈洞',         venc: 40,  note: '静脈は低VENC',       color: '#a78bfa' },
+              ].map(({ label, venc, note, color }) => (
+                <div key={label} className="rounded p-1.5" style={{ background: '#080c10', border: '1px solid #1a2030' }}>
+                  <div className="flex justify-between">
+                    <span style={{ color, fontSize: '8px', fontWeight: 600 }}>{label}</span>
+                    <span className="font-mono" style={{ color, fontSize: '9px' }}>{venc} cm/s</span>
+                  </div>
+                  <div style={{ color: '#374151', fontSize: '7px', marginTop: 1 }}>{note}</div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 pt-1.5" style={{ borderTop: '1px solid #111', color: '#374151', fontSize: '7px' }}>
+              VENC設定 = 測定したい最大流速より少し大きく。VENC小→速度分解能↑・エイリアシングリスク↑
+            </div>
+          </div>
         </div>
       )}
 

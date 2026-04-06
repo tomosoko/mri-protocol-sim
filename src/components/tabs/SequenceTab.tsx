@@ -930,6 +930,139 @@ function ADCSignalChart() {
   )
 }
 
+// ── SMS（Simultaneous Multi-Slice）/ Multiband パネル ──────────────────────
+// 現代の高速 MRI に必須の SMS スライス同時励起を可視化
+// MB factor × iPAT factor の組み合わせ効果も表示
+function SMSAccelerationPanel() {
+  const { params } = useProtocolStore()
+  const [mbFactor, setMbFactor] = useState(1)
+
+  const isDWI = params.turboFactor <= 1 && params.bValues.length > 1
+  const isEPI = isDWI
+  const isFMRI = isDWI  // fMRI typically uses SMS EPI
+
+  if (!isEPI && params.turboFactor < 2) return null
+
+  // SMS g-factor model (simplified): g_sms ≈ 1 + k×(MB-1)^0.5
+  const smsGFactor = mbFactor > 1 ? (1 + 0.04 * Math.sqrt(mbFactor - 1)) : 1
+  const smsSnrPenalty = mbFactor > 1 ? (1 / Math.sqrt(mbFactor) * (1 / smsGFactor)) : 1
+  const taSaving = mbFactor > 1 ? Math.round((1 - 1 / mbFactor) * 100) : 0
+
+  // Combined acceleration with iPAT
+  const totalAccel = mbFactor * (params.ipatMode !== 'Off' ? params.ipatFactor : 1)
+
+  // Coverage increase
+  const newSliceCoverage = params.slices * mbFactor
+  const maxSlices = Math.min(256, newSliceCoverage)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080c10', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#f472b6', fontSize: '9px', letterSpacing: '0.05em' }}>
+          SMS / MULTIBAND ACCELERATION
+        </span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>同時多スライス励起</span>
+      </div>
+
+      {/* MB Factor selector */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <span style={{ color: '#4b5563', fontSize: '8px' }}>MB Factor:</span>
+        <div className="flex gap-1">
+          {[1, 2, 3, 4, 6, 8].map(mb => (
+            <button
+              key={mb}
+              onClick={() => setMbFactor(mb)}
+              style={{
+                background: mbFactor === mb ? '#f472b618' : '#111',
+                color: mbFactor === mb ? '#f472b6' : '#4b5563',
+                border: `1px solid ${mbFactor === mb ? '#f472b660' : '#252525'}`,
+                borderRadius: 3,
+                fontSize: '9px',
+                fontFamily: 'monospace',
+                padding: '1px 5px',
+                cursor: 'pointer',
+              }}
+            >
+              {mb}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mbFactor > 1 && (
+        <div className="space-y-1">
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5" style={{ fontSize: '8px' }}>
+            <div className="flex justify-between">
+              <span style={{ color: '#374151' }}>TA短縮</span>
+              <span className="font-mono" style={{ color: '#34d399' }}>-{taSaving}%</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: '#374151' }}>SNR損失</span>
+              <span className="font-mono" style={{ color: smsSnrPenalty < 0.65 ? '#f87171' : '#fbbf24' }}>
+                {Math.round(smsSnrPenalty * 100)}%
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: '#374151' }}>SMS g-factor</span>
+              <span className="font-mono" style={{ color: '#9ca3af' }}>{smsGFactor.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: '#374151' }}>総加速倍率</span>
+              <span className="font-mono" style={{ color: '#f472b6' }}>×{totalAccel}</span>
+            </div>
+            <div className="flex justify-between">
+              <span style={{ color: '#374151' }}>スライスカバレッジ</span>
+              <span className="font-mono" style={{ color: '#60a5fa' }}>×{mbFactor}→{maxSlices}枚</span>
+            </div>
+          </div>
+
+          {/* SMS slice group visualization */}
+          <div className="flex gap-0.5 mt-1" style={{ height: 14 }}>
+            {Array.from({ length: Math.min(params.slices, 20) }, (_, i) => {
+              const group = Math.floor(i / Math.ceil(params.slices / mbFactor))
+              const colors = ['#f472b6', '#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#fb923c', '#38bdf8']
+              return (
+                <div key={i} style={{
+                  flex: 1,
+                  background: colors[group % colors.length] + '60',
+                  border: `1px solid ${colors[group % colors.length]}`,
+                  borderRadius: 1,
+                }} title={`Slice ${i + 1} — Group ${group + 1}`} />
+              )
+            })}
+          </div>
+          <div style={{ color: '#374151', fontSize: '7px' }}>
+            色 = 同時励起グループ ({Math.ceil(params.slices / mbFactor)}ショット)
+          </div>
+
+          {isFMRI && (
+            <div className="mt-1 p-1.5 rounded" style={{ background: '#1a0d1f', border: '1px solid #7e22ce30' }}>
+              <span style={{ color: '#c084fc', fontSize: '7px' }}>
+                fMRI: SMS MB={mbFactor} → TR実効={Math.round(params.TR / mbFactor)}ms相当
+                · tSNR影響: {Math.round(smsSnrPenalty * 100)}%
+              </span>
+            </div>
+          )}
+
+          {mbFactor >= 4 && (
+            <div style={{ color: '#f87171', fontSize: '7px' }}>
+              ⚠ MB≥4: g-factorと残留アーチファクトに注意。CAIPIRINHA+SMS推奨。
+            </div>
+          )}
+        </div>
+      )}
+
+      {mbFactor === 1 && (
+        <div style={{ color: '#374151', fontSize: '7px' }}>
+          MB Factor = 1: SMS無効。複数のスライスを同時励起するには MB≥2 を選択。
+          EPI/DWI/fMRI で特に効果的（TR短縮 → ダイナミック分解能向上）。
+        </div>
+      )}
+    </div>
+  )
+}
+
 // 臨床用 b値プリセット
 const B_VALUE_PRESETS: { label: string; values: number[]; hint: string }[] = [
   { label: '脳梗塞', values: [0, 1000], hint: 'b=0+1000 | 急性期梗塞の標準' },
@@ -1044,6 +1177,9 @@ export function SequenceTab() {
 
       {/* PSF Blur Simulator (TSE only) */}
       <PSFBlurSimulator />
+
+      {/* SMS / Multiband acceleration */}
+      <SMSAccelerationPanel />
 
       {/* DWI b-values */}
       <div className="border-t mt-2 pt-2 mx-3" style={{ borderColor: '#252525' }}>
