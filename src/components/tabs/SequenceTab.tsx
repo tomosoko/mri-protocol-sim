@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcT2Blur } from '../../store/calculators'
@@ -61,6 +61,116 @@ function MinTECalculator() {
             )}
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── TE バジェット分解表 ──────────────────────────────────────────────────────
+// リアルな syngo MR コンソールの「TE Budget」表示
+// TE の物理的な構成要素をブロック図で視覚化する
+function TEBudgetChart() {
+  const { params } = useProtocolStore()
+
+  const isTSE = params.turboFactor > 1
+  const isDWI = params.bValues.length > 1 && params.turboFactor <= 2
+
+  // Time components (simplified)
+  const rfDur = 2           // RF pulse duration (ms)
+  const gssRephase = 1.5    // Slice select rephase lobe (ms)
+  const gpeDur = 1.2        // Phase encode duration (ms)
+  const readoutHalf = Math.round((params.matrixFreq / params.bandwidth) * 500) / 100  // ms, half-readout
+  const gfePreDephase = 1.5  // Freq encode pre-dephase (ms)
+
+  // For TSE: center echo position adds ES × floor(ETL/2)
+  const tseCenterEcho = isTSE
+    ? Math.floor(params.turboFactor / 2) * params.echoSpacing
+    : 0
+
+  // For DWI: diffusion encoding (two lobes + crusher)
+  const diffEncode = isDWI && params.bValues.some(b => b > 0) ? 28 : 0
+
+  // Total TE from these components
+  const teFromComponents = rfDur + gssRephase + gpeDur + gfePreDephase + readoutHalf + diffEncode + tseCenterEcho
+
+  const teMin = Math.ceil(teFromComponents)
+  const teActual = params.TE
+  const teExcess = Math.max(0, teActual - teMin)
+
+  const W = 300
+  const H = 32
+  const scale = W / Math.max(teActual, teMin + 5, 20)
+
+  const segments: { label: string; dur: number; color: string; hint: string }[] = [
+    { label: 'RF', dur: rfDur, color: '#a78bfa', hint: `RF励起パルス ~${rfDur}ms` },
+    { label: 'Gss', dur: gssRephase, color: '#6b7280', hint: `スライス選択再位相 ${gssRephase}ms` },
+    { label: 'Gpe', dur: gpeDur, color: '#34d399', hint: `位相エンコード ${gpeDur}ms` },
+    { label: 'Gfe↓', dur: gfePreDephase, color: '#fbbf24', hint: `読み取り方向デフェーズ ${gfePreDephase}ms` },
+    ...(diffEncode > 0 ? [{ label: 'Diff', dur: diffEncode, color: '#f87171', hint: `拡散エンコード ${diffEncode}ms` }] : []),
+    ...(tseCenterEcho > 0 ? [{ label: `ETL/2×ES`, dur: tseCenterEcho, color: '#e88b00', hint: `k中心エコーまで ${tseCenterEcho.toFixed(1)}ms (ETL=${params.turboFactor}×ES/2)` }] : []),
+    { label: 'ADC/2', dur: readoutHalf, color: '#60a5fa', hint: `読み取り半分 ${readoutHalf}ms` },
+    ...(teExcess > 0 ? [{ label: '余裕', dur: teExcess, color: '#1a2a1a', hint: `TE余裕 +${teExcess.toFixed(1)}ms (TE_min=${teMin}ms)` }] : []),
+  ]
+
+  let cumX = 0
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#060a0f', border: '1px solid #1a2035' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px', letterSpacing: '0.05em' }}>TE BUDGET</span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono" style={{ color: teActual < teMin ? '#f87171' : '#34d399', fontSize: '9px', fontWeight: 700 }}>
+            TE_min: {teMin}ms
+          </span>
+          <span style={{ color: '#4b5563', fontSize: '8px' }}>
+            / 設定: {teActual}ms
+          </span>
+        </div>
+      </div>
+
+      {/* Time bar chart */}
+      <svg width={W} height={H + 12}>
+        {segments.map((seg, i) => {
+          const x = cumX * scale
+          const w = seg.dur * scale
+          cumX += seg.dur
+          return (
+            <g key={i}>
+              <rect x={x} y={4} width={w} height={H - 8}
+                fill={seg.color} opacity={seg.label === '余裕' ? 0.2 : 0.75}
+                stroke={seg.color} strokeWidth={0.5} strokeOpacity={0.5}
+                rx={1} />
+              {w > 14 && (
+                <text x={x + w / 2} y={H / 2 + 2} textAnchor="middle"
+                  fill={seg.label === '余裕' ? '#374151' : '#000'}
+                  style={{ fontSize: '6px', fontWeight: 600, pointerEvents: 'none' }}>
+                  {seg.label}
+                </text>
+              )}
+            </g>
+          )
+        })}
+        {/* TE marker */}
+        <line x1={teActual * scale} y1={0} x2={teActual * scale} y2={H + 4}
+          stroke="#e88b00" strokeWidth={1.5} strokeDasharray="2,2" />
+        <text x={teActual * scale + 2} y={H + 10} fill="#e88b00" style={{ fontSize: '7px' }}>TE={teActual}</text>
+        {/* TE_min marker */}
+        {teActual > teMin && (
+          <>
+            <line x1={teMin * scale} y1={0} x2={teMin * scale} y2={H + 4}
+              stroke="#34d399" strokeWidth={1} strokeDasharray="1,2" opacity={0.6} />
+            <text x={teMin * scale + 2} y={8} fill="#34d399" style={{ fontSize: '6px' }}>min</text>
+          </>
+        )}
+      </svg>
+
+      {/* Duration legend */}
+      <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5" style={{ fontSize: '7px' }}>
+        {segments.filter(s => s.label !== '余裕').map(seg => (
+          <span key={seg.label} style={{ color: seg.color }}>
+            {seg.label}:{seg.dur.toFixed(1)}ms
+          </span>
+        ))}
       </div>
     </div>
   )
@@ -447,6 +557,274 @@ function PSFBlurSimulator() {
   )
 }
 
+// ── 2D k空間サンプリンググリッド ─────────────────────────────────────────────
+// Siemens syngo MR コンソールの k-space browser に相当するビジュアライザー
+// iPAT間引き・Partial Fourier欠損・ETLグループ配色・ACSライン表示
+function KSpaceGrid2D() {
+  const { params } = useProtocolStore()
+  const [hovered, setHovered] = useState<{ row: number; info: string } | null>(null)
+
+  const etl   = Math.min(params.turboFactor, 64)
+  const isTSE = etl > 1
+  const isDWI = params.bValues.length > 1 && params.turboFactor <= 2
+
+  // Display: 40 ky lines × 20 kx columns
+  const ROWS = 40
+  const COLS = 20
+  const cellW = 8
+  const cellH = 5
+  const W = COLS * cellW + 40
+  const H = ROWS * cellH + 28
+  const PAD_L = 30
+
+  const ipatFactor = params.ipatMode !== 'Off' ? params.ipatFactor : 1
+
+  // Partial Fourier: missing from one end
+  const pfFrac = params.partialFourier === 'Off' ? 1.0
+    : params.partialFourier === '7/8' ? 7/8
+    : params.partialFourier === '6/8' ? 6/8
+    : params.partialFourier === '5/8' ? 5/8
+    : 0.5
+  const missingRows = Math.round(ROWS * (1 - pfFrac))
+
+  // ACS region for iPAT (center ±3 lines)
+  const ACS_HALF = ipatFactor > 1 ? 3 : 0
+  const centerRow = Math.floor(ROWS / 2)
+
+  // ETL group → colour palette (10 distinct colours cycling)
+  const ETL_COLORS = [
+    '#e88b00', '#60a5fa', '#34d399', '#a78bfa', '#f87171',
+    '#fbbf24', '#38bdf8', '#4ade80', '#fb923c', '#c084fc',
+  ]
+
+  // For TSE: which ETL group does row `r` belong to?
+  // Linear ordering: fill from row 0 → ROWS-1 sequentially across TRs
+  const linesPerTR = etl
+  const getEchoGroup = (row: number) => Math.floor(row / linesPerTR)
+
+  const rows = useMemo(() => {
+    return Array.from({ length: ROWS }, (_, r) => {
+      const isPFMissing = r < missingRows   // bottom (−ky) side missing
+
+      // ACS: center rows always acquired in iPAT
+      const isACS = Math.abs(r - centerRow) <= ACS_HALF && ipatFactor > 1
+
+      // iPAT skip: every other line (relative to center)
+      const relRow = r - centerRow
+      const isIPATSkipped = ipatFactor > 1 && !isACS && Math.abs(relRow) % ipatFactor !== 0
+
+      // EPI: acquisition order (zigzag — rows acquired bottom to top alternating direction)
+      const echoGroup = isTSE ? getEchoGroup(r) : (isDWI ? 0 : 0)
+      const color = isTSE ? ETL_COLORS[echoGroup % ETL_COLORS.length] : (isDWI ? '#f87171' : '#60a5fa')
+
+      // k-space weight (signal, Gaussian envelope peaking at center)
+      const distFromCenter = Math.abs(r - centerRow) / (ROWS / 2)
+      const kWeight = Math.exp(-distFromCenter * distFromCenter * 3)
+
+      return { isPFMissing, isACS, isIPATSkipped, echoGroup, color, kWeight, r }
+    })
+  }, [etl, ipatFactor, pfFrac, isTSE, isDWI, centerRow, ACS_HALF, missingRows])
+
+  // EPI zigzag: row acquisition order
+  const epiOrderMap = useMemo(() => {
+    if (!isDWI) return new Map<number, number>()
+    const map = new Map<number, number>()
+    // EPI fills from center outward, alternating
+    const order: number[] = []
+    let lo = centerRow, hi = centerRow + 1
+    order.push(centerRow)
+    while (order.length < ROWS) {
+      if (hi < ROWS) { order.push(hi++); }
+      if (lo >= 0)   { order.push(lo--); }
+    }
+    order.forEach((r, i) => map.set(r, i))
+    return map
+  }, [isDWI, centerRow])
+
+  const totalGroups = isTSE ? Math.ceil(ROWS / etl) : 1
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080808', border: '1px solid #1a2030' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#60a5fa', fontSize: '9px', letterSpacing: '0.06em' }}>
+          k-SPACE SAMPLING PATTERN
+        </span>
+        <div className="flex gap-1.5 text-xs" style={{ fontSize: '7px', color: '#4b5563' }}>
+          {isTSE && <span>ETL={etl} / {totalGroups} shots</span>}
+          {isDWI && <span>EPI single-shot</span>}
+          {ipatFactor > 1 && <span style={{ color: '#34d399' }}>iPAT ×{ipatFactor}</span>}
+          {params.partialFourier !== 'Off' && <span style={{ color: '#fbbf24' }}>PF {params.partialFourier}</span>}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        {/* k-space grid */}
+        <svg width={W} height={H} style={{ cursor: 'crosshair' }}>
+          {/* kx axis label */}
+          <text x={PAD_L + (COLS * cellW) / 2} y={H - 2} textAnchor="middle" fill="#252525" style={{ fontSize: '7px' }}>kx</text>
+          {/* ky labels */}
+          <text x={PAD_L - 4} y={12} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>+ky</text>
+          <text x={PAD_L - 4} y={ROWS * cellH / 2 + 8} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
+          <text x={PAD_L - 4} y={ROWS * cellH + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>−ky</text>
+          <text x={8} y={ROWS * cellH / 2} textAnchor="middle" fill="#2a2a2a"
+            transform={`rotate(-90,8,${ROWS * cellH / 2})`} style={{ fontSize: '7px' }}>ky</text>
+
+          {rows.map(({ isPFMissing, isACS, isIPATSkipped, echoGroup, color, kWeight, r }) => {
+            const y = r * cellH + 8  // offset for label
+
+            // Determine fill color
+            let fill: string
+            let opacity = 0.85
+            let strokeColor = 'none'
+            let strokeW = 0
+
+            if (isPFMissing) {
+              fill = '#150a0a'
+              strokeColor = '#3a1a1a'
+              strokeW = 0.5
+            } else if (isIPATSkipped && !isACS) {
+              fill = '#111'
+              strokeColor = color + '40'
+              strokeW = 0.5
+            } else if (isACS) {
+              fill = '#1a1500'
+              strokeColor = '#e88b0080'
+              strokeW = 1
+              opacity = 0.95
+            } else {
+              // Normal acquired line — brightness by k-weight and echo group
+              const isCenter = Math.abs(r - centerRow) < 1
+              if (isCenter) {
+                fill = '#ffffff'
+              } else if (isTSE) {
+                // Blend ETL color with k-weight brightness
+                const bright = 0.25 + kWeight * 0.65
+                fill = color
+                opacity = bright
+              } else if (isDWI) {
+                // EPI zigzag: alternating brightness
+                const acqIdx = epiOrderMap.get(r) ?? r
+                fill = color
+                opacity = 0.3 + kWeight * 0.6
+                strokeColor = acqIdx % 2 === 0 ? '#f8717140' : 'none'
+                strokeW = acqIdx % 2 === 0 ? 0.5 : 0
+              } else {
+                fill = color
+                opacity = 0.3 + kWeight * 0.5
+              }
+            }
+
+            const isKCenter = Math.abs(r - centerRow) < 1
+            const info = isPFMissing
+              ? `ky[${r}]: Partial Fourier 欠損 (非取得)`
+              : isACS
+              ? `ky[${r}]: ACS (Auto-Calibration) — iPAT参照ライン`
+              : isIPATSkipped
+              ? `ky[${r}]: iPAT ×${ipatFactor} 間引き (補間)`
+              : isTSE
+              ? `ky[${r}]: Shot ${echoGroup + 1} / ETL Echo ${(r % etl) + 1}  k-weight=${kWeight.toFixed(2)}`
+              : isDWI
+              ? `ky[${r}]: EPI 取得順 ${(epiOrderMap.get(r) ?? 0) + 1}`
+              : `ky[${r}]: 取得済み`
+
+            return (
+              <g key={r}>
+                {/* Full-width stripe for all kx */}
+                <rect
+                  x={PAD_L}
+                  y={y}
+                  width={COLS * cellW}
+                  height={cellH - 0.5}
+                  fill={fill}
+                  fillOpacity={opacity}
+                  stroke={strokeColor}
+                  strokeWidth={strokeW}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={() => setHovered({ row: r, info })}
+                  onMouseLeave={() => setHovered(null)}
+                />
+                {/* k-center special decoration */}
+                {isKCenter && !isPFMissing && (
+                  <rect x={PAD_L} y={y} width={COLS * cellW} height={cellH - 0.5}
+                    fill="none" stroke="#e88b00" strokeWidth={1.5} />
+                )}
+              </g>
+            )
+          })}
+
+          {/* Partial Fourier divider line */}
+          {missingRows > 0 && (
+            <line
+              x1={PAD_L - 2}
+              y1={missingRows * cellH + 8}
+              x2={PAD_L + COLS * cellW + 2}
+              y2={missingRows * cellH + 8}
+              stroke="#f87171"
+              strokeWidth={1}
+              strokeDasharray="3,2"
+            />
+          )}
+        </svg>
+
+        {/* Legend */}
+        <div className="flex flex-col gap-1 justify-start" style={{ minWidth: 80, paddingTop: 8 }}>
+          <div style={{ fontSize: '7px', color: '#4b5563', marginBottom: 2 }}>凡例</div>
+          <LegendItem color="#ffffff" label="k=0 center" />
+          {isTSE && ETL_COLORS.slice(0, Math.min(totalGroups, 4)).map((c, i) => (
+            <LegendItem key={i} color={c} label={`Shot ${i + 1}`} opacity={0.7} />
+          ))}
+          {ipatFactor > 1 && (
+            <>
+              <LegendItem color="#e88b00" label="ACS line" border />
+              <LegendItem color="#111" label="iPAT 間引き" border borderColor="#60a5fa40" />
+            </>
+          )}
+          {missingRows > 0 && <LegendItem color="#150a0a" label={`PF 欠損 (${missingRows}行)`} border borderColor="#3a1a1a" />}
+
+          {/* Hover info */}
+          {hovered && (
+            <div className="mt-2 p-1.5 rounded" style={{ background: '#111', border: '1px solid #252525', fontSize: '7px', color: '#9ca3af', maxWidth: 90 }}>
+              {hovered.info}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex gap-3 mt-1.5 pt-1.5 flex-wrap" style={{ borderTop: '1px solid #111', fontSize: '7px', color: '#374151' }}>
+        {(() => {
+          const acquired = rows.filter(r => !r.isPFMissing && !r.isIPATSkipped).length
+          const missing = rows.filter(r => r.isPFMissing).length
+          const interpolated = rows.filter(r => r.isIPATSkipped && !r.isPFMissing).length
+          return (
+            <>
+              <span style={{ color: '#4ade80' }}>取得: {acquired}行 ({Math.round(acquired/ROWS*100)}%)</span>
+              {interpolated > 0 && <span style={{ color: '#60a5fa' }}>補間: {interpolated}行</span>}
+              {missing > 0 && <span style={{ color: '#f87171' }}>PF欠損: {missing}行</span>}
+            </>
+          )
+        })()}
+        {isTSE && <span>Shot数: {Math.ceil(ROWS/etl)}回 / ETL</span>}
+      </div>
+    </div>
+  )
+}
+
+function LegendItem({ color, label, opacity = 1, border = false, borderColor }: {
+  color: string; label: string; opacity?: number; border?: boolean; borderColor?: string
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <div style={{
+        width: 10, height: 6, background: color, opacity,
+        border: border ? `1px solid ${borderColor ?? color}` : 'none',
+        borderRadius: 1, flexShrink: 0,
+      }} />
+      <span style={{ color: '#4b5563', fontSize: '7px' }}>{label}</span>
+    </div>
+  )
+}
+
 // 臨床用 b値プリセット
 const B_VALUE_PRESETS: { label: string; values: number[]; hint: string }[] = [
   { label: '脳梗塞', values: [0, 1000], hint: 'b=0+1000 | 急性期梗塞の標準' },
@@ -485,11 +863,17 @@ export function SequenceTab() {
       {/* TE 関連の物理パラメータ */}
       <MinTECalculator />
 
+      {/* TE Budget breakdown */}
+      <TEBudgetChart />
+
       {/* Pulse sequence timing diagram */}
       <PulseSequenceDiagram />
 
       {/* k-space echo train visualization */}
       <KSpaceEchoTrainViz />
+
+      {/* 2D k-space sampling pattern */}
+      <KSpaceGrid2D />
 
       {/* ETL 計算インジケーター */}
       {params.turboFactor > 1 && (

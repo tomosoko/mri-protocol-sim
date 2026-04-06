@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
-import { calcSARLevel } from '../../store/calculators'
+import { calcSARLevel, calcScanTime } from '../../store/calculators'
 
 // ── 傾斜磁場パフォーマンスモニター ────────────────────────────────────────────
 function GradientMonitor() {
@@ -410,6 +410,9 @@ export function SystemTab() {
           {/* SAR Breakdown */}
           <SARBreakdown />
 
+          {/* SAR Accumulation Monitor */}
+          <SARAccumulationMonitor />
+
           {/* Coil Reference Table */}
           <CoilReferenceTable />
         </div>
@@ -602,6 +605,98 @@ function SARBreakdown() {
       {/* IEC limits */}
       <div className="mt-2 pt-2 text-xs" style={{ borderTop: '1px solid #252525', color: '#4b5563' }}>
         IEC limit: 頭部 3.2 W/kg / 体部 2.0 W/kg (全体平均)
+      </div>
+    </div>
+  )
+}
+
+// ── SAR 累積モニター ─────────────────────────────────────────────────────────
+// リアルなスキャナーは 6分間のSAR積算を監視する (IEC 60601-2-33)
+// 現在の SAR % × スキャン時間から「連続スキャン時にいつ制限超えるか」を計算
+function SARAccumulationMonitor() {
+  const { params } = useProtocolStore()
+  const sarPct = calcSARLevel(params)
+  const scanTimeSec = calcScanTime(params)
+
+  if (sarPct < 20) return null  // low SAR = not interesting to display
+
+  // IEC: 6-minute averaging window. 100% = limit reached at 6 min
+  // At sarPct%, continuous acquisition would reach limit in: 6min × (100/sarPct) min... no
+  // Actually: if SAR rate = sarPct% (of limit), then to accumulate 100% takes:
+  // t = 6min × (100 / sarPct)... but this is already rate-based
+  //
+  // More intuitive: "How many consecutive scans until limit?"
+  // Assume IEC 6-min window: total allowed SAR over 6min = 100 units
+  // Each scan contributes: sarPct × scanTimeSec / 360 (normalized to 6-min window)
+  const scansUntilLimit = scanTimeSec > 0
+    ? Math.floor(360 / scanTimeSec * (100 / sarPct))
+    : 99
+
+  const timeUntilLimit = scansUntilLimit * scanTimeSec  // seconds
+
+  const sarColor = sarPct >= 90 ? '#ef4444' : sarPct >= 70 ? '#f59e0b' : sarPct >= 40 ? '#e88b00' : '#34d399'
+
+  const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${s % 60 > 0 ? String(s % 60).padStart(2, '0') + 's' : ''}`
+
+  // Simulate 6-minute SAR accumulation timeline
+  const N = 24  // 24 bars × 15sec = 6min
+  const ratePerSlot = sarPct * (scanTimeSec / 15) / 100  // fraction of limit per 15sec slot
+
+  return (
+    <div className="mx-3 mt-2 p-2.5 rounded" style={{ background: '#100a05', border: `1px solid ${sarColor}30` }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: sarColor, fontSize: '9px', letterSpacing: '0.06em' }}>
+          SAR ACCUMULATION (IEC 6-min window)
+        </span>
+        <span className="font-mono font-bold" style={{ color: sarColor, fontSize: '9px' }}>{sarPct}% / rep</span>
+      </div>
+
+      {/* 6-minute accumulation bar chart */}
+      <div className="flex gap-0.5 mb-1.5 items-end" style={{ height: 24 }}>
+        {Array.from({ length: N }, (_, i) => {
+          const cumulative = Math.min(ratePerSlot * (i + 1) * 100, 100)
+          const barH = Math.max(2, (cumulative / 100) * 24)
+          const isOver = cumulative >= 100
+          const barColor = isOver ? '#ef4444' : cumulative >= 70 ? '#f59e0b' : '#34d399'
+          return (
+            <div key={i} style={{
+              width: `${100 / N - 0.5}%`,
+              height: barH,
+              background: barColor,
+              opacity: isOver ? 1 : 0.5 + (i / N) * 0.4,
+              borderRadius: 1,
+              alignSelf: 'flex-end',
+            }} />
+          )
+        })}
+      </div>
+
+      {/* Stats */}
+      <div className="flex gap-3 flex-wrap" style={{ fontSize: '8px' }}>
+        <div>
+          <span style={{ color: '#4b5563' }}>連続収集上限: </span>
+          <span className="font-mono font-semibold" style={{ color: scansUntilLimit <= 2 ? '#f87171' : '#c8ccd6' }}>
+            {scansUntilLimit >= 99 ? '∞' : scansUntilLimit}回
+          </span>
+        </div>
+        <div>
+          <span style={{ color: '#4b5563' }}>制限まで: </span>
+          <span className="font-mono font-semibold" style={{ color: timeUntilLimit < 60 ? '#f87171' : '#c8ccd6' }}>
+            {scansUntilLimit >= 99 ? '> 6min' : fmt(timeUntilLimit)}
+          </span>
+        </div>
+        <div>
+          <span style={{ color: '#4b5563' }}>TA: </span>
+          <span className="font-mono" style={{ color: '#9ca3af' }}>{fmt(scanTimeSec)}</span>
+        </div>
+      </div>
+
+      <div className="mt-1.5 pt-1" style={{ borderTop: `1px solid ${sarColor}20`, fontSize: '7px', color: '#374151' }}>
+        {sarPct >= 90
+          ? '⚠ SAR超過。TR延長 / ETL削減 / FA低下 / 磁場強度低下のいずれかが必要'
+          : sarPct >= 70
+          ? '△ SAR高め。長時間連続撮像には注意'
+          : 'IEC 6分窓平均. SAR rate = ' + sarPct + '% / rep × ' + fmt(scanTimeSec) + ' / rep'}
       </div>
     </div>
   )

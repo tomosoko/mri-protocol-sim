@@ -291,3 +291,47 @@ export function calcPNSRisk(p: ProtocolParams): PNSLevel {
   if (p.gradientMode === 'Fast' && p.echoSpacing < 3.0) return 'moderate'
   return 'low'
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// TE_min 物理計算 (シーケンスタイプ依存)
+// Real scanner では TE を TE_min 未満に設定するとエラー/自動補正される
+// ────────────────────────────────────────────────────────────────────────────
+export function calcTEmin(p: ProtocolParams): number {
+  const isTSE = p.turboFactor > 1
+  const isDWI = p.bValues.length > 1 && p.turboFactor <= 2
+
+  if (isTSE) {
+    // TSE: effective TE = echo at k-space center
+    // TE_min ≈ floor(ETL/2) × EchoSpacing + RF pulse duration (≈2ms)
+    return Math.ceil(Math.floor(p.turboFactor / 2) * p.echoSpacing + 2)
+  }
+
+  if (isDWI) {
+    // EPI DWI: TE_min = EPI readout time / 2 + diffusion prep time
+    const ipatFactor = p.ipatMode !== 'Off' ? p.ipatFactor : 1
+    const epiLines = Math.ceil(p.matrixPhase / ipatFactor)
+    const readoutMs = epiLines * (1000 / Math.max(p.bandwidth, 1))
+    const diffPrepMs = p.bValues.some(b => b > 0) ? 28 : 0
+    return Math.ceil(readoutMs / 2 + diffPrepMs + 5)
+  }
+
+  // SE / GRE: TE_min = readout duration / 2 (centered acquisition)
+  const readoutMs = (p.matrixFreq / Math.max(p.bandwidth, 1)) * 1000
+  return Math.ceil(readoutMs / 2 + 1)
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TR_min 物理計算
+// TSE では全エコートレインを収容できる最小 TR
+// ────────────────────────────────────────────────────────────────────────────
+export function calcTRmin(p: ProtocolParams): number {
+  const isTSE = p.turboFactor > 1
+  if (isTSE) {
+    // TR_min = TE + (ETL - center_echo) × ES + crusher/spoiler (~5ms)
+    const lastEchoTime = p.TE + (p.turboFactor - Math.floor(p.turboFactor / 2) - 1) * p.echoSpacing
+    return Math.ceil(lastEchoTime + 10)
+  }
+  // GRE / SE: TR_min = TE + readout + spoiler (~5ms)
+  const readoutMs = (p.matrixFreq / Math.max(p.bandwidth, 1)) * 1000
+  return Math.ceil(p.TE + readoutMs / 2 + 5)
+}

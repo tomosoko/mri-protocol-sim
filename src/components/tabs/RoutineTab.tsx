@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField, SectionHeader as SH } from '../ParamField'
-import { TISSUES, calcScanTime } from '../../store/calculators'
+import { TISSUES, calcScanTime, calcTEmin, calcTRmin, identifySequence } from '../../store/calculators'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
 function ErnstAngleIndicator() {
@@ -246,6 +246,170 @@ function ScanTimeBreakdown() {
   )
 }
 
+// ── シミュレーション脳断面 Phantom ──────────────────────────────────────────
+// 現在のTR/TE/TI/FAに基づいて各組織の信号強度をリアルタイム計算し
+// syngo MR-like な疑似MR断面画像として表示する
+function BrainPhantomPreview() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  const W = 180, H = 180
+  const CX = W / 2, CY = H / 2
+
+  // Tissue signal calculation (SE / IR / GRE)
+  const isIR = params.TI > 0
+  const isGRE = params.turboFactor <= 2 && params.flipAngle < 60 && params.TR < 200
+
+  const sig = useMemo(() => {
+    const getT1T2 = (t: typeof TISSUES[0]) => is3T
+      ? { T1: t.T1_30, T2: t.T2_30, T2s: t.T2star_30 }
+      : { T1: t.T1_15, T2: t.T2_15, T2s: t.T2star_15 }
+
+    const seSignal = (T1: number, T2: number) =>
+      Math.max(0, (1 - Math.exp(-params.TR / T1)) * Math.exp(-params.TE / T2))
+
+    const irSignal = (T1: number, T2: number) =>
+      Math.max(0, Math.abs(1 - 2 * Math.exp(-params.TI / T1) + Math.exp(-params.TR / T1)) * Math.exp(-params.TE / T2))
+
+    const faRad = (params.flipAngle * Math.PI) / 180
+    const greSignal = (T1: number, T2s: number) => {
+      const e1 = Math.exp(-params.TR / T1)
+      const ernst = Math.sin(faRad) * (1 - e1) / (1 - Math.cos(faRad) * e1 + 1e-10)
+      return Math.max(0, ernst * Math.exp(-params.TE / T2s))
+    }
+
+    const compute = (label: string) => {
+      const t = TISSUES.find(x => x.label === label)
+      if (!t) return 0
+      const { T1, T2, T2s } = getT1T2(t)
+      let s = isIR ? irSignal(T1, T2) : isGRE ? greSignal(T1, T2s) : seSignal(T1, T2)
+      // Fat saturation
+      if (params.fatSat !== 'None' && label === 'Fat') s = 0
+      return s
+    }
+
+    const raw = {
+      CSF: compute('CSF'),
+      GM: compute('GM'),
+      WM: compute('WM'),
+      Fat: compute('Fat'),
+      Muscle: compute('Muscle'),
+    }
+    // Normalize to max
+    const maxS = Math.max(...Object.values(raw), 0.001)
+    return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v / maxS])) as typeof raw
+  }, [params.TR, params.TE, params.TI, params.flipAngle, params.fatSat, params.fieldStrength, params.turboFactor, isIR, isGRE, is3T])
+
+  // Signal → grayscale brightness (0-255)
+  const gray = (s: number) => Math.round(s * 230)
+  const toRgb = (s: number) => { const v = gray(s); return `rgb(${v},${v},${v})` }
+
+  // Phase encode direction arrow
+  const peDir = params.phaseEncDir
+  const isAP = peDir === 'A>>P' || peDir === 'P>>A'
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#050505', border: '1px solid #1a1a1a' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#4b5563', fontSize: '9px', letterSpacing: '0.06em' }}>
+          SIGNAL PREVIEW — Brain Phantom
+        </span>
+        <span style={{ color: '#4b5563', fontSize: '7px' }}>{params.fieldStrength}T</span>
+      </div>
+      <div className="flex gap-3">
+        {/* Phantom SVG */}
+        <svg width={W} height={H} style={{ background: '#000', borderRadius: 4, flexShrink: 0 }}>
+          {/* Scalp / outer fat ring */}
+          <ellipse cx={CX} cy={CY} rx={82} ry={80}
+            fill={toRgb(sig.Fat)} />
+          {/* Skull (dark bone) */}
+          <ellipse cx={CX} cy={CY} rx={75} ry={73}
+            fill="rgb(18,18,18)" />
+          {/* White matter */}
+          <ellipse cx={CX} cy={CY} rx={65} ry={63}
+            fill={toRgb(sig.WM)} />
+          {/* Gray matter ring */}
+          <ellipse cx={CX} cy={CY} rx={53} ry={51}
+            fill={toRgb(sig.GM)} />
+          {/* WM inner */}
+          <ellipse cx={CX} cy={CY} rx={42} ry={40}
+            fill={toRgb(sig.WM)} />
+          {/* Basal ganglia (GM-like) */}
+          <ellipse cx={CX - 14} cy={CY} rx={12} ry={14}
+            fill={toRgb(sig.GM * 0.95)} />
+          <ellipse cx={CX + 14} cy={CY} rx={12} ry={14}
+            fill={toRgb(sig.GM * 0.95)} />
+          {/* Internal capsule (WM) */}
+          <ellipse cx={CX - 14} cy={CY} rx={7} ry={10}
+            fill={toRgb(sig.WM)} />
+          <ellipse cx={CX + 14} cy={CY} rx={7} ry={10}
+            fill={toRgb(sig.WM)} />
+          {/* Lateral ventricles (CSF) */}
+          <ellipse cx={CX - 16} cy={CY - 8} rx={10} ry={14}
+            fill={toRgb(sig.CSF)} />
+          <ellipse cx={CX + 16} cy={CY - 8} rx={10} ry={14}
+            fill={toRgb(sig.CSF)} />
+          {/* 3rd ventricle */}
+          <rect x={CX - 2} y={CY - 2} width={4} height={16}
+            fill={toRgb(sig.CSF)} />
+          {/* Cortex outer GM */}
+          <ellipse cx={CX} cy={CY} rx={65} ry={63}
+            fill="none" stroke={toRgb(sig.GM * 0.9)} strokeWidth={5} opacity={0.6} />
+
+          {/* Phase encode direction indicator */}
+          <g opacity={0.6}>
+            {isAP ? (
+              <>
+                <line x1={CX} y1={10} x2={CX} y2={H - 10} stroke="#60a5fa" strokeWidth={0.8} strokeDasharray="3,3" />
+                <text x={CX + 3} y={20} fill="#60a5fa" style={{ fontSize: '8px' }}>PE</text>
+                <polygon points={`${CX-3},15 ${CX+3},15 ${CX},8`} fill="#60a5fa" />
+              </>
+            ) : (
+              <>
+                <line x1={10} y1={CY} x2={W - 10} y2={CY} stroke="#60a5fa" strokeWidth={0.8} strokeDasharray="3,3" />
+                <text x={15} y={CY - 3} fill="#60a5fa" style={{ fontSize: '8px' }}>PE</text>
+                <polygon points={`${W-15},${CY-3} ${W-15},${CY+3} ${W-8},${CY}`} fill="#60a5fa" />
+              </>
+            )}
+          </g>
+
+          {/* Field strength badge */}
+          <text x={6} y={H - 6} fill="#2a2a2a" style={{ fontSize: '8px', fontFamily: 'monospace' }}>
+            {params.fieldStrength}T
+          </text>
+        </svg>
+
+        {/* Signal level bars */}
+        <div className="flex flex-col gap-1.5 flex-1" style={{ paddingTop: 4 }}>
+          <div style={{ fontSize: '8px', color: '#4b5563', marginBottom: 4 }}>組織信号レベル</div>
+          {([
+            ['CSF', sig.CSF, '#38bdf8'],
+            ['GM', sig.GM, '#a78bfa'],
+            ['WM', sig.WM, '#60a5fa'],
+            ['Fat', sig.Fat, '#fbbf24'],
+            ['Muscle', sig.Muscle, '#f87171'],
+          ] as [string, number, string][]).map(([label, s, color]) => (
+            <div key={label}>
+              <div className="flex items-center justify-between mb-0.5">
+                <span style={{ color, fontSize: '8px', width: 40 }}>{label}</span>
+                <span className="font-mono" style={{ color, fontSize: '8px' }}>{Math.round(s * 100)}%</span>
+              </div>
+              <div className="h-1.5 rounded overflow-hidden" style={{ background: '#111' }}>
+                <div className="h-full rounded transition-all duration-300"
+                  style={{ width: `${s * 100}%`, background: color, opacity: 0.8 }} />
+              </div>
+            </div>
+          ))}
+          <div className="mt-1 pt-1.5" style={{ borderTop: '1px solid #111', fontSize: '7px', color: '#374151' }}>
+            {isIR ? `IR (TI=${params.TI}ms)` : isGRE ? `GRE (FA=${params.flipAngle}°)` : 'SE/TSE'}
+            {' '}· TR={params.TR} TE={params.TE}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── GM/WM コントラスト TR-TE ヒートマップ ────────────────────────────────────
 function ContrastHeatmap() {
   const { params, setParam } = useProtocolStore()
@@ -395,6 +559,23 @@ export function RoutineTab() {
 
       {activeRoutineTab === 'Part1' && (
         <div className="space-y-0">
+          {/* Live sequence type indicator — syngo MR protocol header */}
+          {(() => {
+            const seqId = identifySequence(params)
+            return (
+              <div className="flex items-center gap-2 px-3 py-1.5"
+                style={{ background: seqId.color + '10', borderBottom: `1px solid ${seqId.color}30` }}>
+                <span className="font-mono font-bold px-1.5 py-0.5 rounded"
+                  style={{ background: seqId.color + '20', color: seqId.color, border: `1px solid ${seqId.color}50`, fontSize: '9px' }}>
+                  {seqId.type}
+                </span>
+                <span style={{ color: seqId.color + 'aa', fontSize: '8px' }}>{seqId.details}</span>
+                <span style={{ color: '#374151', fontSize: '8px', marginLeft: 'auto' }}>
+                  {params.fieldStrength}T · {params.coilType ?? 'Body'}
+                </span>
+              </div>
+            )
+          })()}
           <SH label="Slice Group" />
           <ParamField label="Slice Group" value={sliceGroup} type="number" min={1} max={8}
             onChange={v => setSliceGroup(v as number)} />
@@ -444,8 +625,53 @@ export function RoutineTab() {
           <SH label="Timing" />
           <ParamField label="TR" hintKey="TR" value={params.TR} type="number" min={100} max={15000} step={100} unit="ms"
             onChange={v => setParam('TR', v as number)} highlight={hl('TR')} />
+          {/* TR_min inline indicator */}
+          {(() => {
+            const trMin = calcTRmin(params)
+            const ok = params.TR >= trMin
+            if (ok) return null
+            return (
+              <div className="mx-3 mb-0.5 flex items-center gap-1.5 px-2 py-1 rounded"
+                style={{ background: '#1a0505', border: '1px solid #7f1d1d30' }}>
+                <span style={{ color: '#f87171', fontSize: '9px' }}>⚠ TR &lt; TR_min ({trMin}ms)</span>
+                <button
+                  onClick={() => setParam('TR', trMin)}
+                  style={{ color: '#34d399', fontSize: '8px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 4px', cursor: 'pointer' }}>
+                  → {trMin}ms
+                </button>
+              </div>
+            )
+          })()}
           <ParamField label="TE" hintKey="TE" value={params.TE} type="number" min={1} max={1000} step={1} unit="ms"
             onChange={v => setParam('TE', v as number)} highlight={hl('TE')} />
+          {/* TE_min inline indicator — real scanner behavior */}
+          {(() => {
+            const teMin = calcTEmin(params)
+            const ok = params.TE >= teMin
+            return (
+              <div className="mx-3 mb-0.5 flex items-center gap-2 px-2 py-1 rounded"
+                style={{
+                  background: ok ? '#0a1208' : '#1a0505',
+                  border: `1px solid ${ok ? '#14532d30' : '#7f1d1d60'}`,
+                }}>
+                <span style={{ color: ok ? '#1f4a2f' : '#f87171', fontSize: '9px' }}>
+                  {ok ? '✓' : '⚠'} TE_min: {teMin}ms
+                </span>
+                {!ok && (
+                  <button
+                    onClick={() => setParam('TE', teMin)}
+                    style={{ color: '#34d399', fontSize: '8px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 4px', cursor: 'pointer' }}>
+                    → {teMin}ms
+                  </button>
+                )}
+                {ok && params.turboFactor > 1 && (
+                  <span style={{ color: '#1f4a2f', fontSize: '8px' }}>
+                    eff:{Math.round(params.TE + Math.floor(params.turboFactor / 2) * params.echoSpacing)}ms
+                  </span>
+                )}
+              </div>
+            )
+          })()}
           <ParamField label="TI" hintKey="TI" value={params.TI} type="number" min={0} max={5000} step={10} unit="ms"
             onChange={v => setParam('TI', v as number)} highlight={hl('TI')} />
           <ParamField label="Flip Angle" hintKey="flipAngle" value={params.flipAngle} type="range"
@@ -454,6 +680,10 @@ export function RoutineTab() {
           <ErnstAngleIndicator />
 
           <SignalCurveChart />
+
+          {/* Live brain phantom signal preview */}
+          <BrainPhantomPreview />
+
           <ContrastHeatmap />
 
           <SH label="Averages" />
