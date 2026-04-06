@@ -177,6 +177,98 @@ function SignalCurveChart() {
 }
 
 // ── スキャン時間分解 ─────────────────────────────────────────────────────────
+// ── スライス収集順序 / ステディステート ───────────────────────────────────────
+// 実際のスキャナーは interleaved でスライスを収集し、ステディステート確立まで
+// ダミーパルスを送信する。この可視化でスライスタイミングを直感的に理解できる
+function SliceOrderViz() {
+  const { params } = useProtocolStore()
+
+  const nSlices = params.slices
+  const tr = params.TR
+  const is3T = params.fieldStrength >= 2.5
+
+  // Number of dummy scans to reach steady state
+  // T1 of WM: ~800ms (1.5T), ~1000ms (3T)
+  // Need ~5 × T1 / TR pulses to reach >99% steady state, typically 2-7 dummies
+  const t1WM = is3T ? 1000 : 800
+  const dummyScans = Math.min(15, Math.max(2, Math.ceil(5 * t1WM / tr)))
+
+  // Slice ordering: interleaved if slices > 1
+  // Sequential: 1,2,3,4... | Interleaved: 1,3,5,2,4,6...
+  const isEPI = params.bValues.length >= 2 && params.turboFactor <= 2
+  const ordering = isEPI ? 'Interleaved' : nSlices > 8 ? 'Interleaved' : 'Sequential'
+
+  const maxDisplay = Math.min(nSlices, 20)
+  const sliceOrder: number[] = []
+  if (ordering === 'Interleaved') {
+    // Interleaved: odd slices first, then even
+    for (let i = 0; i < maxDisplay; i += 2) sliceOrder.push(i)
+    for (let i = 1; i < maxDisplay; i += 2) sliceOrder.push(i)
+  } else {
+    for (let i = 0; i < maxDisplay; i++) sliceOrder.push(i)
+  }
+
+  const cellSize = Math.max(4, Math.min(12, Math.floor(280 / maxDisplay)))
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080a0c', border: '1px solid #1a2020' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px', letterSpacing: '0.05em' }}>
+          SLICE ACQUISITION ORDER
+        </span>
+        <div className="flex items-center gap-2" style={{ fontSize: '8px' }}>
+          <span style={{ color: '#4b5563' }}>{ordering}</span>
+          <span style={{ color: '#374151' }}>· {nSlices} slices</span>
+        </div>
+      </div>
+
+      {/* Slice order visualization */}
+      <div className="flex flex-wrap gap-0.5 mb-1.5">
+        {sliceOrder.map((sliceIdx, acquireOrder) => {
+          // Color: encode acquisition sequence (early=blue, late=red for interleaved)
+          const hue = ordering === 'Interleaved'
+            ? acquireOrder < maxDisplay / 2 ? '#60a5fa' : '#f472b6'
+            : '#a78bfa'
+          return (
+            <div
+              key={sliceIdx}
+              title={`Sl ${sliceIdx + 1} → Acq #${acquireOrder + 1}`}
+              style={{
+                width: cellSize, height: cellSize + 4,
+                background: hue + '40',
+                border: `1px solid ${hue}70`,
+                borderRadius: 1,
+                fontSize: '5px',
+                color: hue,
+                display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+                paddingBottom: 1,
+              }}
+            >
+              {cellSize >= 8 ? sliceIdx + 1 : ''}
+            </div>
+          )
+        })}
+        {nSlices > maxDisplay && (
+          <span style={{ color: '#374151', fontSize: '7px', alignSelf: 'center' }}>+{nSlices - maxDisplay}</span>
+        )}
+      </div>
+
+      {/* Dummy scans + timing */}
+      <div className="flex gap-3 pt-1" style={{ borderTop: '1px solid #111', fontSize: '8px' }}>
+        <div>
+          <span style={{ color: '#4b5563' }}>Dummy scans: </span>
+          <span className="font-mono font-bold" style={{ color: '#fbbf24' }}>{dummyScans}</span>
+          <span style={{ color: '#374151', fontSize: '7px' }}> (T1_WM={t1WM}ms)</span>
+        </div>
+        <div>
+          <span style={{ color: '#4b5563' }}>Prep time: </span>
+          <span className="font-mono" style={{ color: '#9ca3af' }}>{Math.round(dummyScans * tr / 1000)}s</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ScanTimeBreakdown() {
   const { params } = useProtocolStore()
   const totalTime = calcScanTime(params)
@@ -1156,6 +1248,8 @@ export function RoutineTab() {
               </div>
             )
           })()}
+
+          <SliceOrderViz />
 
           <ScanTimeBreakdown />
 

@@ -177,6 +177,79 @@ function B1FieldMap({ fieldStrength, trueForm }: { fieldStrength: number; trueFo
   )
 }
 
+// ── 傾斜磁場コイル温度・冷却モニター ─────────────────────────────────────────
+function GradientTempMonitor() {
+  const { params } = useProtocolStore()
+
+  const isDWI = params.bValues.length >= 2 && params.turboFactor <= 2
+  const isTSE = params.turboFactor > 4
+  const dutyCycle = isDWI ? 78 : isTSE ? 42 : 20
+
+  // Gradient coil temperature model:
+  // Base: 25°C; rises with duty cycle; max safe ~60°C; shutdown >70°C
+  const baseTemp = 25
+  const tempRise = (dutyCycle / 100) * 35
+  const coilTemp = Math.round(baseTemp + tempRise)
+
+  // Cooling fan speed: proportional to temp above baseline
+  const fanSpeedPct = Math.round(Math.max(20, Math.min(100, 20 + (coilTemp - baseTemp) / 35 * 80)))
+  const fanRPM = Math.round(fanSpeedPct / 100 * 3200)
+
+  // Coolant flow (water cooling): L/min
+  const coolantFlow = Math.round(15 + (dutyCycle / 100) * 10)
+
+  const tempColor = coilTemp > 60 ? '#ef4444' : coilTemp > 50 ? '#fbbf24' : coilTemp > 40 ? '#fb923c' : '#34d399'
+  const fanColor = fanSpeedPct > 80 ? '#fbbf24' : '#4b5563'
+  const headroom = Math.max(0, Math.round((70 - coilTemp) / 45 * 100))
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080a0c', border: `1px solid ${coilTemp > 50 ? '#7c1a0030' : '#1a2020'}` }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#fb923c', fontSize: '9px', letterSpacing: '0.06em' }}>
+          GRADIENT THERMAL
+        </span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>Duty {dutyCycle}%</span>
+      </div>
+
+      {/* Coil temperature gauge */}
+      <div className="mb-1.5">
+        <div className="flex items-center justify-between mb-0.5">
+          <span style={{ color: '#4b5563', fontSize: '8px' }}>Coil Temp</span>
+          <span className="font-mono font-bold" style={{ color: tempColor, fontSize: '11px' }}>{coilTemp}°C</span>
+        </div>
+        <div className="h-2 rounded overflow-hidden relative" style={{ background: '#111' }}>
+          {/* Zone markers */}
+          <div className="absolute inset-0 flex">
+            <div style={{ width: `${(40-baseTemp)/(70-baseTemp)*100}%`, borderRight: '1px solid #34d39920' }} />
+            <div style={{ width: `${(55-40)/(70-baseTemp)*100}%`, borderRight: '1px solid #fbbf2440' }} />
+            <div style={{ width: `${(60-55)/(70-baseTemp)*100}%`, borderRight: '1px solid #f8717140' }} />
+          </div>
+          <div className="h-full rounded transition-all"
+            style={{ width: `${Math.min(100, (coilTemp - baseTemp) / (70 - baseTemp) * 100)}%`, background: tempColor, opacity: 0.8 }} />
+        </div>
+        <div className="flex justify-between mt-0.5" style={{ fontSize: '6px', color: '#374151' }}>
+          <span>25°C</span><span style={{ color: '#fb923c' }}>40</span><span style={{ color: '#fbbf24' }}>55</span><span style={{ color: '#f87171' }}>70°C</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-x-2" style={{ fontSize: '8px' }}>
+        <div className="flex flex-col">
+          <span style={{ color: '#374151' }}>Headroom</span>
+          <span className="font-mono" style={{ color: headroom < 30 ? '#f87171' : '#34d399' }}>{headroom}%</span>
+        </div>
+        <div className="flex flex-col">
+          <span style={{ color: '#374151' }}>Fan</span>
+          <span className="font-mono" style={{ color: fanColor }}>{fanRPM} rpm</span>
+        </div>
+        <div className="flex flex-col">
+          <span style={{ color: '#374151' }}>Coolant</span>
+          <span className="font-mono" style={{ color: '#4b5563' }}>{coolantFlow} L/m</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── g-factor SNR 損失チャート ─────────────────────────────────────────────────
 function GFactorChart() {
   const { params } = useProtocolStore()
@@ -825,8 +898,14 @@ export function SystemTab() {
           {/* Gradient Performance Monitor */}
           <GradientMonitor />
 
+          {/* Gradient Thermal Monitor */}
+          <GradientTempMonitor />
+
           {/* PNS Monitor */}
           <PNSMonitor />
+
+          {/* Cryo System Monitor */}
+          <CryoMonitor />
 
           {/* SAR Breakdown */}
           <SARBreakdown />
@@ -946,6 +1025,9 @@ export function SystemTab() {
               <div><span className="text-white">CP Mode: </span>従来のCircular Polarized送信モード</div>
             </div>
           </div>
+
+          {/* RF Amplifier Monitor */}
+          <RFAmplifierMonitor />
         </div>
       )}
     </div>
@@ -1121,6 +1203,182 @@ function SARAccumulationMonitor() {
           : sarPct >= 70
           ? '△ SAR高め。長時間連続撮像には注意'
           : 'IEC 6分窓平均. SAR rate = ' + sarPct + '% / rep × ' + fmt(scanTimeSec) + ' / rep'}
+      </div>
+    </div>
+  )
+}
+
+// ── 冷凍システム（クライオスタット）モニター ─────────────────────────────────
+// MAGNETOM のクライオスタット・ヘリウムレベル・クライオクーラー状態を表示
+function CryoMonitor() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // Simulated cryostat data (realistic MAGNETOM values)
+  // Helium level: typically >95% during normal operation; drops slowly (~2%/year with ZBO)
+  const heLevel = is3T ? 98.2 : 97.6  // %
+  const magTemp = 4.22  // K (liquid helium bath, ~4.2K)
+  const coldHead1 = 37  // K (1st stage cryo cooler)
+  const coldHead2 = 4.25  // K (2nd stage cryo cooler)
+  const boilOffRate = 0.0  // L/h (Zero Boil-Off system active)
+  const cryoCompressor = 'Running'
+  const nextService = is3T ? '2027-03' : '2026-11'
+
+  const heLevelColor = heLevel < 50 ? '#ef4444' : heLevel < 70 ? '#fbbf24' : '#34d399'
+  const tempColor = magTemp > 4.5 ? '#f87171' : magTemp > 4.3 ? '#fbbf24' : '#34d399'
+
+  // Cold head temp bar: 2nd stage target is 4.2K, warn if >5K
+  const ch2Pct = Math.min(100, ((coldHead2 - 4.0) / (6.0 - 4.0)) * 100)
+  const ch1Pct = Math.min(100, ((coldHead1 - 30) / (60 - 30)) * 100)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#060a0f', border: '1px solid #0f2030' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#38bdf8', fontSize: '9px', letterSpacing: '0.06em' }}>
+          CRYO SYSTEM
+        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#34d399' }} />
+          <span style={{ color: '#374151', fontSize: '8px' }}>ZBO Active</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1" style={{ fontSize: '8px' }}>
+        {/* Helium Level */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span style={{ color: '#4b5563' }}>He Level</span>
+            <span className="font-mono font-bold" style={{ color: heLevelColor }}>{heLevel}%</span>
+          </div>
+          <div className="h-1.5 rounded overflow-hidden" style={{ background: '#0a1a2a' }}>
+            <div className="h-full rounded" style={{ width: `${heLevel}%`, background: '#38bdf8', opacity: 0.8 }} />
+          </div>
+        </div>
+
+        {/* Magnet Temp */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span style={{ color: '#4b5563' }}>Magnet Temp</span>
+            <span className="font-mono font-bold" style={{ color: tempColor }}>{magTemp.toFixed(2)} K</span>
+          </div>
+          <div className="h-1.5 rounded overflow-hidden" style={{ background: '#0a1a2a' }}>
+            <div className="h-full rounded" style={{ width: `${((magTemp - 4.0) / 1.0) * 100}%`, background: tempColor, opacity: 0.8 }} />
+          </div>
+        </div>
+
+        {/* Cold Head 1st Stage */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span style={{ color: '#4b5563' }}>Cold Head 1</span>
+            <span className="font-mono" style={{ color: '#9ca3af' }}>{coldHead1} K</span>
+          </div>
+          <div className="h-1.5 rounded overflow-hidden" style={{ background: '#0a1a2a' }}>
+            <div className="h-full rounded" style={{ width: `${ch1Pct}%`, background: '#60a5fa', opacity: 0.7 }} />
+          </div>
+        </div>
+
+        {/* Cold Head 2nd Stage */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span style={{ color: '#4b5563' }}>Cold Head 2</span>
+            <span className="font-mono" style={{ color: '#9ca3af' }}>{coldHead2.toFixed(2)} K</span>
+          </div>
+          <div className="h-1.5 rounded overflow-hidden" style={{ background: '#0a1a2a' }}>
+            <div className="h-full rounded" style={{ width: `${ch2Pct}%`, background: '#34d399', opacity: 0.7 }} />
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-1.5 pt-1.5 flex flex-wrap gap-x-3 gap-y-0.5" style={{ borderTop: '1px solid #0f1a24', fontSize: '7px' }}>
+        <span style={{ color: '#374151' }}>Compressor: <span style={{ color: '#34d399' }}>{cryoCompressor}</span></span>
+        <span style={{ color: '#374151' }}>Boil-off: <span style={{ color: '#34d399' }}>{boilOffRate} L/h</span></span>
+        <span style={{ color: '#374151' }}>Next Service: <span style={{ color: '#4b5563' }}>{nextService}</span></span>
+      </div>
+    </div>
+  )
+}
+
+// ── RF アンプ / 送受信モニター ────────────────────────────────────────────────
+// 送信電力・反射電力・VSWR・アンプ温度を表示 (Tx-Rx サブタブ用)
+function RFAmplifierMonitor() {
+  const { params } = useProtocolStore()
+
+  const is3T = params.fieldStrength >= 2.5
+  const isTSE = params.turboFactor > 1
+  const isDWI = params.bValues.length >= 2 && params.turboFactor <= 2
+
+  // RF amplifier output estimation
+  // Nominal reference power at 1.5T: ~15kW peak / 1.2kW avg; 3T: ~8kW peak
+  const txPeakPower = is3T ? 8000 : 15000  // W
+  const faFactor = (params.flipAngle / 90) ** 2
+  const dutyFactor = isTSE ? 0.40 : isDWI ? 0.25 : 0.15
+  const forwardPower = Math.round(txPeakPower * faFactor * dutyFactor)
+  const reflectedPower = Math.round(forwardPower * 0.02)  // ~2% reflection is normal
+  const vswr = ((1 + Math.sqrt(reflectedPower / Math.max(forwardPower, 1))) /
+                (1 - Math.sqrt(reflectedPower / Math.max(forwardPower, 1))))
+  const ampTemp = 42 + Math.round(forwardPower / txPeakPower * 28)  // °C
+
+  // Tx calibration voltage
+  const txRefVolt = is3T ? 245 : 180  // V (approximate)
+
+  const tempColor = ampTemp > 65 ? '#ef4444' : ampTemp > 55 ? '#fbbf24' : '#34d399'
+  const vswrColor = vswr > 1.5 ? '#f87171' : vswr > 1.3 ? '#fbbf24' : '#34d399'
+  const dutyCyclePct = Math.round(dutyFactor * 100)
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080608', border: '1px solid #200a30' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#c084fc', fontSize: '9px', letterSpacing: '0.06em' }}>
+          RF AMPLIFIER
+        </span>
+        <span style={{ color: '#4b5563', fontSize: '8px' }}>{is3T ? '3T / 8kW peak' : '1.5T / 15kW peak'}</span>
+      </div>
+
+      <div className="space-y-1">
+        {/* Forward power */}
+        <div>
+          <div className="flex items-center justify-between mb-0.5">
+            <span style={{ color: '#6b7280', fontSize: '8px' }}>Forward Power</span>
+            <span className="font-mono font-bold" style={{ color: '#c084fc', fontSize: '10px' }}>{forwardPower} W</span>
+          </div>
+          <div className="h-1.5 rounded overflow-hidden" style={{ background: '#111' }}>
+            <div className="h-full rounded" style={{ width: `${Math.min(100, forwardPower / txPeakPower * 100)}%`, background: '#c084fc', opacity: 0.75 }} />
+          </div>
+        </div>
+
+        {/* Reflected power */}
+        <div className="flex items-center justify-between">
+          <span style={{ color: '#4b5563', fontSize: '8px' }}>Reflected Power</span>
+          <span className="font-mono" style={{ color: '#6b7280', fontSize: '9px' }}>{reflectedPower} W</span>
+        </div>
+
+        {/* Key metrics grid */}
+        <div className="grid grid-cols-2 gap-x-3 mt-1 pt-1" style={{ borderTop: '1px solid #1a1020', fontSize: '8px' }}>
+          <div className="flex justify-between">
+            <span style={{ color: '#374151' }}>VSWR</span>
+            <span className="font-mono" style={{ color: vswrColor }}>{vswr.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: '#374151' }}>Duty Cycle</span>
+            <span className="font-mono" style={{ color: '#9ca3af' }}>{dutyCyclePct}%</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: '#374151' }}>Amp Temp</span>
+            <span className="font-mono" style={{ color: tempColor }}>{ampTemp}°C</span>
+          </div>
+          <div className="flex justify-between">
+            <span style={{ color: '#374151' }}>Tx Ref Volt</span>
+            <span className="font-mono" style={{ color: '#9ca3af' }}>{txRefVolt} V</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-1.5 pt-1" style={{ borderTop: '1px solid #1a1020', fontSize: '7px', color: '#374151' }}>
+        {ampTemp > 60
+          ? '⚠ RF アンプ温度高め — 連続撮像インターバルを確保してください'
+          : vswr > 1.3
+          ? '△ 反射電力やや高め — コイル接続を確認'
+          : 'TX/RX 正常'}
       </div>
     </div>
   )
