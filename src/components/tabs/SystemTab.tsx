@@ -904,6 +904,9 @@ export function SystemTab() {
           {/* PNS Monitor */}
           <PNSMonitor />
 
+          {/* MR Safety / Implant Check */}
+          <MRSafetyChecker />
+
           {/* Cryo System Monitor */}
           <CryoMonitor />
 
@@ -1203,6 +1206,107 @@ function SARAccumulationMonitor() {
           : sarPct >= 70
           ? '△ SAR高め。長時間連続撮像には注意'
           : 'IEC 6分窓平均. SAR rate = ' + sarPct + '% / rep × ' + fmt(scanTimeSec) + ' / rep'}
+      </div>
+    </div>
+  )
+}
+
+// ── MR安全性 / インプラントチェッカー ─────────────────────────────────────────
+// ASTM F2503 zone classification + 主要インプラントの MR 安全区分
+function MRSafetyChecker() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  const [selectedImplant, setSelectedImplant] = useState<string | null>(null)
+
+  type ImplantEntry = {
+    id: string; name: string; safety: 'MR Safe' | 'MR Conditional' | 'MR Unsafe'
+    conditions?: string; bMax?: number
+  }
+
+  const implants: ImplantEntry[] = [
+    { id: 'cochlear',    name: '人工内耳', safety: 'MR Conditional',
+      conditions: 'Cochlear CI5xx: 1.5T対応。3Tは機種依存。マグネット外科的固定必要な場合あり。', bMax: 1.5 },
+    { id: 'pacemaker',   name: 'ペースメーカー', safety: 'MR Conditional',
+      conditions: 'MR-conditional PM (Medtronic EV-ICD等): 1.5T/3T対応あり。事前プログラム変更必須。', bMax: 3.0 },
+    { id: 'aneurysm_clip', name: '動脈瘤クリップ', safety: 'MR Conditional',
+      conditions: 'チタン合金製: 通常MR Conditional。強磁性クリップは絶対禁忌。手術記録確認必須。', bMax: 3.0 },
+    { id: 'joint',       name: '人工関節', safety: 'MR Safe',
+      conditions: 'チタン/コバルトクロム: MR Safe。ただし金属アーチファクトに注意。', bMax: 3.0 },
+    { id: 'stent_vascular', name: '血管ステント', safety: 'MR Conditional',
+      conditions: '留置後6週間以上で通常MR Conditional。ニチノールステント: 低磁化率。', bMax: 3.0 },
+    { id: 'deep_brain',  name: '脳深部刺激装置', safety: 'MR Conditional',
+      conditions: 'DBS (Medtronic Percept): 1.5T全身/3T頭部のみ対応機種あり。専門施設対応。', bMax: 1.5 },
+    { id: 'tattoo',      name: 'タトゥー/永久眉毛', safety: 'MR Conditional',
+      conditions: '鉄含有インク: 発熱リスク(軽度)。検査前に患者に情報提供。多くは問題なし。', bMax: 3.0 },
+    { id: 'iud',         name: 'IUD/子宮内避妊具', safety: 'MR Safe',
+      conditions: '銅製IUD: MR Safe。全磁場強度で安全に使用可能。', bMax: 3.0 },
+  ]
+
+  const safetyColor = (s: ImplantEntry['safety']) =>
+    s === 'MR Safe' ? '#34d399' : s === 'MR Conditional' ? '#fbbf24' : '#f87171'
+  const safetyBg = (s: ImplantEntry['safety']) =>
+    s === 'MR Safe' ? '#0a1a0a' : s === 'MR Conditional' ? '#1a1000' : '#1a0505'
+
+  const selected = selectedImplant ? implants.find(i => i.id === selectedImplant) : null
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080a08', border: '1px solid #1a2a1a' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#34d399', fontSize: '9px', letterSpacing: '0.05em' }}>
+          MR SAFETY — IMPLANT CHECK
+        </span>
+        <span style={{ color: '#374151', fontSize: '8px' }}>ASTM F2503</span>
+      </div>
+
+      {/* Implant grid */}
+      <div className="grid grid-cols-2 gap-1 mb-2">
+        {implants.map(imp => {
+          const isSafe = !imp.bMax || imp.bMax >= params.fieldStrength
+          const color = safetyColor(imp.safety)
+          return (
+            <button
+              key={imp.id}
+              onClick={() => setSelectedImplant(selectedImplant === imp.id ? null : imp.id)}
+              className="text-left p-1.5 rounded transition-all"
+              style={{
+                background: selectedImplant === imp.id ? safetyBg(imp.safety) : '#0a0a0a',
+                border: `1px solid ${selectedImplant === imp.id ? color : (isSafe ? '#1a2a1a' : '#2a1010')}`,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span style={{ color: '#9ca3af', fontSize: '8px' }}>{imp.name}</span>
+                <span style={{ color, fontSize: '7px', fontWeight: 600 }}>{imp.safety.replace('MR ', '')}</span>
+              </div>
+              {!isSafe && (
+                <div style={{ color: '#f87171', fontSize: '6px' }}>⚠ {is3T ? '3T' : '1.5T'}禁忌の場合あり</div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Detail panel */}
+      {selected && (
+        <div className="p-2 rounded" style={{ background: safetyBg(selected.safety), border: `1px solid ${safetyColor(selected.safety)}40` }}>
+          <div className="font-semibold mb-1" style={{ color: safetyColor(selected.safety), fontSize: '8px' }}>
+            {selected.name} — {selected.safety}
+          </div>
+          <div style={{ color: '#9ca3af', fontSize: '7px', lineHeight: '1.4' }}>
+            {selected.conditions}
+          </div>
+          {selected.bMax && selected.bMax < params.fieldStrength && (
+            <div className="mt-1" style={{ color: '#f87171', fontSize: '7px' }}>
+              ⚠ このインプラントは{selected.bMax}T制限 — 現在{params.fieldStrength}T。撮像可否を確認。
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-1.5 pt-1.5 flex flex-wrap gap-x-2" style={{ borderTop: '1px solid #1a2010', fontSize: '7px', color: '#374151' }}>
+        <span style={{ color: '#34d399' }}>■ MR Safe</span>
+        <span style={{ color: '#fbbf24' }}>■ MR Conditional</span>
+        <span style={{ color: '#f87171' }}>■ MR Unsafe</span>
       </div>
     </div>
   )
