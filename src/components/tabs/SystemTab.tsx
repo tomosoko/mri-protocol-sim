@@ -1336,6 +1336,9 @@ export function SystemTab() {
 
           {/* RF Amplifier Monitor */}
           <RFAmplifierMonitor />
+
+          {/* Receiver Chain Noise Figure */}
+          <ReceiverChainMonitor />
         </div>
       )}
     </div>
@@ -1788,6 +1791,139 @@ function RFAmplifierMonitor() {
           : vswr > 1.3
           ? '△ 反射電力やや高め — コイル接続を確認'
           : 'TX/RX 正常'}
+      </div>
+    </div>
+  )
+}
+
+// ── 受信チェーン ノイズフィギュア モニター ──────────────────────────────────
+// コイル → プリアンプ → ADC → デジタルフィルタ → 再構成 の SNR 解析
+// Friis 雑音指数公式: NFtotal = NF1 + (NF2-1)/G1 + ...
+function ReceiverChainMonitor() {
+  const { params } = useProtocolStore()
+  const is3T = params.fieldStrength >= 2.5
+
+  // Noise Figure (dB) of each receiver chain element
+  // Preamp NF: best coils ~0.3dB, body surface ~0.8dB
+  const coilNF: Record<string, number> = {
+    Head_64:  0.3, Head_20: 0.5, Spine_32: 0.45, Body: 1.2,
+    Knee: 0.6, Shoulder: 0.7, Flex: 1.0,
+  }
+  const preampNF = coilNF[params.coilType ?? 'Body'] ?? 0.8
+  const cableNF = 0.1   // LNA is immediately at the coil (modern)
+  const adcNF = 0.4     // 16-bit ADC effective NF
+  const digFilterNF = 0.05  // digital filter + reconstruction pipeline
+
+  // Friis formula (linear domain): F_total = F1 + (F2-1)/G1 + (F3-1)/(G1*G2)
+  // Preamp gain ~30dB (1000x) means subsequent stages are negligible
+  const f1 = Math.pow(10, preampNF / 10)
+  const g1 = 1000  // 30dB gain
+  const f2 = Math.pow(10, cableNF / 10)
+  const f3 = Math.pow(10, adcNF / 10)
+  const f4 = Math.pow(10, digFilterNF / 10)
+  const fTotal = f1 + (f2 - 1) / g1 + (f3 - 1) / (g1 * Math.pow(10, (cableNF) / 10)) + (f4 - 1) / (g1 * 100)
+  const nfTotalDB = 10 * Math.log10(fTotal)
+
+  // SNR at current bandwidth and field strength
+  // Noise power: kT × BW (Boltzmann noise)
+  const T = 310  // K (patient temperature)
+  const k = 1.38e-23
+  const bwHz = params.bandwidth * 2000  // total bandwidth Hz (params.bandwidth in kHz half-BW)
+  const noisePowerDBm = 10 * Math.log10(k * T * bwHz * 1000)  // dBm
+  const receiverNoisePowerDBm = noisePowerDBm + nfTotalDB
+
+  // Larmor freq (MHz) — thermal noise scales with field
+  const larmorMHz = params.fieldStrength * 42.577
+  // SNR estimate: higher field → higher signal, same noise floor
+  const snrEstDB = Math.round(20 * Math.log10(larmorMHz / 63.87) + 20 + (is3T ? 3 : 0))
+
+  // ADC dynamic range
+  const adcBits = 16
+  const adcDR = 6.02 * adcBits + 1.76  // SINAD formula
+
+  // Noise temperature
+  const noiseTemp = Math.round(T * (fTotal - 1))
+
+  const nfColor = nfTotalDB < 1 ? '#34d399' : nfTotalDB < 2 ? '#fbbf24' : '#f87171'
+  const snrColor = snrEstDB > 25 ? '#34d399' : snrEstDB > 15 ? '#fbbf24' : '#f87171'
+
+  const CHAIN = [
+    { label: 'Coil/Preamp', nf: preampNF, gain: 30, color: '#60a5fa' },
+    { label: 'Cable/Switch', nf: cableNF,  gain: -0.1, color: '#4b5563' },
+    { label: 'ADC (16-bit)', nf: adcNF,   gain: 0, color: '#a78bfa' },
+    { label: 'Recon Filter', nf: digFilterNF, gain: 0, color: '#374151' },
+  ]
+
+  return (
+    <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#06060e', border: '1px solid #101028' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="font-semibold" style={{ color: '#a78bfa', fontSize: '9px', letterSpacing: '0.06em' }}>
+          RECEIVER CHAIN
+        </span>
+        <span style={{ color: '#374151', fontSize: '7px', fontFamily: 'monospace' }}>
+          {params.coilType} · {(larmorMHz).toFixed(1)} MHz
+        </span>
+      </div>
+
+      {/* Chain diagram */}
+      <div className="flex items-center gap-0.5 mb-1.5 overflow-x-auto">
+        {CHAIN.map((el, i) => (
+          <div key={el.label} className="flex items-center gap-0.5">
+            <div className="flex flex-col items-center px-1 py-0.5 rounded"
+              style={{ background: el.color + '15', border: `1px solid ${el.color}30`, minWidth: 48 }}>
+              <span style={{ color: el.color, fontSize: '6px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                {el.label}
+              </span>
+              <span className="font-mono font-bold" style={{ color: el.color, fontSize: '8px' }}>
+                {el.nf.toFixed(1)}dB
+              </span>
+              {el.gain !== 0 && (
+                <span style={{ color: el.color + '80', fontSize: '5.5px' }}>
+                  {el.gain > 0 ? '+' : ''}{el.gain}dB
+                </span>
+              )}
+            </div>
+            {i < CHAIN.length - 1 && (
+              <span style={{ color: '#1a1a2a', fontSize: '8px' }}>→</span>
+            )}
+          </div>
+        ))}
+        <span style={{ color: '#1a1a2a', fontSize: '8px', marginLeft: 2 }}>→</span>
+        <div className="flex flex-col items-center px-1 py-0.5 rounded"
+          style={{ background: '#1a0a2a', border: `1px solid ${nfColor}40`, minWidth: 44 }}>
+          <span style={{ color: nfColor + 'aa', fontSize: '6px' }}>TOTAL NF</span>
+          <span className="font-mono font-bold" style={{ color: nfColor, fontSize: '9px' }}>
+            {nfTotalDB.toFixed(2)}dB
+          </span>
+        </div>
+      </div>
+
+      {/* Key metrics */}
+      <div className="grid grid-cols-2 gap-x-3 pt-1 mt-1" style={{ borderTop: '1px solid #101028', fontSize: '7.5px' }}>
+        <div className="flex justify-between">
+          <span style={{ color: '#374151' }}>Noise floor</span>
+          <span className="font-mono" style={{ color: '#4b5563' }}>{receiverNoisePowerDBm.toFixed(0)} dBm</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#374151' }}>SNR est.</span>
+          <span className="font-mono" style={{ color: snrColor }}>{snrEstDB} dB</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#374151' }}>ADC range</span>
+          <span className="font-mono" style={{ color: '#4b5563' }}>{adcDR.toFixed(0)} dB</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#374151' }}>Noise temp</span>
+          <span className="font-mono" style={{ color: '#4b5563' }}>{noiseTemp} K</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#374151' }}>BW</span>
+          <span className="font-mono" style={{ color: '#4b5563' }}>{(bwHz / 1000).toFixed(0)} kHz</span>
+        </div>
+        <div className="flex justify-between">
+          <span style={{ color: '#374151' }}>f₀</span>
+          <span className="font-mono" style={{ color: '#e88b00' }}>{larmorMHz.toFixed(2)} MHz</span>
+        </div>
       </div>
     </div>
   )
