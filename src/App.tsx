@@ -374,6 +374,50 @@ export default function App() {
         </div>
       </div>
 
+      {/* Patient Information Banner — syngo MR patient header */}
+      <div className="flex items-center shrink-0 overflow-x-auto"
+        style={{ background: '#0c1018', borderBottom: '1px solid #181f2a', height: '20px', gap: 0 }}>
+        {/* Patient ID / Name */}
+        <div className="flex items-center gap-1.5 px-3 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px', letterSpacing: '0.05em' }}>PAT</span>
+          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>DEMO_PATIENT_001</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>D.O.B</span>
+          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>1975-08-15</span>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>M</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>Wt</span>
+          <span className="font-mono" style={{ color: params.fieldStrength >= 2.5 ? '#fbbf24' : '#374151', fontSize: '8px' }}>
+            70kg
+          </span>
+        </div>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>Exam</span>
+          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>MRI_BRAIN_ROUTINE</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>Date</span>
+          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>
+            {new Date().toISOString().split('T')[0]}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>COIL</span>
+          <span className="font-mono" style={{ color: '#e88b00', fontSize: '8px' }}>{params.coilType}</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
+          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>TABLE</span>
+          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>0.0/0.0/60.0 mm</span>
+        </div>
+        {/* System status */}
+        <div className="flex items-center gap-1 px-2 ml-auto shrink-0">
+          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#34d399' }} />
+          <span style={{ color: '#374151', fontSize: '8px' }}>SYSTEM READY</span>
+        </div>
+      </div>
+
       {/* Status bar */}
       <StatusBar />
 
