@@ -31,14 +31,14 @@ export function ParamField({
     ? (hints[hintKey] ?? hints[Object.keys(hints).find(k => k.toLowerCase() === hintKey.toLowerCase()) ?? ''])
     : null
 
-  const labelColor = warn ? '#c8860a' : highlight ? '#c8860a' : '#5a5a5a'
-  const valueColor = warn ? '#fbbf24' : highlight ? '#f0a000' : focused ? '#ffffff' : '#c8ccd6'
+  const labelColor = warn ? '#c8860a' : highlight ? '#c8860a' : '#7a8fa0'
+  const valueColor = warn ? '#fbbf24' : highlight ? '#f0a000' : focused ? '#ffffff' : '#dde4ec'
 
   return (
     <div
       className="relative flex items-center"
       style={{
-        height: '20px',
+        height: '22px',
         borderBottom: '1px solid #161616',
         background: highlight ? '#1a1200' : 'transparent',
       }}
@@ -59,7 +59,7 @@ export function ParamField({
         )}
         <span
           className="truncate select-none"
-          style={{ color: labelColor, fontSize: '10.5px', letterSpacing: '0.01em', lineHeight: 1, cursor: hint ? 'pointer' : 'default' }}
+          style={{ color: labelColor, fontSize: '11px', letterSpacing: '0.01em', lineHeight: 1, cursor: hint ? 'pointer' : 'default' }}
           onClick={() => hint && setShowHint(true)}
           title={hint ? `${label} — クリックで詳細` : label}
         >
@@ -103,8 +103,8 @@ export function ParamField({
                 style={{
                   background: 'transparent', border: 'none',
                   color: valueColor,
-                  width: '54px', height: '18px',
-                  padding: '0 2px', fontSize: '11px',
+                  width: '54px', height: '20px',
+                  padding: '0 2px', fontSize: '11.5px',
                 }}
               />
               <div className="flex flex-col" style={{ borderLeft: focused ? '1px solid #282828' : '1px solid transparent' }}>
@@ -282,17 +282,17 @@ export function SectionHeader({ label }: { label: string }) {
   return (
     <div
       style={{
-        height: '16px',
+        height: '18px',
         display: 'flex', alignItems: 'center',
         paddingLeft: '8px',
-        background: '#0d0d0d',
-        borderTop: '1px solid #1a1a1a',
-        borderBottom: '1px solid #141414',
+        background: '#060c14',
+        borderTop: '1px solid #0f1a26',
+        borderBottom: '1px solid #0f1a26',
       }}
     >
       <span style={{
-        color: '#383838',
-        fontSize: '8.5px',
+        color: '#4a7a9a',
+        fontSize: '9px',
         fontWeight: 700,
         letterSpacing: '0.14em',
         textTransform: 'uppercase',

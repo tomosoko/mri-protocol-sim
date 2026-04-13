@@ -1147,16 +1147,17 @@ export function RoutineTab() {
   return (
     <div>
       {/* Sub-tabs */}
-      <div className="flex border-b" style={{ borderColor: '#252525', background: '#0e0e0e' }}>
+      <div className="flex border-b" style={{ borderColor: '#0f1e30', background: '#060c14' }}>
         {(['Part1', 'Part2', 'Assistant'] as const).map(t => (
           <button
             key={t}
             onClick={() => setActiveRoutineTab(t)}
             className="px-4 py-1.5 text-xs transition-colors"
             style={{
-              background: activeRoutineTab === t ? '#1e1200' : 'transparent',
-              color: activeRoutineTab === t ? '#e88b00' : '#5a5a5a',
+              background: activeRoutineTab === t ? '#0e1820' : 'transparent',
+              color: activeRoutineTab === t ? '#e88b00' : '#4a7a9a',
               borderBottom: activeRoutineTab === t ? '2px solid #e88b00' : '2px solid transparent',
+              fontSize: '11px',
             }}
           >
             {t}
@@ -1330,7 +1331,9 @@ export function RoutineTab() {
             min={5} max={180} step={5} unit="°"
             onChange={v => setParam('flipAngle', v as number)} highlight={hl('flipAngle')}
             coupling={['SAR', 'T1-cntr', 'SNR']} />
+          <VizSection>
           <ErnstAngleIndicator />
+          </VizSection>
 
           {/* Steady-state convergence — for GRE/TSE sequences */}
           <VizSection>

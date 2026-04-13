@@ -303,7 +303,7 @@ type SubTab = 'Subtraction' | 'MIP' | 'Composing'
 
 const subTabStyle = (active: boolean) => ({
   background: active ? '#1e1200' : 'transparent',
-  color: active ? '#e88b00' : '#5a5a5a',
+  color: active ? '#e88b00' : '#4a7a9a',
   borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 

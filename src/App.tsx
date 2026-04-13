@@ -129,12 +129,12 @@ export default function App() {
             >Browser</button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold" style={{ color: '#e88b00', fontSize: '10px', letterSpacing: '0.05em' }}>MAGNETOM</span>
-            <span className="font-mono" style={{ color: '#9ca3af', fontSize: '10px' }}>
+            <span className="font-mono font-bold" style={{ color: '#e88b00', fontSize: '11px', letterSpacing: '0.08em' }}>MAGNETOM</span>
+            <span className="font-mono font-semibold" style={{ color: '#c8d8e8', fontSize: '11px' }}>
               {params.fieldStrength >= 2.5 ? 'Prisma 3T' : 'Aera 1.5T'}
             </span>
-            <span style={{ color: '#374151', fontSize: '9px' }}>syngo MR E11</span>
-            <span className="font-mono" style={{ color: '#1e3a1e', fontSize: '9px', letterSpacing: '0.08em' }}>{liveTime}</span>
+            <span style={{ color: '#4a7a9a', fontSize: '9px', letterSpacing: '0.04em' }}>syngo MR E11</span>
+            <span className="font-mono" style={{ color: '#2a5a3a', fontSize: '9.5px', letterSpacing: '0.08em' }}>{liveTime}</span>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -183,45 +183,45 @@ export default function App() {
 
       {/* Patient Information Banner — syngo MR patient header */}
       <div className="flex items-center shrink-0 overflow-x-auto"
-        style={{ background: '#0c1018', borderBottom: '1px solid #181f2a', height: '20px', gap: 0 }}>
+        style={{ background: '#060c14', borderBottom: '1px solid #0f1e30', height: '22px', gap: 0 }}>
         {/* Patient ID / Name */}
-        <div className="flex items-center gap-1.5 px-3 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px', letterSpacing: '0.05em' }}>PAT</span>
-          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>DEMO_PATIENT_001</span>
+        <div className="flex items-center gap-1.5 px-3 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px', letterSpacing: '0.05em' }}>PAT</span>
+          <span className="font-mono font-semibold" style={{ color: '#7aaac8', fontSize: '8.5px' }}>DEMO_PATIENT_001</span>
         </div>
-        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>D.O.B</span>
-          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>1975-08-15</span>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>M</span>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>D.O.B</span>
+          <span className="font-mono" style={{ color: '#5a8aaa', fontSize: '8.5px' }}>1975-08-15</span>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>M</span>
         </div>
-        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>Wt</span>
-          <span className="font-mono" style={{ color: params.fieldStrength >= 2.5 ? '#fbbf24' : '#374151', fontSize: '8px' }}>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>Wt</span>
+          <span className="font-mono" style={{ color: params.fieldStrength >= 2.5 ? '#fbbf24' : '#5a8aaa', fontSize: '8.5px' }}>
             70kg
           </span>
         </div>
-        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>Exam</span>
-          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>MRI_BRAIN_ROUTINE</span>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>Exam</span>
+          <span className="font-mono" style={{ color: '#5a8aaa', fontSize: '8.5px' }}>MRI_BRAIN_ROUTINE</span>
         </div>
-        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>Date</span>
-          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>Date</span>
+          <span className="font-mono" style={{ color: '#5a8aaa', fontSize: '8.5px' }}>
             {new Date().toISOString().split('T')[0]}
           </span>
         </div>
-        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>COIL</span>
-          <span className="font-mono" style={{ color: '#e88b00', fontSize: '8px' }}>{params.coilType}</span>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>COIL</span>
+          <span className="font-mono font-semibold" style={{ color: '#e88b00', fontSize: '8.5px' }}>{params.coilType}</span>
         </div>
-        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #181f2a' }}>
-          <span style={{ color: '#1e3a5f', fontSize: '8px' }}>TABLE</span>
-          <span className="font-mono" style={{ color: '#374151', fontSize: '8px' }}>0.0/0.0/60.0 mm</span>
+        <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #0f1e30' }}>
+          <span style={{ color: '#2a5a80', fontSize: '8.5px' }}>TABLE</span>
+          <span className="font-mono" style={{ color: '#5a8aaa', fontSize: '8.5px' }}>0.0/0.0/60.0 mm</span>
         </div>
         {/* System status */}
         <div className="flex items-center gap-1 px-2 ml-auto shrink-0">
           <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: '#34d399' }} />
-          <span style={{ color: '#374151', fontSize: '8px' }}>SYSTEM READY</span>
+          <span style={{ color: '#3a6a50', fontSize: '8.5px' }}>SYSTEM READY</span>
         </div>
       </div>
 
@@ -273,10 +273,10 @@ export default function App() {
                   onClick={() => setActiveTab(tab)}
                   className="relative flex items-center gap-1 whitespace-nowrap transition-colors shrink-0"
                   style={{
-                    background: activeTab === tab ? '#1e1200' : 'transparent',
-                    color: activeTab === tab ? '#e88b00' : '#5a5a5a',
+                    background: activeTab === tab ? '#0e1820' : 'transparent',
+                    color: activeTab === tab ? '#e88b00' : '#5a7a8a',
                     borderBottom: activeTab === tab ? '2px solid #e88b00' : '2px solid transparent',
-                    fontSize: '11px',
+                    fontSize: '11.5px',
                     padding: '6px 14px',
                   }}
                 >
@@ -753,7 +753,7 @@ function ConsoleParamStrip() {
 
   return (
     <div className="flex items-center shrink-0 overflow-x-auto select-none"
-      style={{ background: '#070b10', borderBottom: '1px solid #0f1a24', height: '24px', gap: 0 }}>
+      style={{ background: '#070b10', borderBottom: '1px solid #0f1a24', height: '28px', gap: 0 }}>
 
       {/* Sequence type badge */}
       <div className="flex items-center px-2 gap-1.5 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
@@ -776,12 +776,12 @@ function ConsoleParamStrip() {
 
       {/* TE / TE_eff */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '8px', letterSpacing: '0.06em' }}>TE</span>
+        <span style={{ color: '#4a7a9a', fontSize: '9px', letterSpacing: '0.06em' }}>TE</span>
         <button
           className="font-mono font-semibold"
           style={{
-            color: teOk ? '#c8ccd6' : '#fca5a5',
-            fontSize: '10px',
+            color: teOk ? '#dde4ec' : '#fca5a5',
+            fontSize: '11px',
             background: teOk ? 'transparent' : '#1a0505',
             border: teOk ? 'none' : '1px solid #7f1d1d30',
             borderRadius: 3,
@@ -793,7 +793,7 @@ function ConsoleParamStrip() {
         >
           {params.TE}
         </button>
-        <span style={{ color: '#374151', fontSize: '8px' }}>ms</span>
+        <span style={{ color: '#4a7a9a', fontSize: '9px' }}>ms</span>
         {/* TE_min indicator */}
         <span style={{
           color: teOk ? '#1f4a2f' : '#f87171',
@@ -868,78 +868,80 @@ function ConsoleParamStrip() {
       )}
 
       {/* Scan time */}
-      <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '8px', letterSpacing: '0.06em' }}>TA</span>
-        <span className="font-mono font-bold" style={{ color: '#e2e8f0', fontSize: '10px' }}>{fmt(scanTime)}</span>
+      <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27', background: '#050d18' }}>
+        <span style={{ color: '#4a7a9a', fontSize: '9px', letterSpacing: '0.08em' }}>TA</span>
+        <span className="font-mono font-bold" style={{ color: '#f0f4f8', fontSize: '13px', letterSpacing: '0.02em' }}>{fmt(scanTime)}</span>
       </div>
       <ChipDiv />
 
       {/* Matrix + slices */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span className="font-mono" style={{ color: '#4b5563', fontSize: '9px' }}>
-          {params.matrixFreq}×{params.matrixPhase}×{params.slices}
+        <span style={{ color: '#4a7a9a', fontSize: '9px' }}>Mtx</span>
+        <span className="font-mono" style={{ color: '#9ab0c0', fontSize: '10px' }}>
+          {params.matrixFreq}×{params.matrixPhase}
         </span>
+        <span style={{ color: '#4a7a9a', fontSize: '9px' }}>/{params.slices}sl</span>
       </div>
       <ChipDiv />
 
       {/* Pixel resolution */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '8px' }}>res</span>
-        <span className="font-mono" style={{ color: '#4b5563', fontSize: '9px' }}>
-          {(params.fov / params.matrixFreq).toFixed(1)}×{(params.fov * (params.phaseResolution ?? 100) / 100 / params.matrixPhase).toFixed(1)}mm²
+        <span style={{ color: '#4a7a9a', fontSize: '9px' }}>px</span>
+        <span className="font-mono" style={{ color: '#7a9ab0', fontSize: '9.5px' }}>
+          {(params.fov / params.matrixFreq).toFixed(1)}×{(params.fov * (params.phaseResolution ?? 100) / 100 / params.matrixPhase).toFixed(1)}mm
         </span>
       </div>
 
       {/* Bandwidth per pixel */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '8px' }}>BW</span>
-        <span className="font-mono" style={{ color: '#4b5563', fontSize: '9px' }}>
+        <span style={{ color: '#4a7a9a', fontSize: '9px' }}>BW</span>
+        <span className="font-mono" style={{ color: '#7a9ab0', fontSize: '9.5px' }}>
           {Math.round(params.bandwidth * 2 / params.matrixFreq * 1000)}Hz/px
         </span>
       </div>
 
       {/* Field strength + Larmor freq */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span className="font-mono font-semibold" style={{ color: '#e88b00', fontSize: '9px' }}>{params.fieldStrength}T</span>
-        <span className="font-mono" style={{ color: '#3a2800', fontSize: '8px' }}>{larmorMHz}MHz</span>
+        <span className="font-mono font-semibold" style={{ color: '#e88b00', fontSize: '10px' }}>{params.fieldStrength}T</span>
+        <span className="font-mono" style={{ color: '#5a4010', fontSize: '9px' }}>{larmorMHz}MHz</span>
       </div>
 
       {/* B1 RMS */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '7px' }}>B1rms</span>
+        <span style={{ color: '#4a7a9a', fontSize: '8.5px' }}>B1</span>
         <span className="font-mono" style={{
-          color: b1Rms > 3 ? '#f87171' : b1Rms > 2 ? '#fbbf24' : '#4b5563',
-          fontSize: '8px'
+          color: b1Rms > 3 ? '#f87171' : b1Rms > 2 ? '#fbbf24' : '#5a7a90',
+          fontSize: '9.5px'
         }}>{b1Rms}µT</span>
       </div>
 
       {/* Gradient duty cycle */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '7px' }}>GDC</span>
+        <span style={{ color: '#4a7a9a', fontSize: '8.5px' }}>GDC</span>
         <span className="font-mono" style={{
-          color: gdc > 70 ? '#f87171' : gdc > 45 ? '#fbbf24' : '#4b5563',
-          fontSize: '8px'
+          color: gdc > 70 ? '#f87171' : gdc > 45 ? '#fbbf24' : '#5a7a90',
+          fontSize: '9.5px'
         }}>{gdc}%</span>
       </div>
 
       {/* Acoustic noise */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '7px' }}>dB</span>
+        <span style={{ color: '#4a7a9a', fontSize: '8.5px' }}>dB</span>
         <span className="font-mono" style={{
-          color: noiseDb >= 115 ? '#f87171' : noiseDb >= 95 ? '#fbbf24' : '#4b5563',
-          fontSize: '8px'
+          color: noiseDb >= 115 ? '#f87171' : noiseDb >= 95 ? '#fbbf24' : '#5a7a90',
+          fontSize: '9.5px'
         }}>{noiseDb}</span>
       </div>
 
       {/* Gradient coil temperature */}
       <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-        <span style={{ color: '#374151', fontSize: '7px' }}>GC°</span>
+        <span style={{ color: '#4a7a9a', fontSize: '8.5px' }}>GC</span>
         <span className="font-mono" style={{
-          color: gradTemp > 45 ? '#f87171' : gradTemp > 38 ? '#fbbf24' : '#4b5563',
-          fontSize: '8px'
+          color: gradTemp > 45 ? '#f87171' : gradTemp > 38 ? '#fbbf24' : '#5a7a90',
+          fontSize: '9.5px'
         }}>{gradTemp.toFixed(1)}°C</span>
         {gradTemp > 38 && (
-          <span style={{ fontSize: '6px', color: gradTemp > 45 ? '#f87171' : '#fbbf24' }}>▲</span>
+          <span style={{ fontSize: '7px', color: gradTemp > 45 ? '#f87171' : '#fbbf24' }}>▲</span>
         )}
       </div>
 
@@ -1047,14 +1049,14 @@ function ConsoleParamStrip() {
             color: scanState === 'scanning' ? '#f87171' : scanState === 'recon' ? '#60a5fa' : scanState === 'done' ? '#60a5fa' : '#34d399',
             border: `1px solid ${scanState === 'scanning' ? '#7f1d1d' : (scanState === 'recon' || scanState === 'done') ? '#1d3d7f' : '#14532d'}`,
             borderRadius: 4,
-            fontSize: '10px',
+            fontSize: '11px',
             fontWeight: 700,
-            padding: '2px 14px',
+            padding: '3px 16px',
             cursor: 'pointer',
             letterSpacing: '0.08em',
             fontFamily: 'monospace',
-            boxShadow: (scanState === 'idle' || scanState === 'done') ? '0 0 6px #14532d60' : 'none',
-            minWidth: '64px',
+            boxShadow: (scanState === 'idle' || scanState === 'done') ? '0 0 8px #14532d80' : 'none',
+            minWidth: '72px',
           }}
         >
           {scanState === 'scanning' ? '■ STOP' : scanState === 'preparing' ? '· · ·' : scanState === 'recon' ? 'RECON' : '▶ SCAN'}
@@ -1075,9 +1077,9 @@ function SARModeChip() {
 
   return (
     <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-      <span style={{ color: '#374151', fontSize: '7px' }}>SAR</span>
-      <span className="font-mono font-bold" style={{ color, fontSize: '8px' }}>{mode}</span>
-      <span className="font-mono" style={{ color: color + 'aa', fontSize: '8px' }}>{sarPct}%</span>
+      <span style={{ color: '#4a7a9a', fontSize: '8.5px' }}>SAR</span>
+      <span className="font-mono font-bold" style={{ color, fontSize: '9.5px' }}>{mode}</span>
+      <span className="font-mono" style={{ color: color + 'aa', fontSize: '9px' }}>{sarPct}%</span>
     </div>
   )
 }
@@ -1087,21 +1089,21 @@ function ChipParam({ label, value, unit, ok, warnMsg, onFix }: {
 }) {
   return (
     <div className="flex items-center gap-1 px-2 shrink-0" style={{ borderRight: '1px solid #111d27' }}>
-      <span style={{ color: '#374151', fontSize: '8px', letterSpacing: '0.06em' }}>{label}</span>
+      <span style={{ color: '#4a7a9a', fontSize: '9px', letterSpacing: '0.06em' }}>{label}</span>
       <span
         className="font-mono font-semibold"
-        style={{ color: ok ? '#c8ccd6' : '#fca5a5', fontSize: '10px' }}
+        style={{ color: ok ? '#dde4ec' : '#fca5a5', fontSize: '11px' }}
         title={warnMsg}
       >
         {value}
       </span>
-      {unit && <span style={{ color: '#374151', fontSize: '8px' }}>{unit}</span>}
+      {unit && <span style={{ color: '#4a7a9a', fontSize: '9px' }}>{unit}</span>}
       {!ok && warnMsg && (
         <>
-          <span style={{ color: '#f87171', fontSize: '7px' }}>⚠{warnMsg}</span>
+          <span style={{ color: '#f87171', fontSize: '8px' }}>⚠{warnMsg}</span>
           {onFix && (
             <button onClick={onFix}
-              style={{ color: '#34d399', fontSize: '7px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 2px', cursor: 'pointer' }}>
+              style={{ color: '#34d399', fontSize: '8px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 2px', cursor: 'pointer' }}>
               fix
             </button>
           )}

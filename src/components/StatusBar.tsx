@@ -38,7 +38,7 @@ export function StatusBar() {
 
   return (
     <div className="flex items-center gap-0 shrink-0 overflow-x-auto"
-      style={{ background: '#0a0a0a', borderBottom: '1px solid #1e1e1e', color: '#9ca3af', height: '26px' }}>
+      style={{ background: '#070c14', borderBottom: '1px solid #0f1e2c', color: '#9ca3af', height: '26px' }}>
 
       {/* Sequence type badge */}
       <div className="flex items-center px-2 shrink-0" title={seqId.details}>
@@ -51,7 +51,10 @@ export function StatusBar() {
       <Sep />
 
       {/* Scan time */}
-      <Metric label="TIME" value={fmt(scanTime)} valueColor="#e2e8f0" />
+      <div className="flex items-center gap-1 px-3">
+        <span style={{ color: '#3a6a8a', fontSize: '9px', letterSpacing: '0.08em', fontFamily: 'monospace' }}>TIME</span>
+        <span className="font-mono font-bold" style={{ color: '#f0f4f8', fontSize: '12px', letterSpacing: '0.04em' }}>{fmt(scanTime)}</span>
+      </div>
 
       <Sep />
 
@@ -84,7 +87,7 @@ export function StatusBar() {
 
       {/* SAR bar + value */}
       <div className="flex items-center gap-1.5 px-2">
-        <span style={{ color: '#4b5563', fontSize: '9px', letterSpacing: '0.08em' }}>SAR</span>
+        <span style={{ color: '#3a6a8a', fontSize: '9px', letterSpacing: '0.08em' }}>SAR</span>
         <div className="flex items-center gap-1">
           <div className="w-16 h-1.5 rounded-full overflow-hidden" style={{ background: '#1e1e1e' }}>
             <div
@@ -195,12 +198,12 @@ function Metric({ label, value, valueColor, title }: {
 }) {
   return (
     <div className="flex items-center gap-1 px-2" title={title}>
-      <span style={{ color: '#4b5563', fontSize: '9px', letterSpacing: '0.08em', fontFamily: 'monospace' }}>{label}</span>
-      <span className="font-mono font-semibold" style={{ color: valueColor ?? '#c8ccd6', fontSize: '10px' }}>{value}</span>
+      <span style={{ color: '#3a6a8a', fontSize: '9px', letterSpacing: '0.08em', fontFamily: 'monospace' }}>{label}</span>
+      <span className="font-mono font-semibold" style={{ color: valueColor ?? '#c8dce8', fontSize: '10.5px' }}>{value}</span>
     </div>
   )
 }
 
 function Sep() {
-  return <div style={{ width: '1px', height: '14px', background: '#1e1e1e', flexShrink: 0 }} />
+  return <div style={{ width: '1px', height: '14px', background: '#0f1e2c', flexShrink: 0 }} />
 }
