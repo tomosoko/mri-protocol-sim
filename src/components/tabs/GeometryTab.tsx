@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
+import { VizSection } from '../VizSection'
 
 // ── 傾斜磁場ロテーション行列 ──────────────────────────────────────────────────
 // 論理座標 (Slice / Phase / Freq) → 物理 (X/Y/Z) の変換
@@ -998,17 +999,27 @@ export function GeometryTab() {
       {subTab === 'Common' && (
         <div className="space-y-0.5">
           {/* 3-plane localizer with slice planning overlays */}
-          <LocalizerView />
+          <VizSection always={true}>
+            <LocalizerView />
+          </VizSection>
 
           {/* Slice planning 3D view */}
-          <SlicePlanView />
+          <VizSection>
+            <SlicePlanView />
+          </VizSection>
 
           {/* Slice coverage side view */}
-          <SliceCoverageSideView />
+          <VizSection>
+            <SliceCoverageSideView />
+          </VizSection>
 
-          <FOVDiagram />
+          <VizSection>
+            <FOVDiagram />
+          </VizSection>
           {/* Phase wrap / aliasing preview */}
-          <WrapArtifactPreview />
+          <VizSection>
+            <WrapArtifactPreview />
+          </VizSection>
           <ParamField label="Orientation" value={params.orientation} type="select"
             options={['Tra', 'Cor', 'Sag']}
             onChange={v => setParam('orientation', v as typeof params.orientation)} />
@@ -1029,31 +1040,37 @@ export function GeometryTab() {
             onChange={v => setConcatenations(v as number)} />
 
           {/* Gradient rotation matrix */}
-          <GradientRotationMatrix />
+          <VizSection>
+            <GradientRotationMatrix />
+          </VizSection>
 
           {/* PE Direction artifact guide */}
-          <PEDirectionGuide />
+          <VizSection>
+            <PEDirectionGuide />
+          </VizSection>
 
           {/* Phase direction guide */}
-          <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>位相方向の選択ガイド</div>
-            <table className="w-full">
-              <thead>
-                <tr style={{ color: '#6b7280' }}>
-                  <th className="text-left pb-1">部位</th>
-                  <th className="text-left pb-1">推奨</th>
-                  <th className="text-left pb-1">理由</th>
-                </tr>
-              </thead>
-              <tbody className="text-xs" style={{ color: '#9ca3af' }}>
-                <tr><td className="py-0.5 text-white">頭部 Tra</td><td>A&gt;&gt;P</td><td>眼球運動アーチファクトを前後方向に</td></tr>
-                <tr><td className="py-0.5 text-white">腹部 Tra</td><td>A&gt;&gt;P</td><td>呼吸アーチファクトを前後に</td></tr>
-                <tr><td className="py-0.5 text-white">脊椎 Sag</td><td>H&gt;&gt;F</td><td>嚥下・心拍アーチファクトを縦方向に</td></tr>
-                <tr><td className="py-0.5 text-white">乳腺</td><td>R&gt;&gt;L</td><td>心拍アーチファクトを乳腺外へ</td></tr>
-                <tr><td className="py-0.5 text-white">膝関節 Sag</td><td>A&gt;&gt;P</td><td>体の短辺方向→エイリアシングリスク↓</td></tr>
-              </tbody>
-            </table>
-          </div>
+          <VizSection>
+            <div className="mx-3 mt-3 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
+              <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>位相方向の選択ガイド</div>
+              <table className="w-full">
+                <thead>
+                  <tr style={{ color: '#6b7280' }}>
+                    <th className="text-left pb-1">部位</th>
+                    <th className="text-left pb-1">推奨</th>
+                    <th className="text-left pb-1">理由</th>
+                  </tr>
+                </thead>
+                <tbody className="text-xs" style={{ color: '#9ca3af' }}>
+                  <tr><td className="py-0.5 text-white">頭部 Tra</td><td>A&gt;&gt;P</td><td>眼球運動アーチファクトを前後方向に</td></tr>
+                  <tr><td className="py-0.5 text-white">腹部 Tra</td><td>A&gt;&gt;P</td><td>呼吸アーチファクトを前後に</td></tr>
+                  <tr><td className="py-0.5 text-white">脊椎 Sag</td><td>H&gt;&gt;F</td><td>嚥下・心拍アーチファクトを縦方向に</td></tr>
+                  <tr><td className="py-0.5 text-white">乳腺</td><td>R&gt;&gt;L</td><td>心拍アーチファクトを乳腺外へ</td></tr>
+                  <tr><td className="py-0.5 text-white">膝関節 Sag</td><td>A&gt;&gt;P</td><td>体の短辺方向→エイリアシングリスク↓</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </VizSection>
         </div>
       )}
 

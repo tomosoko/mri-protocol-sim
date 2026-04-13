@@ -3,6 +3,7 @@ import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField, SectionHeader as SH } from '../ParamField'
 import { TISSUES, calcScanTime, calcTEmin, calcTRmin, identifySequence } from '../../store/calculators'
 import type { ProtocolParams } from '../../data/presets'
+import { VizSection } from '../VizSection'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
 function ErnstAngleIndicator() {
@@ -1187,7 +1188,9 @@ export function RoutineTab() {
           })()}
 
           {/* Pulse sequence timing diagram */}
+          <VizSection>
           <SequenceTimingDiagram />
+          </VizSection>
 
           <SH label="Slice Group" />
           <ParamField label="Slice Group" value={sliceGroup} type="number" min={1} max={8}
@@ -1269,7 +1272,9 @@ export function RoutineTab() {
             })}
           </div>
           <ParamField label="TR" hintKey="TR" value={params.TR} type="number" min={100} max={15000} step={100} unit="ms"
-            onChange={v => setParam('TR', v as number)} highlight={hl('TR')} />
+            onChange={v => setParam('TR', v as number)} highlight={hl('TR')}
+            warn={params.TR < calcTRmin(params)} warnMsg={`TR < TR_min (${calcTRmin(params)}ms)`}
+            coupling={['TA', 'T1-cntr', 'SAR']} />
           {/* TR_min inline indicator */}
           {(() => {
             const trMin = calcTRmin(params)
@@ -1288,7 +1293,9 @@ export function RoutineTab() {
             )
           })()}
           <ParamField label="TE" hintKey="TE" value={params.TE} type="number" min={1} max={1000} step={1} unit="ms"
-            onChange={v => setParam('TE', v as number)} highlight={hl('TE')} />
+            onChange={v => setParam('TE', v as number)} highlight={hl('TE')}
+            warn={params.TE < calcTEmin(params)} warnMsg={`TE < TE_min (${calcTEmin(params)}ms)`}
+            coupling={['T2-cntr', 'SNR']} />
           {/* TE_min inline indicator — real scanner behavior */}
           {(() => {
             const teMin = calcTEmin(params)
@@ -1321,13 +1328,18 @@ export function RoutineTab() {
             onChange={v => setParam('TI', v as number)} highlight={hl('TI')} />
           <ParamField label="Flip Angle" hintKey="flipAngle" value={params.flipAngle} type="range"
             min={5} max={180} step={5} unit="°"
-            onChange={v => setParam('flipAngle', v as number)} highlight={hl('flipAngle')} />
+            onChange={v => setParam('flipAngle', v as number)} highlight={hl('flipAngle')}
+            coupling={['SAR', 'T1-cntr', 'SNR']} />
           <ErnstAngleIndicator />
 
           {/* Steady-state convergence — for GRE/TSE sequences */}
+          <VizSection>
           <SteadyStateConvergence />
+          </VizSection>
 
+          <VizSection>
           <SignalCurveChart />
+          </VizSection>
 
           {/* Parameter coupling status — shows how current TR/TE drive key outcomes */}
           {(() => {
@@ -1368,14 +1380,19 @@ export function RoutineTab() {
           })()}
 
           {/* Live brain phantom signal preview */}
+          <VizSection>
           <BrainPhantomPreview />
+          </VizSection>
 
+          <VizSection>
           <ContrastHeatmap />
+          </VizSection>
 
           <SH label="Averages" />
           <ParamField label="Averages" hintKey="averages" value={params.averages} type="number"
             min={1} max={8} step={1}
-            onChange={v => setParam('averages', v as number)} highlight={hl('averages')} />
+            onChange={v => setParam('averages', v as number)} highlight={hl('averages')}
+            coupling={['TA', 'SNR']} />
           <ParamField label="Concatenations" hintKey="Concatenations" value={concatenations} type="number"
             min={1} max={16} step={1}
             onChange={v => setConcatenations(v as number)} />

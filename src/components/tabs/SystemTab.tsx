@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
+import { VizSection } from '../VizSection'
 import { calcSARLevel, calcScanTime } from '../../store/calculators'
 
 // ── スキャナーボア断面図 ────────────────────────────────────────────────────────
@@ -1173,7 +1174,7 @@ export function SystemTab() {
             onChange={v => setCoilFocus(v as string)} />
 
           {/* Coil element visualization */}
-          <CoilElementMap />
+          <VizSection><CoilElementMap /></VizSection>
 
           <div className="border-t my-1" style={{ borderColor: '#252525' }} />
 
@@ -1195,41 +1196,41 @@ export function SystemTab() {
           </div>
 
           {/* Gradient Performance Monitor */}
-          <GradientMonitor />
+          <VizSection><GradientMonitor /></VizSection>
 
           {/* Gradient Thermal Monitor */}
-          <GradientTempMonitor />
+          <VizSection><GradientTempMonitor /></VizSection>
 
           {/* PNS Monitor */}
-          <PNSMonitor />
+          <VizSection><PNSMonitor /></VizSection>
 
           {/* MR Safety / Implant Check */}
-          <MRSafetyChecker />
+          <VizSection><MRSafetyChecker /></VizSection>
 
           {/* Cryo System Monitor */}
-          <CryoMonitor />
+          <VizSection><CryoMonitor /></VizSection>
 
           {/* Scanner Bore Cross-Section Diagram */}
-          <ScannerBoreDiagram />
+          <VizSection><ScannerBoreDiagram /></VizSection>
 
           {/* SAR Breakdown */}
-          <SARBreakdown />
+          <VizSection><SARBreakdown /></VizSection>
 
           {/* SAR Accumulation Monitor */}
-          <SARAccumulationMonitor />
+          <VizSection><SARAccumulationMonitor /></VizSection>
 
           {/* Coil Reference Table */}
-          <CoilReferenceTable />
+          <VizSection><CoilReferenceTable /></VizSection>
         </div>
       )}
 
       {subTab === 'Adjustments' && (
         <div className="space-y-0.5">
           {/* Prescan / shimming status */}
-          <PrescanStatusPanel />
+          <VizSection><PrescanStatusPanel /></VizSection>
 
           {/* 2D B0 field map */}
-          <B0FieldMap2D />
+          <VizSection><B0FieldMap2D /></VizSection>
 
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Adjustment Strategy</div>
           <ParamField label="Adjustment Strategy" value={adjStrategy} type="select"
@@ -1265,7 +1266,7 @@ export function SystemTab() {
                     <div className="text-orange-400">⚠ AF≥3はg-factor（残留アーチファクト）に注意</div>
                   )}
                 </div>
-                <GFactorChart />
+                <VizSection><GFactorChart /></VizSection>
               </>
             )}
           </div>
@@ -1314,7 +1315,7 @@ export function SystemTab() {
               TrueFormは標準的なCP送信モードでB1均一性を最適化します。
             </div>
           </div>
-          <B1FieldMap fieldStrength={params.fieldStrength} trueForm={trueForm} />
+          <VizSection><B1FieldMap fieldStrength={params.fieldStrength} trueForm={trueForm} /></VizSection>
         </div>
       )}
 
@@ -1335,10 +1336,10 @@ export function SystemTab() {
           </div>
 
           {/* RF Amplifier Monitor */}
-          <RFAmplifierMonitor />
+          <VizSection><RFAmplifierMonitor /></VizSection>
 
           {/* Receiver Chain Noise Figure */}
-          <ReceiverChainMonitor />
+          <VizSection><ReceiverChainMonitor /></VizSection>
         </div>
       )}
     </div>

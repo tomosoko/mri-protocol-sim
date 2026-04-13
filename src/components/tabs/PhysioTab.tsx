@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
+import { VizSection } from '../VizSection'
 
 // ── ライブ生体モニター ────────────────────────────────────────────────────────
 // syngo MR コンソール下部のリアルタイム生体信号表示（ECG + 呼吸）
@@ -604,7 +605,7 @@ export function PhysioTab() {
           </div>
 
           {/* Live physiological waveform monitor */}
-          <LivePhysioMonitor />
+          <VizSection><LivePhysioMonitor /></VizSection>
         </div>
       )}
 
@@ -687,17 +688,17 @@ export function PhysioTab() {
                 <div className="mt-2" style={{ color: '#6b7280', fontSize: '9px' }}>
                   ※ 3T では vECG を使用するとR波検出精度が大幅に向上
                 </div>
-                <CardiacTimingDiagram rrInterval={rrInterval} triggerDelay={params.triggerDelay} />
+                <VizSection><CardiacTimingDiagram rrInterval={rrInterval} triggerDelay={params.triggerDelay} /></VizSection>
               </div>
             </>
           )}
           {/* Trigger quality statistics */}
           {params.ecgTrigger && (
-            <TriggerQualityMonitor heartRate={manualHR} is3T={params.fieldStrength >= 2.5} />
+            <VizSection><TriggerQualityMonitor heartRate={manualHR} is3T={params.fieldStrength >= 2.5} /></VizSection>
           )}
 
           {/* Cardiac Cine Phase Calculator */}
-          {params.ecgTrigger && <CardiacCinePhases rrInterval={rrInterval} />}
+          {params.ecgTrigger && <VizSection><CardiacCinePhases rrInterval={rrInterval} /></VizSection>}
 
           {/* VENC / Phase Contrast calculator */}
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#0a0e14', border: '1px solid #1a2a3a' }}>
@@ -759,7 +760,7 @@ export function PhysioTab() {
             </div>
           </div>
 
-          <RespWaveformDiagram acceptancePct={paceAcceptance} />
+          <VizSection><RespWaveformDiagram acceptancePct={paceAcceptance} /></VizSection>
 
           <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="font-semibold mb-1" style={{ color: '#e88b00' }}>呼吸補正モードの比較</div>

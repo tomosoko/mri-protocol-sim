@@ -2,6 +2,7 @@ export interface ClinicalHint {
   title: string
   unit?: string
   description: string
+  formula?: string
   increase: string
   decrease: string
   tradeoff: string
@@ -14,6 +15,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'TR（繰り返し時間）',
     unit: 'ms',
     description: 'RFパルスを繰り返す間隔。T1回復時間に影響する最重要パラメータ。',
+    formula: 'TA = TR × PE_steps × slices / (ETL × iPAT) × NSA',
     increase: 'T1コントラスト↓（T1強調が薄れる）・SNR↑・SAR↓・撮像時間↑',
     decrease: 'T1コントラスト↑（T1強調増強）・SNR↓・SAR↑・撮像時間↓',
     tradeoff: 'T1コントラスト vs 撮像時間。TRを短くすると撮像は速いがT1強調が強くなる。',
@@ -24,6 +26,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'TE（エコー時間）',
     unit: 'ms',
     description: 'RFパルス後、エコー信号を収集するまでの時間。T2/T2*減衰に直結。',
+    formula: 'TE_min = ESP × ⌈ETL/2⌉  (TSE) | echo time ≥ TE_min',
     increase: 'T2コントラスト↑・SNR↓（T2減衰が進む）',
     decrease: 'T2コントラスト↓（PD強調寄り）・SNR↑',
     tradeoff: 'T2コントラスト vs SNR。TEを長くすると水との差が明確になるがノイズも増える。',
@@ -34,6 +37,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'TI（反転回復時間）',
     unit: 'ms',
     description: '180°反転パルス後、励起パルスまでの待機時間。特定組織のnull点設定に使用。',
+    formula: 'TI_null = T1 × ln(2) ≈ 0.693 × T1',
     increase: 'null点が長いT1を持つ組織（水など）に移動',
     decrease: 'null点が短いT1を持つ組織（脂肪など）に移動',
     tradeoff: '抑制対象組織のT1値に合わせる必要がある（3T vs 1.5Tで異なる）',
@@ -44,6 +48,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'Flip Angle（フリップ角）',
     unit: '°',
     description: 'RFパルスで磁化を倒す角度。Ernst角でSNRが最大化される。',
+    formula: 'Ernst angle: α = arccos(e^(-TR/T1))',
     increase: 'SNR↑・SAR↑・T1コントラスト↑（飽和が強くなる）',
     decrease: 'SNR↓・SAR↓・定常状態での信号安定',
     tradeoff: 'SNR vs SAR。高フリップ角（≥150°）はTSE/HASTEでSAR大幅増加。',
@@ -54,6 +59,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'Averages（加算回数 / NSA）',
     unit: '回',
     description: '同じデータを何回取得して平均するか。SNR改善の最もシンプルな方法。',
+    formula: 'SNR ∝ √NSA  (2× NSA → +41% SNR, 4× time)',
     increase: 'SNR↑（√n倍）・アーチファクト↓・撮像時間↑（比例）',
     decrease: 'SNR↓・撮像時間↓',
     tradeoff: '2倍にするとSNRは√2≈1.4倍だが時間も2倍。効率が悪い改善手段。',
@@ -104,6 +110,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'Bandwidth（受信帯域幅）',
     unit: 'Hz/Px',
     description: '1ピクセルあたりの受信周波数幅。化学シフトとSNRに直結。',
+    formula: 'BW/px = RBW / Matrix_freq  [Hz/px]',
     increase: '化学シフトアーチファクト↓・SNR↓・EPI歪み↓・最短TE短縮可能',
     decrease: '化学シフトアーチファクト↑・SNR↑',
     tradeoff: 'SNR vs 化学シフト。DWI（EPI）では高Bandwidthが必須。',
@@ -194,6 +201,7 @@ export const hints: Record<string, ClinicalHint> = {
     title: 'Turbo Factor / ETL（エコートレイン長）',
     unit: '個',
     description: '1回のRFパルス後に収集するエコーの数。撮像速度とSARに直結。',
+    formula: 'TA_TSE = TR × PE / ETL × NSA',
     increase: '撮像速度↑・SAR↑・ブラーリング↑（T2減衰の影響）・コントラスト変化',
     decrease: '撮像速度↓・SAR↓・コントラスト純度↑',
     tradeoff: '速度 vs SAR vs ブラーリング。HASTEは極限まで大きくしたTSE（ETL=100以上）。',

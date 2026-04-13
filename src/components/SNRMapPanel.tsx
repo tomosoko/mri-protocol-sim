@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { calcSNR } from '../store/calculators'
 import {
@@ -421,7 +421,7 @@ export function SNRMapPanel() {
   const [viewMode, setViewMode] = useState<ViewMode>('snr')
   const [hoverSNR, setHoverSNR] = useState<number | null>(null)
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
-  const [snrStats, setSnrStats] = useState<{ min: number; max: number; mean: number } | null>(null)
+  // snrStats is computed via useMemo below (no longer state)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gOverlayRef = useRef<HTMLCanvasElement>(null)
 
@@ -436,16 +436,20 @@ export function SNRMapPanel() {
   const snrGridRef = useRef<number[][] | null>(null)
   const maxSnrRef = useRef<number>(0)
 
+  const snrGridData = useMemo(() => buildSNRGrid(
+    section, displayCoil, globalSNR,
+    params.ipatMode, params.ipatFactor, params.fieldStrength,
+  ), [section, displayCoil, globalSNR, params.ipatMode, params.ipatFactor, params.fieldStrength])
+
+  const snrStats = useMemo(() => computeSNRStats(snrGridData[0]), [snrGridData])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const [grid, maxSnr] = buildSNRGrid(
-      section, displayCoil, globalSNR,
-      params.ipatMode, params.ipatFactor, params.fieldStrength,
-    )
+    const [grid, maxSnr] = snrGridData
     snrGridRef.current = grid
     maxSnrRef.current = maxSnr
 
@@ -455,9 +459,7 @@ export function SNRMapPanel() {
       showContours, viewMode,
     )
 
-    // Compute SNR stats for the stat section
-    setSnrStats(computeSNRStats(grid))
-  }, [params, section, displayCoil, globalSNR, showContours, viewMode])
+  }, [snrGridData, section, displayCoil, globalSNR, params.ipatMode, params.ipatFactor, params.fieldStrength, showContours, viewMode])
 
   // Draw g-factor overlay on separate canvas
   useEffect(() => {

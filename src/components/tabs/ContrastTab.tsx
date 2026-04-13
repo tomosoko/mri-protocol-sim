@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { TISSUES, calcTissueContrast } from '../../store/calculators'
+import { VizSection } from '../VizSection'
 // TISSUES imported above and used in IRSignalEvolution + LiveTissueSignalBar
 
 // ── Dixon In/Out-of-Phase TE 計算器 ───────────────────────────────────────────
@@ -281,9 +282,7 @@ function GadoliniumEnhancement() {
 // 現在の TR/TE/TI/FA 設定に基づき全組織の信号強度をリアルタイム比較表示
 function LiveTissueSignalBar() {
   const { params } = useProtocolStore()
-  const signals = useMemo(() => calcTissueContrast(params), [
-    params.TR, params.TE, params.TI, params.flipAngle, params.fatSat, params.fieldStrength, params.turboFactor, params.averages
-  ])
+  const signals = useMemo(() => calcTissueContrast(params), [params])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sort by signal strength for display
   const sorted = [...signals].sort((a, b) => b.signal - a.signal)
@@ -383,7 +382,7 @@ function FatSatB0Chart() {
   const csFatHz = is3T ? 447 : 224  // fat-water separation
 
   // Each method's effectiveness model
-  const methods = [
+  const methods = useMemo(() => [
     {
       name: 'CHESS',
       color: '#fbbf24',
@@ -405,7 +404,7 @@ function FatSatB0Chart() {
       name: 'STIR',
       color: '#4ade80',
       // STIR: B0 independent (T1 based)
-      eff: (_dppm: number) => 0.85,  // consistent but lower SNR
+      eff: () => 0.85,  // consistent but lower SNR
     },
     {
       name: 'Dixon',
@@ -415,7 +414,7 @@ function FatSatB0Chart() {
         return Math.max(0, 1 - (dppm / 3.5) ** 1.5)
       },
     },
-  ]
+  ], [is3T, csFatHz])
 
   const W = 290, H = 80
   const PAD = { l: 28, r: 10, t: 8, b: 18 }
@@ -438,7 +437,7 @@ function FatSatB0Chart() {
     const currentEff = Math.round(m.eff(typicalPpm) * 100)
     const isSelected = params.fatSat === m.name
     return { ...m, d, currentEff, isSelected }
-  }), [is3T, params.fatSat, params.fieldStrength])
+  }), [methods, ppmPts, tx, ty, is3T, params.fatSat])
 
   // Current B0 uniformity line (typical value)
   const typicalPpm = is3T ? 1.5 : 0.8
@@ -602,12 +601,13 @@ export function ContrastTab() {
           </div>
 
           {/* Fat suppression B0 sensitivity chart */}
-          <FatSatB0Chart />
+          <VizSection><FatSatB0Chart /></VizSection>
 
           {/* Dixon in/out-of-phase TE calculator */}
-          <DixonTECalculator />
+          <VizSection><DixonTECalculator /></VizSection>
 
           {/* T1/T2 contrast guide */}
+          <VizSection>
           <div className="mx-3 mt-3 p-3 rounded" style={{ background: '#111111', border: '1px solid #252525' }}>
             <div className="text-xs font-semibold mb-2" style={{ color: '#e88b00' }}>コントラスト重み付けの目安</div>
             <table className="w-full text-xs">
@@ -627,6 +627,7 @@ export function ContrastTab() {
               </tbody>
             </table>
           </div>
+          </VizSection>
 
           {/* Current contrast estimate */}
           <div className="mx-3 mt-2 p-2 rounded text-xs" style={{ background: '#1e2435', border: '1px solid #374151' }}>
@@ -640,27 +641,29 @@ export function ContrastTab() {
           </div>
 
           {/* Gadolinium T1-shortening / enhancement */}
-          <GadoliniumEnhancement />
+          <VizSection><GadoliniumEnhancement /></VizSection>
 
           {/* TI 自動計算器 */}
-          <TICalculator />
+          <VizSection><TICalculator /></VizSection>
 
           {/* IR signal evolution — only shown when TI > 0 */}
-          <IRSignalEvolution />
+          <VizSection><IRSignalEvolution /></VizSection>
 
           {/* T2* decay chart — always visible as TE reference */}
+          <VizSection>
           <div className="mx-3 mt-2">
             <T2StarDecayChart fieldStrength={params.fieldStrength} TE={params.TE} />
             <div className="mt-1 p-1.5 rounded text-xs" style={{ background: '#111', border: '1px solid #252525', color: '#374151' }}>
               T2* ≈ 組織の磁化率差による信号損失速度。3Tでは1.5Tの約1/2に短縮。GRE/EPI/SWIのTE設計に重要。
             </div>
           </div>
+          </VizSection>
 
           {/* ¹H MRS metabolite spectrum */}
-          <MRSSpectrum />
+          <VizSection><MRSSpectrum /></VizSection>
 
           {/* Live tissue signal bars */}
-          <LiveTissueSignalBar />
+          <VizSection><LiveTissueSignalBar /></VizSection>
         </div>
       )}
 
@@ -682,7 +685,7 @@ export function ContrastTab() {
           <div className="text-xs font-semibold uppercase tracking-wider mb-2 mt-3 px-3" style={sectionHeader}>Contrast Options</div>
           <ParamField label="MTC" value={params.mt} type="toggle"
             onChange={v => setParam('mt', v as boolean)} />
-          {params.mt && <MTRatioDisplay />}
+          {params.mt && <VizSection><MTRatioDisplay /></VizSection>}
           <ParamField label="Dark Blood" value={darkBlood} type="toggle"
             onChange={v => setDarkBlood(v as boolean)} />
           <ParamField label="Flip Angle Mode" value={flipAngleMode} type="select"

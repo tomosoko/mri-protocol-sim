@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcTissueContrast } from '../../store/calculators'
+import { VizSection } from '../VizSection'
 
 // IVIM モデル計算機 (Intravoxel Incoherent Motion)
 function IVIMCalculator({ bValues }: { bValues: number[] }) {
@@ -398,13 +399,13 @@ export function InlineTab() {
   return (
     <div>
       {/* Simulated image preview */}
-      <SimulatedImagePreview />
+      <VizSection><SimulatedImagePreview /></VizSection>
 
       {/* Reconstruction Pipeline */}
-      <ReconPipeline />
+      <VizSection><ReconPipeline /></VizSection>
 
       {/* DICOM Header Preview */}
-      <DICOMHeaderPreview />
+      <VizSection><DICOMHeaderPreview /></VizSection>
 
       {/* Sub-tabs */}
       <div className="flex border-b mb-3" style={{ borderColor: '#252525', marginTop: 8 }}>
@@ -524,7 +525,7 @@ export function InlineTab() {
 
           {/* IVIM calculator */}
           {params.inlineADC && params.bValues.length >= 3 && (
-            <IVIMCalculator bValues={params.bValues} />
+            <VizSection><IVIMCalculator bValues={params.bValues} /></VizSection>
           )}
 
           {/* ADC Reference table */}

@@ -21,6 +21,8 @@ interface ProtocolStore {
   history: ProtocolParams[]
   historyIndex: number
   comparePresetId: string | null
+  viewMode: 'console' | 'extended'
+  currentPage: 'console' | 'browser'
 
   setParam: <K extends keyof ProtocolParams>(key: K, value: ProtocolParams[K]) => void
   loadPreset: (id: string) => void
@@ -34,6 +36,8 @@ interface ProtocolStore {
   redo: () => void
   resetToBaseline: () => void
   setComparePreset: (id: string | null) => void
+  setViewMode: (mode: 'console' | 'extended') => void
+  setCurrentPage: (page: 'console' | 'browser') => void
 }
 
 const MAX_HISTORY = 50
@@ -56,6 +60,8 @@ export const useProtocolStore = create<ProtocolStore>()(
   history: [],
   historyIndex: -1,
   comparePresetId: null,
+  viewMode: 'console',
+  currentPage: 'console',
 
   setParam: (key, value) =>
     set((state) => {
@@ -138,6 +144,8 @@ export const useProtocolStore = create<ProtocolStore>()(
     })),
 
   setComparePreset: (id) => set({ comparePresetId: id }),
+  setViewMode: (mode) => set({ viewMode: mode }),
+  setCurrentPage: (page) => set({ currentPage: page }),
   }),
   {
     name: 'mri-protocol-store',
@@ -152,6 +160,8 @@ export const useProtocolStore = create<ProtocolStore>()(
       activeColumnIndex: state.activeColumnIndex,
       baseline: state.baseline,
       comparePresetId: state.comparePresetId,
+      viewMode: state.viewMode,
+      currentPage: state.currentPage,
     }),
   }
 ))

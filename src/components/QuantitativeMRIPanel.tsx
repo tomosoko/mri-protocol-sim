@@ -10,11 +10,11 @@ function T1MappingVFA({ fieldStrength }: { fieldStrength: number }) {
   const [fa2, setFa2] = useState(20)   // deg
   const [tr, setTr] = useState(800)    // ms
 
-  const tissues = [
+  const tissues = useMemo(() => [
     { label: 'WM',  T1: is3T ? 1080 : 780,  color: '#60a5fa' },
     { label: 'GM',  T1: is3T ? 1600 : 1300, color: '#a78bfa' },
     { label: 'Fat', T1: is3T ? 380  : 260,  color: '#fbbf24' },
-  ]
+  ], [is3T])
 
   // VFA: S(FA) = M0 * sin(FA) * (1-E1) / (1-cos(FA)*E1)  where E1 = exp(-TR/T1)
   // Linearized: S/sin(FA) = S/tan(FA) * E1 + M0*(1-E1)  → slope = E1
@@ -49,7 +49,7 @@ function T1MappingVFA({ fieldStrength }: { fieldStrength: number }) {
     const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
     const T1_est = -tr / Math.log(Math.max(0.001, slope))
     return { ...t, pts, slope, T1_est }
-  }), [fieldStrength, tr, fa1, fa2])
+  }), [angles, tissues, tr])
 
   const allX = tissueData.flatMap(t => t.pts.map(p => p.x))
   const allY = tissueData.flatMap(t => t.pts.map(p => p.y))
@@ -161,12 +161,12 @@ function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
   const [etl, setEtl] = useState(8)         // echo train length
 
   // T2 values for key tissues (ms)
-  const tissues = [
+  const tissues = useMemo(() => [
     { label: 'WM',    T2: is3T ? 69 : 80,   color: '#60a5fa' },
     { label: 'GM',    T2: is3T ? 83 : 90,   color: '#a78bfa' },
     { label: 'CSF',   T2: is3T ? 1500 : 1800, color: '#38bdf8' },
     { label: 'Liver', T2: is3T ? 34 : 35,   color: '#fb923c' },
-  ]
+  ], [is3T])
 
   const W = 280, H = 100
   const PAD = { l: 28, r: 8, t: 8, b: 18 }
@@ -182,17 +182,21 @@ function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
     [maxTE, etl]
   )
 
-  const tissueData = useMemo(() => tissues.map(t => {
-    const pts = echos.map(te => ({ te, s: Math.exp(-te / t.T2) }))
-    // Smooth curve
-    const nPts = 80
-    const d = Array.from({ length: nPts + 1 }, (_, i) => {
-      const te = (i / nPts) * maxTE
-      const s = Math.exp(-te / t.T2)
-      return `${i === 0 ? 'M' : 'L'}${tx(te).toFixed(1)},${ty(s).toFixed(1)}`
-    }).join(' ')
-    return { ...t, pts, d }
-  }), [fieldStrength, maxTE, etl])
+  const tissueData = useMemo(() => {
+    const _tx = (te: number) => PAD.l + (te / maxTE) * innerW
+    const _ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+    return tissues.map(t => {
+      const pts = echos.map(te => ({ te, s: Math.exp(-te / t.T2) }))
+      // Smooth curve
+      const nPts = 80
+      const d = Array.from({ length: nPts + 1 }, (_, i) => {
+        const te = (i / nPts) * maxTE
+        const s = Math.exp(-te / t.T2)
+        return `${i === 0 ? 'M' : 'L'}${_tx(te).toFixed(1)},${_ty(s).toFixed(1)}`
+      }).join(' ')
+      return { ...t, pts, d }
+    })
+  }, [tissues, echos, maxTE, innerW, innerH])
 
   const sliderCls = 'w-full h-1 rounded appearance-none cursor-pointer'
   const sliderStyle = { accentColor: '#a78bfa' }
@@ -281,13 +285,13 @@ function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
 function T2StarMappingGRE({ fieldStrength }: { fieldStrength: number }) {
   const is3T = fieldStrength >= 2.5
 
-  const tissues = [
+  const tissues = useMemo(() => [
     { label: 'GM',     t2s: is3T ? 33 : 66, color: '#a78bfa' },
     { label: 'Liver',  t2s: is3T ? 12 : 23, color: '#fb923c' },
     { label: 'Muscle', t2s: is3T ? 18 : 35, color: '#fbbf24' },
     { label: 'Blood',  t2s: is3T ? 90 : 200, color: '#f87171' },
     { label: '出血',   t2s: is3T ? 4 : 8,   color: '#6b7280' },
-  ]
+  ], [is3T])
 
   const echos = [2, 5, 10, 15, 20, 25, 30, 40]
   const W = 280, H = 80
@@ -299,16 +303,20 @@ function T2StarMappingGRE({ fieldStrength }: { fieldStrength: number }) {
   const tx = (te: number) => PAD.l + (te / maxTE) * innerW
   const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
 
-  const tissueData = useMemo(() => tissues.map(t => {
-    const nPts = 50
-    const d = Array.from({ length: nPts + 1 }, (_, i) => {
-      const te = (i / nPts) * maxTE
-      const s = Math.exp(-te / t.t2s)
-      return `${i === 0 ? 'M' : 'L'}${tx(te).toFixed(1)},${ty(s).toFixed(1)}`
-    }).join(' ')
-    const pts = echos.map(te => ({ te, s: Math.exp(-te / t.t2s) }))
-    return { ...t, d, pts }
-  }), [fieldStrength])
+  const tissueData = useMemo(() => {
+    const _tx = (te: number) => PAD.l + (te / maxTE) * innerW
+    const _ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+    return tissues.map(t => {
+      const nPts = 50
+      const d = Array.from({ length: nPts + 1 }, (_, i) => {
+        const te = (i / nPts) * maxTE
+        const s = Math.exp(-te / t.t2s)
+        return `${i === 0 ? 'M' : 'L'}${_tx(te).toFixed(1)},${_ty(s).toFixed(1)}`
+      }).join(' ')
+      const pts = echos.map(te => ({ te, s: Math.exp(-te / t.t2s) }))
+      return { ...t, d, pts }
+    })
+  }, [tissues])
 
   return (
     <div className="p-2 rounded mt-2" style={{ background: '#080808', border: '1px solid #1a2520' }}>

@@ -5,6 +5,18 @@ import { protocolTree } from '../data/protocols'
 import { presets } from '../data/presets'
 import { calcSNR, calcSARLevel, calcScanTime, identifySequence } from '../store/calculators'
 
+const BODY_PART_ICONS: Record<string, string> = {
+  head:       '[H]',
+  spine:      '[S]',
+  body:       '[B]',
+  msk:        '[M]',
+  cardiac:    '[C]',
+  breast:     '[R]',
+  neuro:      '[N]',
+  vascular:   '[V]',
+  pediatric:  '[P]',
+}
+
 // 全ボディパーツを最初から展開
 const initExpanded = (): Record<string, boolean> => {
   const ex: Record<string, boolean> = { USER: true }
@@ -21,6 +33,8 @@ export function ProtocolTree() {
   const { activeVariantId, setActiveProtocol, loadPreset } = useProtocolStore()
   const [expanded, setExpanded] = useState<Record<string, boolean>>(initExpanded)
   const [search, setSearch] = useState('')
+  const [hoveredVariant, setHoveredVariant] = useState<string | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const toggle = (key: string) => setExpanded(e => ({ ...e, [key]: !e[key] }))
 
@@ -43,8 +57,43 @@ export function ProtocolTree() {
     ).slice(0, 10)
   }, [search])
 
+  // Fixed-position hover tooltip (outside overflow-hidden containers)
+  const hoveredPreset = hoveredVariant
+    ? presets.find(pr => {
+        const allVariants = protocolTree.flatMap(b => b.groups.flatMap(g => g.variants))
+        const v = allVariants.find(v => v.id === hoveredVariant)
+        return v?.presetId === pr.id
+      })
+    : null
+  const ta = hoveredPreset ? calcScanTime(hoveredPreset.params) : 0
+  const taStr = ta < 60 ? `${ta}s` : `${Math.floor(ta/60)}m${ta%60>0?ta%60+'s':''}`
+
   return (
     <div className="h-full overflow-y-auto select-none flex flex-col" style={{ background: '#0a0a0a', fontSize: '11px' }}>
+      {/* Hover preview tooltip — fixed position to escape overflow:hidden */}
+      {hoveredPreset && (
+        <div style={{
+          position: 'fixed',
+          left: tooltipPos.x,
+          top: tooltipPos.y,
+          zIndex: 9999,
+          background: '#111',
+          border: '1px solid #2a2a2a',
+          borderRadius: 4,
+          padding: '5px 9px',
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          fontSize: '9px',
+          fontFamily: 'monospace',
+          boxShadow: '0 4px 12px #00000080',
+        }}>
+          <div style={{ color: '#e88b00', marginBottom: 3, fontSize: '9.5px' }}>{hoveredPreset.label}</div>
+          <div style={{ color: '#3a3a3a' }}>TR <span style={{ color: '#c8ccd6' }}>{hoveredPreset.params.TR}</span> ms</div>
+          <div style={{ color: '#3a3a3a' }}>TE <span style={{ color: '#c8ccd6' }}>{hoveredPreset.params.TE}</span> ms</div>
+          <div style={{ color: '#3a3a3a' }}>FA <span style={{ color: '#c8ccd6' }}>{hoveredPreset.params.flipAngle}</span>°</div>
+          <div style={{ color: '#3a3a3a' }}>TA <span style={{ color: '#34d399' }}>{taStr}</span></div>
+        </div>
+      )}
       {/* Header */}
       <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: '#e88b00', borderBottom: '1px solid #2a1200' }}>
         Protocol
@@ -137,6 +186,9 @@ export function ProtocolTree() {
               onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = bpExpanded ? '#c47400' : '#4a4a4a')}
             >
               {bpExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
+              <span style={{ color: '#2a4a6a', fontSize: '8px', fontFamily: 'monospace', flexShrink: 0 }}>
+                {BODY_PART_ICONS[bodyPart.id] ?? '[?]'}
+              </span>
               <span className="font-semibold truncate">{bodyPart.label}</span>
             </div>
 
@@ -165,6 +217,7 @@ export function ProtocolTree() {
                         key={variant.id}
                         className="flex items-center gap-1 py-0.5 cursor-pointer transition-all"
                         style={{
+                          position: 'relative',
                           paddingLeft: '30px',
                           paddingRight: '4px',
                           background: active ? '#2a1200' : 'transparent',
@@ -172,9 +225,16 @@ export function ProtocolTree() {
                           borderLeft: active ? '2px solid #e88b00' : '2px solid transparent',
                         }}
                         onClick={() => handleVariantClick(bodyPart.id, group.id, variant.id, variant.presetId)}
-                        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#1c1c1c' }}
-                        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
-                        title={variant.label}
+                        onMouseEnter={e => {
+                          if (!active) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          setTooltipPos({ x: rect.right + 6, y: rect.top })
+                          setHoveredVariant(variant.id)
+                        }}
+                        onMouseLeave={e => {
+                          if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'
+                          setHoveredVariant(null)
+                        }}
                       >
                         <span className="truncate" style={{ fontSize: '10px' }}>{variant.label}</span>
                         {variant.columns.length > 1 && (

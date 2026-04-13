@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { protocolTree } from '../data/protocols'
 import type { SequenceStep } from '../data/protocols'
@@ -34,7 +34,7 @@ function matchPreset(name: string): string | undefined {
 
 
 export function SequenceQueue() {
-  const { activeBodyPartId, activeGroupId, activeVariantId, activeColumnIndex, activeSequenceName, setActiveProtocol } = useProtocolStore()
+  const { activeBodyPartId, activeGroupId, activeVariantId, activeColumnIndex, activeSequenceName, setActiveProtocol, setCurrentPage } = useProtocolStore()
 
   const bodyPart = protocolTree.find(b => b.id === activeBodyPartId)
   const group = bodyPart?.groups.find(g => g.id === activeGroupId)
@@ -103,6 +103,24 @@ export function SequenceQueue() {
             ))}
           </div>
         )}
+        <button
+          onClick={() => setCurrentPage('console')}
+          style={{
+            marginTop: 4,
+            width: '100%',
+            background: '#0a1f16',
+            color: '#34d399',
+            border: '1px solid #14532d',
+            borderRadius: 3,
+            fontSize: '9px',
+            padding: '3px 0',
+            cursor: 'pointer',
+            fontFamily: 'monospace',
+            letterSpacing: '0.05em',
+          }}
+        >
+          ▶ Console で開く
+        </button>
       </div>
 
       {/* Sequence list */}
@@ -133,13 +151,15 @@ function ExamTimeline({ sequences, totalSeconds }: { sequences: SequenceStep[]; 
     return m * 60 + (s || 0)
   }
   const W = 188
-  let elapsed = 0
-  const segments = sequences.map(s => {
-    const dur = parseSec(s.duration)
-    const x = elapsed
-    elapsed += dur
-    return { name: s.name, dur, x, isCE: s.isCE, isTimer: s.isTimer, isOptional: s.isOptional }
-  })
+  const segments = useMemo(() => {
+    let elapsed = 0
+    return sequences.map(s => {
+      const dur = parseSec(s.duration)
+      const x = elapsed
+      elapsed += dur
+      return { name: s.name, dur, x, isCE: s.isCE, isTimer: s.isTimer, isOptional: s.isOptional }
+    })
+  }, [sequences])
 
   return (
     <div className="shrink-0 px-2 py-1.5" style={{ borderTop: '1px solid #1a1a1a', background: '#080808' }}>
@@ -209,6 +229,9 @@ function SequenceRow({ step, index, isActive, bodyPartId }: { step: SequenceStep
   const handleClick = () => {
     if (hasDetail || matchedPreset) setExpanded(e => !e)
     setActiveSequence(step.name, matchedPreset)
+    if (matchedPreset) {
+      useProtocolStore.getState().setCurrentPage('console')
+    }
   }
 
   return (

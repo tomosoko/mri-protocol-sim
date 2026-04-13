@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { calcT2Blur } from '../../store/calculators'
+import { VizSection } from '../VizSection'
 
 // ── RF パルス形状 + スライスプロファイル ──────────────────────────────────────
 // MRI の選択的励起には sinc 型 RF パルスを使う
@@ -1333,25 +1334,25 @@ export function SequenceTab() {
         onChange={v => setParam('partialFourier', v as typeof params.partialFourier)} highlight={hl('partialFourier')} />
 
       {/* RF pulse shape + slice profile */}
-      <RFPulseSliceProfile />
+      <VizSection><RFPulseSliceProfile /></VizSection>
 
       {/* TE 関連の物理パラメータ */}
-      <MinTECalculator />
+      <VizSection><MinTECalculator /></VizSection>
 
       {/* TE Budget breakdown */}
-      <TEBudgetChart />
+      <VizSection><TEBudgetChart /></VizSection>
 
       {/* Pulse sequence timing diagram */}
-      <PulseSequenceDiagram />
+      <VizSection><PulseSequenceDiagram /></VizSection>
 
       {/* k-space echo train visualization */}
-      <KSpaceEchoTrainViz />
+      <VizSection><KSpaceEchoTrainViz /></VizSection>
 
       {/* 2D k-space sampling pattern */}
-      <KSpaceGrid2D />
+      <VizSection><KSpaceGrid2D /></VizSection>
 
       {/* trueFISP banding artifact visualization */}
-      <TrueFISPBandingViz />
+      <VizSection><TrueFISPBandingViz /></VizSection>
 
       {/* ETL 計算インジケーター */}
       {params.turboFactor > 1 && (
@@ -1385,41 +1386,43 @@ export function SequenceTab() {
       )}
 
       {/* ETL guide */}
-      <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #1a1a1a' }}>
-        <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>Turbo Factor 臨床ガイド</div>
-        <table className="w-full">
-          <thead>
-            <tr style={{ color: '#4b5563', fontSize: '9px' }}>
-              <th className="text-left py-0.5 w-32">用途</th>
-              <th className="text-center py-0.5">ETL</th>
-              <th className="text-left py-0.5 pl-2">特性</th>
-            </tr>
-          </thead>
-          <tbody style={{ color: '#9ca3af' }}>
-            {[
-              ['T2 TSE 頭部', '15-25', 'コントラスト良好'],
-              ['T2 TSE 腹部', '25-40', '速度・ぼけのバランス'],
-              ['T2 TSE 関節', '10-15', '精細描出・ぼけ最小'],
-              ['PDw TSE', '8-12', 'TE短縮・高SNR'],
-              ['FLAIR', '20-30', 'PF必須・SAR注意'],
-              ['HASTE', '100+', 'シングルショット'],
-              ['MRCP', '150+', '重T2・PF必須'],
-            ].map(([label, etl, note]) => (
-              <tr key={label} style={{ borderTop: '1px solid #111' }}>
-                <td className="py-0.5 text-white">{label}</td>
-                <td className="text-center py-0.5 font-mono">{etl}</td>
-                <td className="py-0.5 pl-2" style={{ fontSize: '9px', color: '#6b7280' }}>{note}</td>
+      <VizSection>
+        <div className="mx-3 mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #1a1a1a' }}>
+          <div className="font-semibold mb-1.5" style={{ color: '#e88b00' }}>Turbo Factor 臨床ガイド</div>
+          <table className="w-full">
+            <thead>
+              <tr style={{ color: '#4b5563', fontSize: '9px' }}>
+                <th className="text-left py-0.5 w-32">用途</th>
+                <th className="text-center py-0.5">ETL</th>
+                <th className="text-left py-0.5 pl-2">特性</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody style={{ color: '#9ca3af' }}>
+              {[
+                ['T2 TSE 頭部', '15-25', 'コントラスト良好'],
+                ['T2 TSE 腹部', '25-40', '速度・ぼけのバランス'],
+                ['T2 TSE 関節', '10-15', '精細描出・ぼけ最小'],
+                ['PDw TSE', '8-12', 'TE短縮・高SNR'],
+                ['FLAIR', '20-30', 'PF必須・SAR注意'],
+                ['HASTE', '100+', 'シングルショット'],
+                ['MRCP', '150+', '重T2・PF必須'],
+              ].map(([label, etl, note]) => (
+                <tr key={label} style={{ borderTop: '1px solid #111' }}>
+                  <td className="py-0.5 text-white">{label}</td>
+                  <td className="text-center py-0.5 font-mono">{etl}</td>
+                  <td className="py-0.5 pl-2" style={{ fontSize: '9px', color: '#6b7280' }}>{note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </VizSection>
 
       {/* PSF Blur Simulator (TSE only) */}
-      <PSFBlurSimulator />
+      <VizSection><PSFBlurSimulator /></VizSection>
 
       {/* SMS / Multiband acceleration */}
-      <SMSAccelerationPanel />
+      <VizSection><SMSAccelerationPanel /></VizSection>
 
       {/* DWI b-values */}
       <div className="border-t mt-2 pt-2 mx-3" style={{ borderColor: '#252525' }}>
@@ -1488,7 +1491,7 @@ export function SequenceTab() {
         </div>
 
         {/* ADC signal decay chart for DWI */}
-        <ADCSignalChart />
+        <VizSection><ADCSignalChart /></VizSection>
 
         {isDWI && (
           <div className="mt-2 p-3 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525' }}>

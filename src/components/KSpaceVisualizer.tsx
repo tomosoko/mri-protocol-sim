@@ -574,7 +574,7 @@ function KSpaceVisualizerInner({
           </div>
           {/* 計算式ノート */}
           <div style={{ fontSize: '7px', color: '#374151', fontFamily: 'monospace', marginTop: 2 }}>
-            TE_eff = ETL×ESP/2 = {teEff.toFixed(1)}ms　(T2脳={T2_BRAIN_MS}ms)
+            TE_eff = ETL×ESP/2 = {teEff.toFixed(1)}ms (T2脳={T2_BRAIN_MS}ms)
           </div>
         </div>
 
