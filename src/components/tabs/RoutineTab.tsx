@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField, SectionHeader as SH } from '../ParamField'
-import { TISSUES, calcScanTime, calcTEmin, calcTRmin, identifySequence } from '../../store/calculators'
+import { TISSUES, calcScanTime, calcTEmin, calcTRmin } from '../../store/calculators'
 import type { ProtocolParams } from '../../data/presets'
-import { VizSection } from '../VizSection'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
 function ErnstAngleIndicator() {
@@ -1129,476 +1128,183 @@ function SequenceTimingDiagram() {
   )
 }
 
+// ── RoutineTab ───────────────────────────────────────────────────────────────
+// Matches Siemens syngo MR myExam Cockpit Routine tab (IMG_9455)
+// Paired-row 2-column grid: each CSS grid row has exactly one left param + one right param
+// Section headers span the full width via gridColumn: '1 / -1'
+
+function Cell({ children, left }: { children: React.ReactNode; left?: boolean }) {
+  return (
+    <div style={{ borderRight: left ? '1px solid #1e1e1e' : undefined }}>
+      {children}
+    </div>
+  )
+}
+
+function BlankRow() {
+  return (
+    <>
+      <div style={{ height: '22px', borderRight: '1px solid #1e1e1e', borderBottom: '1px solid #1e1e1e' }} />
+      <div style={{ height: '22px', borderBottom: '1px solid #1e1e1e' }} />
+    </>
+  )
+}
+
+function FullWidthSH({ label }: { label: string }) {
+  return (
+    <div style={{ gridColumn: '1 / -1' }}>
+      <SH label={label} />
+    </div>
+  )
+}
+
 export function RoutineTab() {
-  const { params, setParam, activeRoutineTab, setActiveRoutineTab, highlightedParams } = useProtocolStore()
+  const { params, setParam, highlightedParams } = useProtocolStore()
   const hl = (k: string) => highlightedParams.includes(k)
 
   const [autoAlign, setAutoAlign] = useState(false)
-  const [motionCorr, setMotionCorr] = useState('None')
   const [concatenations, setConcatenations] = useState(1)
   const [posL, setPosL] = useState(0.0)
   const [posP, setPosP] = useState(60.0)
   const [posH, setPosH] = useState(0.0)
-  const [distFactor, setDistFactor] = useState(10)
   const [sliceGroup, setSliceGroup] = useState(1)
 
   const phaseEncOptions: typeof params.phaseEncDir[] = ['A>>P', 'P>>A', 'R>>L', 'L>>R', 'H>>F', 'F>>H']
+  const trMin = calcTRmin(params)
+  const teMin = calcTEmin(params)
 
   return (
-    <div>
-      {/* Sub-tabs */}
-      <div className="flex border-b" style={{ borderColor: '#0f1e30', background: '#060c14' }}>
-        {(['Part1', 'Part2', 'Assistant'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setActiveRoutineTab(t)}
-            className="px-4 py-1.5 text-xs transition-colors"
-            style={{
-              background: activeRoutineTab === t ? '#0e1820' : 'transparent',
-              color: activeRoutineTab === t ? '#e88b00' : '#4a7a9a',
-              borderBottom: activeRoutineTab === t ? '2px solid #e88b00' : '2px solid transparent',
-              fontSize: '11px',
-            }}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
 
-      {activeRoutineTab === 'Part1' && (
-        <div className="space-y-0">
-          {/* Sequence preset bar — syngo MR protocol selector */}
-          <SequencePresetBar />
-
-          {/* Live sequence type indicator — syngo MR protocol header */}
-          {(() => {
-            const seqId = identifySequence(params)
-            return (
-              <div className="flex items-center gap-2 px-3 py-1.5"
-                style={{ background: seqId.color + '10', borderBottom: `1px solid ${seqId.color}30` }}>
-                <span className="font-mono font-bold px-1.5 py-0.5 rounded"
-                  style={{ background: seqId.color + '20', color: seqId.color, border: `1px solid ${seqId.color}50`, fontSize: '9px' }}>
-                  {seqId.type}
-                </span>
-                <span style={{ color: seqId.color + 'aa', fontSize: '8px' }}>{seqId.details}</span>
-                <span style={{ color: '#374151', fontSize: '8px', marginLeft: 'auto' }}>
-                  {params.fieldStrength}T · {params.coilType ?? 'Body'}
-                </span>
-              </div>
-            )
-          })()}
-
-          {/* Pulse sequence timing diagram */}
-          <VizSection>
-          <SequenceTimingDiagram />
-          </VizSection>
-
-          <SH label="Slice Group" />
-          <ParamField label="Slice Group" value={sliceGroup} type="number" min={1} max={8}
-            onChange={v => setSliceGroup(v as number)} />
-          <ParamField label="Slices" value={params.slices} type="number" min={1} max={256} step={1}
-            onChange={v => setParam('slices', v as number)} />
-          <ParamField label="Distance Factor" value={distFactor} type="number" min={0} max={100} step={5} unit="%"
-            onChange={v => setDistFactor(v as number)} />
-
-          <SH label="Position" />
-          <div className="flex items-center gap-1 px-3 py-0.5">
-            <span className="text-xs w-40 shrink-0" style={{ color: '#9ca3af' }}>Position (L / P / H)</span>
-            <div className="flex items-center gap-1 ml-auto">
-              {[['L', posL, setPosL], ['P', posP, setPosP], ['H', posH, setPosH]].map(([lbl, val, fn]) => (
-                <div key={lbl as string} className="flex items-center gap-0.5">
-                  <span className="text-xs" style={{ color: '#4b5563' }}>{lbl as string}</span>
-                  <input
-                    type="number"
-                    value={val as number}
-                    step={1}
-                    onChange={e => (fn as (v: number) => void)(parseFloat(e.target.value) || 0)}
-                    className="px-1 py-0 rounded text-xs text-right font-mono outline-none"
-                    style={{ background: '#0e0e0e', border: '1px solid #2a2a2a', color: '#d8d8d8', width: '46px', height: '18px' }}
-                  />
-                </div>
-              ))}
+      {/* ── Row: Slice Group | FOV Read ── */}
+      <Cell left>
+        {/* Slice Group: spinner value + [-][+] buttons */}
+        <div className="flex items-center" style={{ height: '22px', borderBottom: '1px solid #1e1e1e' }}>
+          <span className="shrink-0 text-right" style={{ width: '48%', paddingRight: '8px', paddingLeft: '8px', color: '#8090a0', fontSize: '11px' }}>
+            Slice Group
+          </span>
+          <div className="flex items-center gap-1">
+            <div style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 2, display: 'flex', alignItems: 'center', height: '20px' }}>
+              <span className="font-mono" style={{ width: '28px', padding: '0 4px', color: '#dde4ec', fontSize: '11.5px', textAlign: 'right' }}>
+                {sliceGroup}
+              </span>
             </div>
+            <button onMouseDown={e => { e.preventDefault(); setSliceGroup(g => Math.max(1, g - 1)) }}
+              style={{ background: '#252525', color: '#808080', border: '1px solid #2a2a2a', borderRadius: 2, width: '16px', height: '20px', fontSize: '10px', cursor: 'pointer', lineHeight: 1 }}>−</button>
+            <button onMouseDown={e => { e.preventDefault(); setSliceGroup(g => Math.min(8, g + 1)) }}
+              style={{ background: '#252525', color: '#808080', border: '1px solid #2a2a2a', borderRadius: 2, width: '16px', height: '20px', fontSize: '10px', cursor: 'pointer', lineHeight: 1 }}>+</button>
           </div>
-          <ParamField label="Orientation" value={params.orientation} type="select"
-            options={['Tra', 'Cor', 'Sag']}
-            onChange={v => setParam('orientation', v as typeof params.orientation)} />
-          <ParamField label="Phase Enc Dir" hintKey="phaseEncDir" value={params.phaseEncDir} type="select"
-            options={phaseEncOptions}
-            onChange={v => setParam('phaseEncDir', v as typeof params.phaseEncDir)} highlight={hl('phaseEncDir')} />
-          <ParamField label="Phase Oversampling" hintKey="phaseOversampling" value={params.phaseOversampling} type="range"
-            min={0} max={100} step={10} unit="%"
-            onChange={v => setParam('phaseOversampling', v as number)} highlight={hl('phaseOversampling')} />
-
-          <SH label="Resolution" />
-          <ParamField label="FOV Read" hintKey="FOV" value={params.fov} type="range" min={100} max={500} step={10} unit="mm"
-            onChange={v => setParam('fov', v as number)} highlight={hl('fov')} />
-          <ParamField label="FOV Phase%" value={params.phaseResolution} type="range" min={50} max={100} step={5} unit="%"
-            onChange={v => setParam('phaseResolution', v as number)} />
-          <ParamField label="Slice Thickness" hintKey="sliceThickness" value={params.sliceThickness} type="range"
-            min={0.5} max={20} step={0.5} unit="mm"
-            onChange={v => setParam('sliceThickness', v as number)} highlight={hl('sliceThickness')} />
-
-          <SH label="Timing" />
-          {/* Contrast quick-set buttons — syngo MR contrast preset shortcuts */}
-          <div className="flex gap-1 px-3 mb-1 flex-wrap">
-            {[
-              { label: 'T1w', tr: 500, te: 15, fa: 90, ti: 0, color: '#fbbf24' },
-              { label: 'T2w', tr: 4000, te: 90, fa: 90, ti: 0, color: '#60a5fa' },
-              { label: 'PDw', tr: 3000, te: 25, fa: 90, ti: 0, color: '#34d399' },
-              { label: 'FLAIR', tr: 9000, te: 90, fa: 90, ti: params.fieldStrength >= 2.5 ? 2500 : 2200, color: '#a78bfa' },
-              { label: 'GRE', tr: 120, te: 5, fa: 25, ti: 0, color: '#fb923c' },
-            ].map(({ label, tr, te, fa, ti, color }) => {
-              const isActive = Math.abs(params.TR - tr) < tr * 0.1 && Math.abs(params.TE - te) < 10
-              return (
-                <button
-                  key={label}
-                  onClick={() => {
-                    setParam('TR', tr)
-                    setParam('TE', te)
-                    setParam('flipAngle', fa)
-                    if (ti > 0 || label === 'FLAIR') setParam('TI', ti)
-                  }}
-                  className="px-1.5 py-0.5 rounded text-xs font-semibold transition-all"
-                  style={{
-                    background: isActive ? color + '28' : '#1a1a1a',
-                    color: isActive ? color : '#4b5563',
-                    border: `1px solid ${isActive ? color + '60' : '#2a2a2a'}`,
-                    fontSize: '9px',
-                  }}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
-          <ParamField label="TR" hintKey="TR" value={params.TR} type="number" min={100} max={15000} step={100} unit="ms"
-            onChange={v => setParam('TR', v as number)} highlight={hl('TR')}
-            warn={params.TR < calcTRmin(params)} warnMsg={`TR < TR_min (${calcTRmin(params)}ms)`}
-            coupling={['TA', 'T1-cntr', 'SAR']} />
-          {/* TR_min inline indicator */}
-          {(() => {
-            const trMin = calcTRmin(params)
-            const ok = params.TR >= trMin
-            if (ok) return null
-            return (
-              <div className="mx-3 mb-0.5 flex items-center gap-1.5 px-2 py-1 rounded"
-                style={{ background: '#1a0505', border: '1px solid #7f1d1d30' }}>
-                <span style={{ color: '#f87171', fontSize: '9px' }}>⚠ TR &lt; TR_min ({trMin}ms)</span>
-                <button
-                  onClick={() => setParam('TR', trMin)}
-                  style={{ color: '#34d399', fontSize: '8px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 4px', cursor: 'pointer' }}>
-                  → {trMin}ms
-                </button>
-              </div>
-            )
-          })()}
-          <ParamField label="TE" hintKey="TE" value={params.TE} type="number" min={1} max={1000} step={1} unit="ms"
-            onChange={v => setParam('TE', v as number)} highlight={hl('TE')}
-            warn={params.TE < calcTEmin(params)} warnMsg={`TE < TE_min (${calcTEmin(params)}ms)`}
-            coupling={['T2-cntr', 'SNR']} />
-          {/* TE_min inline indicator — real scanner behavior */}
-          {(() => {
-            const teMin = calcTEmin(params)
-            const ok = params.TE >= teMin
-            return (
-              <div className="mx-3 mb-0.5 flex items-center gap-2 px-2 py-1 rounded"
-                style={{
-                  background: ok ? '#0a1208' : '#1a0505',
-                  border: `1px solid ${ok ? '#14532d30' : '#7f1d1d60'}`,
-                }}>
-                <span style={{ color: ok ? '#1f4a2f' : '#f87171', fontSize: '9px' }}>
-                  {ok ? '✓' : '⚠'} TE_min: {teMin}ms
-                </span>
-                {!ok && (
-                  <button
-                    onClick={() => setParam('TE', teMin)}
-                    style={{ color: '#34d399', fontSize: '8px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 4px', cursor: 'pointer' }}>
-                    → {teMin}ms
-                  </button>
-                )}
-                {ok && params.turboFactor > 1 && (
-                  <span style={{ color: '#1f4a2f', fontSize: '8px' }}>
-                    eff:{Math.round(params.TE + Math.floor(params.turboFactor / 2) * params.echoSpacing)}ms
-                  </span>
-                )}
-              </div>
-            )
-          })()}
-          <ParamField label="TI" hintKey="TI" value={params.TI} type="number" min={0} max={5000} step={10} unit="ms"
-            onChange={v => setParam('TI', v as number)} highlight={hl('TI')} />
-          <ParamField label="Flip Angle" hintKey="flipAngle" value={params.flipAngle} type="range"
-            min={5} max={180} step={5} unit="°"
-            onChange={v => setParam('flipAngle', v as number)} highlight={hl('flipAngle')}
-            coupling={['SAR', 'T1-cntr', 'SNR']} />
-          <VizSection>
-          <ErnstAngleIndicator />
-          </VizSection>
-
-          {/* Steady-state convergence — for GRE/TSE sequences */}
-          <VizSection>
-          <SteadyStateConvergence />
-          </VizSection>
-
-          <VizSection>
-          <SignalCurveChart />
-          </VizSection>
-
-          {/* Parameter coupling status — shows how current TR/TE drive key outcomes */}
-          {(() => {
-            const scanTime = calcScanTime(params)
-            const teMin = calcTEmin(params)
-            const trMin = calcTRmin(params)
-            const sarPct = Math.min(100, Math.round((params.flipAngle / 90) ** 2 * (2000 / Math.max(params.TR, 100)) * (Math.min(params.turboFactor, 200) / 50) * (params.fieldStrength / 1.5) ** 2 * 32))
-            const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
-
-            const items: { label: string; value: string; ok: boolean; note?: string }[] = [
-              { label: 'TA', value: fmt(scanTime), ok: scanTime < 300, note: scanTime > 300 ? '長い' : '' },
-              { label: 'TE_min', value: `${teMin}ms`, ok: params.TE >= teMin, note: params.TE < teMin ? `→${teMin}ms` : '' },
-              { label: 'TR_min', value: `${trMin}ms`, ok: params.TR >= trMin, note: params.TR < trMin ? `→${trMin}ms` : '' },
-              { label: 'SAR', value: `${sarPct}%`, ok: sarPct < 80, note: sarPct >= 90 ? 'OVER' : '' },
-            ]
-
-            return (
-              <div className="mx-3 mb-1 flex gap-1 flex-wrap">
-                {items.map(item => (
-                  <div key={item.label}
-                    className="flex items-center gap-1 px-1.5 py-0.5 rounded"
-                    style={{
-                      background: item.ok ? '#0a1208' : '#1a0505',
-                      border: `1px solid ${item.ok ? '#14532d40' : '#7f1d1d60'}`,
-                    }}>
-                    <span style={{ color: '#374151', fontSize: '7px' }}>{item.label}</span>
-                    <span className="font-mono font-semibold"
-                      style={{ color: item.ok ? '#34d399' : '#f87171', fontSize: '8px' }}>
-                      {item.value}
-                    </span>
-                    {item.note && (
-                      <span style={{ color: item.ok ? '#1f4a2f' : '#f87171', fontSize: '7px' }}>{item.note}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )
-          })()}
-
-          {/* Live brain phantom signal preview */}
-          <VizSection>
-          <BrainPhantomPreview />
-          </VizSection>
-
-          <VizSection>
-          <ContrastHeatmap />
-          </VizSection>
-
-          <SH label="Averages" />
-          <ParamField label="Averages" hintKey="averages" value={params.averages} type="number"
-            min={1} max={8} step={1}
-            onChange={v => setParam('averages', v as number)} highlight={hl('averages')}
-            coupling={['TA', 'SNR']} />
-          <ParamField label="Concatenations" hintKey="Concatenations" value={concatenations} type="number"
-            min={1} max={16} step={1}
-            onChange={v => setConcatenations(v as number)} />
-
-          <SH label="AutoAlign" />
-          <ParamField label="AutoAlign" value={autoAlign} type="toggle"
-            onChange={v => setAutoAlign(v as boolean)} />
-          {autoAlign && (
-            <div className="mx-3 mt-1 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #3a1a00', color: '#e88b00' }}>
-              解剖ランドマーク自動検出でスライス位置・向きを最適化。頭部・膝・脊椎で有効。
-            </div>
-          )}
         </div>
-      )}
+      </Cell>
+      <Cell>
+        <ParamField label="FOV Read" hintKey="FOV" value={params.fov} type="range" min={100} max={500} step={10} unit="mm"
+          onChange={v => setParam('fov', v as number)} highlight={hl('fov')} />
+      </Cell>
 
-      {activeRoutineTab === 'Part2' && (
-        <div className="space-y-0">
-          <SH label="Introduction" />
-          <div className="mx-3 my-1 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525', color: '#6b7280' }}>
-            プロトコル説明・適応メモを記載します。
+      {/* ── Row: Slices | FOV Phase ── */}
+      <Cell left>
+        <ParamField label="Slices" value={params.slices} type="number" min={1} max={256} step={1}
+          onChange={v => setParam('slices', v as number)} />
+      </Cell>
+      <Cell>
+        <ParamField label="FOV Phase" value={params.phaseResolution} type="range" min={50} max={100} step={5} unit="%"
+          onChange={v => setParam('phaseResolution', v as number)} />
+      </Cell>
+
+      {/* ── Row: (blank) | Slice Thickness ── */}
+      <Cell left>
+        <div style={{ height: '22px', borderBottom: '1px solid #1e1e1e' }} />
+      </Cell>
+      <Cell>
+        <ParamField label="Slice Thickness" hintKey="sliceThickness" value={params.sliceThickness} type="range"
+          min={0.5} max={20} step={0.5} unit="mm"
+          onChange={v => setParam('sliceThickness', v as number)} highlight={hl('sliceThickness')} />
+      </Cell>
+
+      {/* ── Row: Dist. Factor | TR ── */}
+      <Cell left>
+        <ParamField label="Dist. Factor" value={params.sliceGap} type="number" min={0} max={100} step={5} unit="%"
+          onChange={v => setParam('sliceGap', v as number)} />
+      </Cell>
+      <Cell>
+        <ParamField label="TR" hintKey="TR" value={params.TR} type="number" min={100} max={15000} step={100} unit="ms"
+          onChange={v => setParam('TR', v as number)} highlight={hl('TR')}
+          warn={params.TR < trMin} warnMsg={`TR < TR_min (${trMin}ms)`} />
+        {params.TR < trMin && (
+          <div className="flex items-center gap-1 px-1 py-0.5" style={{ background: '#1a0505', borderBottom: '1px solid #7f1d1d20' }}>
+            <span style={{ color: '#f87171', fontSize: '8px' }}>⚠ TR_min {trMin}ms</span>
+            <button onClick={() => setParam('TR', trMin)}
+              style={{ color: '#34d399', fontSize: '7px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 3px', cursor: 'pointer' }}>Fix</button>
           </div>
+        )}
+      </Cell>
 
-          <SH label="Motion" />
-          <ParamField label="Motion Correction" value={motionCorr} type="select"
-            options={['None', 'Phase', 'Frequency', 'Navigator']}
-            onChange={v => setMotionCorr(v as string)} />
-          {motionCorr !== 'None' && (
-            <div className="mx-3 mt-1 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525', color: '#9ca3af' }}>
-              {motionCorr === 'Phase' && 'Phase方向動き補正。周期的動き（呼吸・心拍）に有効。'}
-              {motionCorr === 'Frequency' && 'Frequency方向の動き補正。'}
-              {motionCorr === 'Navigator' && 'ナビゲーターエコーで呼吸を直接追跡・補正。'}
-            </div>
-          )}
-
-          <SH label="Fat Suppression" />
-          <ParamField label="Fat Saturation" hintKey="fatSat" value={params.fatSat} type="select"
-            options={['None', 'CHESS', 'SPAIR', 'STIR', 'Dixon']}
-            onChange={v => setParam('fatSat', v as typeof params.fatSat)} highlight={hl('fatSat')} />
-          {params.fatSat !== 'None' && (
-            <div className="mx-3 mt-1 p-2 rounded text-xs" style={{ background: '#111111', border: '1px solid #252525', color: '#9ca3af' }}>
-              {params.fatSat === 'CHESS' && 'CHESS: 周波数選択励起。頭部・脊椎（均一磁場）向け。'}
-              {params.fatSat === 'SPAIR' && 'SPAIR: 断熱反転回復。磁場不均一でも安定（腹部・乳腺）。造影後も使用可。'}
-              {params.fatSat === 'STIR' && '⚠ STIR: 造影後使用禁忌！GdのT1短縮もnullされる。関節・金属周囲向け。'}
-              {params.fatSat === 'Dixon' && 'Dixon: 水脂肪分離。3Tダイナミック第一選択。定量脂肪評価も可。'}
-            </div>
-          )}
-
-          <SH label="Resp Control" />
-          <ParamField label="Resp.Control" hintKey="PACE" value={params.respTrigger} type="select"
-            options={['Off', 'BH', 'RT', 'PACE']}
-            onChange={v => setParam('respTrigger', v as typeof params.respTrigger)} />
-        </div>
-      )}
-
-      {activeRoutineTab === 'Assistant' && (
-        <div className="space-y-0">
-          {/* Protocol Quick Adjust — syngo MR Assistant like */}
-          {(() => {
-            const seqId = identifySequence(params)
-            const scanTime = calcScanTime(params)
-            const teMin = calcTEmin(params)
-
-            // Quick actions based on current protocol state
-            const actions: { label: string; color: string; bg: string; desc: string; apply: () => void }[] = []
-
-            // Faster: reduce averages, increase iPAT
-            if (scanTime > 120) {
-              actions.push({
-                label: '⚡ 高速化',
-                color: '#34d399', bg: '#0a1f16',
-                desc: `TA ${Math.round(scanTime)}s → ~${Math.round(scanTime * 0.6)}s`,
-                apply: () => {
-                  if (params.averages > 1) setParam('averages', params.averages - 1)
-                  if (params.ipatMode === 'Off') setParam('ipatMode', 'GRAPPA')
-                },
-              })
-            }
-
-            // Better SNR: add averages
-            if (params.averages < 4) {
-              actions.push({
-                label: '📶 SNR向上',
-                color: '#60a5fa', bg: '#0a1020',
-                desc: `NEX ${params.averages}→${params.averages + 1} (SNR+${Math.round((Math.sqrt(params.averages + 1) / Math.sqrt(params.averages) - 1) * 100)}%)`,
-                apply: () => setParam('averages', params.averages + 1),
-              })
-            }
-
-            // Reduce SAR: increase TR or reduce FA
-            const sarPct = Math.round((params.flipAngle / 90) ** 2 * (2000 / Math.max(params.TR, 100)) * (params.turboFactor / 50) * (params.fieldStrength / 1.5) ** 2 * 32)
-            if (sarPct > 60) {
-              actions.push({
-                label: '🌡 SAR低減',
-                color: '#f87171', bg: '#1a0505',
-                desc: `FA ${params.flipAngle}°→${Math.max(120, params.flipAngle - 20)}° でSAR-${Math.round((1 - (Math.max(120, params.flipAngle - 20) / params.flipAngle) ** 2) * 100)}%`,
-                apply: () => setParam('flipAngle', Math.max(120, params.flipAngle - 20)),
-              })
-            }
-
-            // Fix TE
-            if (params.TE < teMin) {
-              actions.push({
-                label: '⚠ TE修正',
-                color: '#fbbf24', bg: '#1a1000',
-                desc: `TE_min = ${teMin}ms (現在${params.TE}ms)`,
-                apply: () => setParam('TE', teMin),
-              })
-            }
-
-            // Remove gap if any
-            if ((params.sliceGap ?? 0) > 0) {
-              actions.push({
-                label: '📏 ギャップ解除',
-                color: '#a78bfa', bg: '#14102a',
-                desc: `SliceGap ${params.sliceGap}mm → 0 (連続スライス)`,
-                apply: () => setParam('sliceGap', 0),
-              })
-            }
-
-            if (actions.length === 0) return (
-              <div className="mx-3 mt-2 p-3 rounded text-xs flex items-center gap-2"
-                style={{ background: '#0a1208', border: '1px solid #14532d' }}>
-                <span style={{ color: '#34d399' }}>✓</span>
-                <span style={{ color: '#34d399' }}>プロトコル最適 — 改善提案なし</span>
+      {/* ── Row: Position | TE ── */}
+      <Cell left>
+        {/* Position L / P / H triple inputs */}
+        <div className="flex items-center" style={{ height: '22px', borderBottom: '1px solid #1e1e1e' }}>
+          <span className="shrink-0 text-right" style={{ width: '48%', paddingRight: '8px', paddingLeft: '8px', color: '#8090a0', fontSize: '11px' }}>
+            Position
+          </span>
+          <div className="flex items-center gap-0.5">
+            {([['L', posL, setPosL], ['P', posP, setPosP], ['H', posH, setPosH]] as const).map(([lbl, val, fn]) => (
+              <div key={lbl} className="flex items-center gap-0.5">
+                <span style={{ color: '#4b5563', fontSize: '9px' }}>{lbl}</span>
+                <input type="number" value={val} step={1}
+                  onChange={e => fn(parseFloat(e.target.value) || 0)}
+                  className="outline-none text-right font-mono"
+                  style={{ background: '#161616', border: '1px solid #2a2a2a', borderRadius: 2, color: '#dde4ec', width: '32px', height: '18px', fontSize: '9.5px', padding: '0 2px' }} />
               </div>
-            )
-
-            return (
-              <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #252525' }}>
-                <div className="text-xs font-semibold mb-2" style={{ color: '#e88b00' }}>
-                  Quick Adjust ({seqId.type})
-                </div>
-                <div className="space-y-1.5">
-                  {actions.map((a, i) => (
-                    <button
-                      key={i}
-                      onClick={a.apply}
-                      className="w-full text-left flex items-center justify-between px-2 py-1.5 rounded transition-all"
-                      style={{
-                        background: a.bg,
-                        border: `1px solid ${a.color}40`,
-                        cursor: 'pointer',
-                      }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = a.color }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = a.color + '40' }}
-                    >
-                      <span className="font-semibold" style={{ color: a.color, fontSize: '10px' }}>{a.label}</span>
-                      <span style={{ color: '#6b7280', fontSize: '8px' }}>{a.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-
-          <SliceOrderViz />
-
-          <ScanTimeBreakdown />
-
-          <SH label="SAR Control" />
-          <ParamField label="SAR Assistant" hintKey="SAR" value={params.sarAssistant} type="select"
-            options={['Off', 'Normal', 'Advanced']}
-            onChange={v => setParam('sarAssistant', v as typeof params.sarAssistant)} />
-          <ParamField label="Allowed Delay" value={params.allowedDelay} type="number"
-            min={0} max={120} step={10} unit="s"
-            onChange={v => setParam('allowedDelay', v as number)} />
-
-          <div className="mt-3 mx-3 p-3 rounded text-xs space-y-1" style={{ background: '#111111', border: '1px solid #252525' }}>
-            <div className="font-semibold mb-2" style={{ color: '#e88b00' }}>SAR規制値（IEC 60601-2-33）</div>
-            <div style={{ color: '#9ca3af' }}>全身平均: <span className="text-white">4 W/kg</span> / 15分</div>
-            <div style={{ color: '#9ca3af' }}>頭部: <span className="text-white">3.2 W/kg</span> / 10分</div>
-            <div style={{ color: '#9ca3af' }}>局所体幹: <span className="text-white">10 W/kg</span> / 5分</div>
-            <div className="mt-2 pt-2 space-y-0.5" style={{ borderTop: '1px solid #252525', color: '#6b7280' }}>
-              <div>3T は 1.5T の約 <span className="text-yellow-400">4倍</span> SAR</div>
-              <div>対策: TR↑ / FA↓ / ETL↓ / iPAT ON</div>
-              <div>FA 150°→120°で約 <span className="text-green-400">30% 削減</span></div>
-            </div>
-          </div>
-
-          <SH label="Field Strength" />
-          <div className="px-3 py-1 flex gap-2">
-            {([1.5, 3.0] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setParam('fieldStrength', f)}
-                className="flex-1 py-1 rounded text-sm font-bold transition-all"
-                style={{
-                  background: params.fieldStrength === f ? '#8a4400' : '#1a1a1a',
-                  color: params.fieldStrength === f ? '#fff' : '#6b7280',
-                  border: `1px solid ${params.fieldStrength === f ? '#c47400' : '#374151'}`,
-                }}
-              >
-                {f}T
-              </button>
             ))}
           </div>
-          {params.fieldStrength === 3.0 && (
-            <div className="mx-3 p-2 rounded text-xs" style={{ background: '#141414', border: '1px solid #7c3aed', color: '#a78bfa' }}>
-              3T: SAR≈4倍 / 化学シフト2倍（BW2倍必要）/ Dielectric Effect / SNR理論値↑√2
-            </div>
-          )}
         </div>
-      )}
+      </Cell>
+      <Cell>
+        <ParamField label="TE" hintKey="TE" value={params.TE} type="number" min={1} max={1000} step={1} unit="ms"
+          onChange={v => setParam('TE', v as number)} highlight={hl('TE')}
+          warn={params.TE < teMin} warnMsg={`TE < TE_min (${teMin}ms)`} />
+        {params.TE < teMin && (
+          <div className="flex items-center gap-1 px-1 py-0.5" style={{ background: '#1a0505', borderBottom: '1px solid #7f1d1d20' }}>
+            <span style={{ color: '#f87171', fontSize: '8px' }}>⚠ TE_min {teMin}ms</span>
+            <button onClick={() => setParam('TE', teMin)}
+              style={{ color: '#34d399', fontSize: '7px', background: '#0a1f16', border: '1px solid #14532d', borderRadius: 2, padding: '0 3px', cursor: 'pointer' }}>Fix</button>
+          </div>
+        )}
+      </Cell>
+
+      {/* ── Row: Orientation | Averages ── */}
+      <Cell left>
+        <ParamField label="Orientation" value={params.orientation} type="select"
+          options={['Tra', 'Cor', 'Sag']}
+          onChange={v => setParam('orientation', v as typeof params.orientation)} />
+      </Cell>
+      <Cell>
+        <ParamField label="Averages" hintKey="averages" value={params.averages} type="number" min={1} max={8} step={1}
+          onChange={v => setParam('averages', v as number)} highlight={hl('averages')} />
+      </Cell>
+
+      {/* ── Row: Phase Enc Dir. | Concatenations ── */}
+      <Cell left>
+        <ParamField label="Phase Enc Dir." hintKey="phaseEncDir" value={params.phaseEncDir} type="select"
+          options={phaseEncOptions}
+          onChange={v => setParam('phaseEncDir', v as typeof params.phaseEncDir)} highlight={hl('phaseEncDir')} />
+      </Cell>
+      <Cell>
+        <ParamField label="Concatenations" value={concatenations} type="number" min={1} max={16} step={1}
+          onChange={v => setConcatenations(v as number)} />
+      </Cell>
+
+      {/* ── Row: Phase Oversampling | AutoAlign ── */}
+      <Cell left>
+        <ParamField label="Phase Oversampling" hintKey="phaseOversampling" value={params.phaseOversampling} type="range"
+          min={0} max={100} step={10} unit="%"
+          onChange={v => setParam('phaseOversampling', v as number)} highlight={hl('phaseOversampling')} />
+      </Cell>
+      <Cell>
+        <ParamField label="AutoAlign" value={autoAlign} type="toggle"
+          onChange={v => setAutoAlign(v as boolean)} />
+      </Cell>
+
     </div>
   )
 }
