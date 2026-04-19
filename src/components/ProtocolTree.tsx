@@ -69,7 +69,7 @@ export function ProtocolTree() {
   const taStr = ta < 60 ? `${ta}s` : `${Math.floor(ta/60)}m${ta%60>0?ta%60+'s':''}`
 
   return (
-    <div className="h-full overflow-y-auto select-none flex flex-col" style={{ background: '#0a0a0a', fontSize: '11px' }}>
+    <div className="h-full overflow-y-auto select-none flex flex-col" style={{ background: '#181818', fontSize: '11px' }}>
       {/* Hover preview tooltip — fixed position to escape overflow:hidden */}
       {hoveredPreset && (
         <div style={{
@@ -95,19 +95,19 @@ export function ProtocolTree() {
         </div>
       )}
       {/* Header */}
-      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: '#e88b00', borderBottom: '1px solid #2a1200' }}>
+      <div className="px-2 py-1 text-xs font-bold uppercase tracking-widest shrink-0" style={{ color: '#7090a0', borderBottom: '1px solid #282828' }}>
         Protocol
       </div>
 
       {/* Search */}
-      <div className="px-2 py-1 shrink-0" style={{ borderBottom: '1px solid #1a1a1a' }}>
+      <div className="px-2 py-1 shrink-0" style={{ borderBottom: '1px solid #282828' }}>
         <input
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="検索..."
           className="w-full px-1.5 py-0.5 text-xs rounded outline-none"
-          style={{ background: '#111', border: '1px solid #252525', color: '#c8ccd6', fontSize: '10px' }}
+          style={{ background: '#222', border: '1px solid #333', color: '#c0c0c0', fontSize: '10px' }}
         />
       </div>
 
@@ -153,11 +153,11 @@ export function ProtocolTree() {
       <div className="flex-1 overflow-y-auto">
 
       {/* SYSTEM / INSTITUTION (decorative) */}
-      <div className="px-2 py-0.5 flex items-center gap-1" style={{ color: '#1e2d3d' }}>
+      <div className="px-2 py-0.5 flex items-center gap-1" style={{ color: '#333' }}>
         <ChevronRight size={9} />
         <span>SYSTEM</span>
       </div>
-      <div className="py-0.5 flex items-center gap-1" style={{ color: '#1e2d3d', paddingLeft: '20px' }}>
+      <div className="py-0.5 flex items-center gap-1" style={{ color: '#333', paddingLeft: '20px' }}>
         <ChevronRight size={9} />
         <span>INSTITUTION</span>
       </div>
@@ -165,7 +165,7 @@ export function ProtocolTree() {
       {/* USER */}
       <div
         className="flex items-center gap-1 py-0.5 px-2 cursor-pointer"
-        style={{ color: '#e88b00', fontWeight: 600 }}
+        style={{ color: '#c0c0c0', fontWeight: 600 }}
         onClick={() => toggle('USER')}
       >
         {expanded['USER'] ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
@@ -180,10 +180,10 @@ export function ProtocolTree() {
             {/* Body part level */}
             <div
               className="flex items-center gap-1 py-0.5 cursor-pointer transition-colors"
-              style={{ paddingLeft: '14px', color: bpExpanded ? '#c47400' : '#4a4a4a' }}
+              style={{ paddingLeft: '14px', color: bpExpanded ? '#c0c0c0' : '#606060' }}
               onClick={() => toggle(bpKey)}
-              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#e88b00')}
-              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = bpExpanded ? '#c47400' : '#4a4a4a')}
+              onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#e0e0e0')}
+              onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = bpExpanded ? '#c0c0c0' : '#606060')}
             >
               {bpExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
               <span style={{ color: '#2a4a6a', fontSize: '8px', fontFamily: 'monospace', flexShrink: 0 }}>
@@ -200,9 +200,9 @@ export function ProtocolTree() {
                   {/* Group level */}
                   <div
                     className="flex items-center gap-1 py-0.5 cursor-pointer transition-colors"
-                    style={{ paddingLeft: '22px', color: grpExpanded ? '#e88b00' : '#5a5a5a' }}
+                    style={{ paddingLeft: '22px', color: grpExpanded ? '#b0b8c0' : '#585858' }}
                     onClick={() => toggle(grpKey)}
-                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#1c1c1c')}
+                    onMouseEnter={e => ((e.currentTarget as HTMLElement).style.background = '#242424')}
                     onMouseLeave={e => ((e.currentTarget as HTMLElement).style.background = 'transparent')}
                   >
                     {grpExpanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
@@ -220,13 +220,13 @@ export function ProtocolTree() {
                           position: 'relative',
                           paddingLeft: '30px',
                           paddingRight: '4px',
-                          background: active ? '#2a1200' : 'transparent',
-                          color: active ? '#e88b00' : '#5a5a5a',
-                          borderLeft: active ? '2px solid #e88b00' : '2px solid transparent',
+                          background: active ? '#1e2e3a' : 'transparent',
+                          color: active ? '#90c0d8' : '#606060',
+                          borderLeft: active ? '2px solid #5090b0' : '2px solid transparent',
                         }}
                         onClick={() => handleVariantClick(bodyPart.id, group.id, variant.id, variant.presetId)}
                         onMouseEnter={e => {
-                          if (!active) (e.currentTarget as HTMLElement).style.background = '#1c1c1c'
+                          if (!active) (e.currentTarget as HTMLElement).style.background = '#242424'
                           const rect = e.currentTarget.getBoundingClientRect()
                           setTooltipPos({ x: rect.right + 6, y: rect.top })
                           setHoveredVariant(variant.id)

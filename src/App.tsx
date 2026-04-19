@@ -96,7 +96,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#141414', color: '#c8ccd6' }}>
+    <div className="flex flex-col h-screen overflow-hidden" style={{ background: '#1e1e1e', color: '#c8ccd6' }}>
       {/* Title bar */}
       <div className="flex items-center justify-between px-4 py-1.5 shrink-0"
         style={{ background: '#0e0e0e', borderBottom: '1px solid #242424' }}>
@@ -253,18 +253,13 @@ export default function App() {
           <ProtocolTree />
         </div>
 
-        {/* Sequence Queue */}
-        <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: '200px', borderRight: '1px solid #1e1e1e' }}>
-          <SequenceQueue />
-        </div>
-
         {/* Center: Protocol Parameters */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Active sequence indicator */}
           <ActiveSequenceBar />
 
           {/* Tab bar */}
-          <div className="flex shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid #252525', background: '#0e0e0e' }}>
+          <div className="flex shrink-0 overflow-x-auto" style={{ borderBottom: '1px solid #2a2a2a', background: '#161616' }}>
             {TABS.map(tab => {
               const sev = tabSeverity(tab)
               return (
@@ -273,9 +268,9 @@ export default function App() {
                   onClick={() => setActiveTab(tab)}
                   className="relative flex items-center gap-1 whitespace-nowrap transition-colors shrink-0"
                   style={{
-                    background: activeTab === tab ? '#0e1820' : 'transparent',
-                    color: activeTab === tab ? '#e88b00' : '#5a7a8a',
-                    borderBottom: activeTab === tab ? '2px solid #e88b00' : '2px solid transparent',
+                    background: activeTab === tab ? '#1e2a30' : 'transparent',
+                    color: activeTab === tab ? '#c8d8e0' : '#506070',
+                    borderBottom: activeTab === tab ? '2px solid #5090b0' : '2px solid transparent',
                     fontSize: '11.5px',
                     padding: '6px 14px',
                   }}
@@ -307,7 +302,7 @@ export default function App() {
           )}
 
           {/* Tab content */}
-          <div className="flex-1 overflow-y-auto" style={{ background: '#111111' }}>
+          <div className="flex-1 overflow-y-auto" style={{ background: '#1a1a1a' }}>
             {activeTab === 'Routine' && <RoutineTab />}
             {activeTab === 'Contrast' && <ContrastTab />}
             {activeTab === 'Resolution' && <ResolutionTab />}
