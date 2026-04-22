@@ -5,7 +5,7 @@ import { TISSUES, calcScanTime, calcTEmin, calcTRmin } from '../../store/calcula
 import type { ProtocolParams } from '../../data/presets'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
-function ErnstAngleIndicator() {
+export function ErnstAngleIndicator() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -49,7 +49,7 @@ function ErnstAngleIndicator() {
 }
 
 // ── T1/T2 信号曲線 ──────────────────────────────────────────────────────────
-function SignalCurveChart() {
+export function SignalCurveChart() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
   const W = 340
@@ -180,7 +180,7 @@ function SignalCurveChart() {
 // ── スライス収集順序 / ステディステート ───────────────────────────────────────
 // 実際のスキャナーは interleaved でスライスを収集し、ステディステート確立まで
 // ダミーパルスを送信する。この可視化でスライスタイミングを直感的に理解できる
-function SliceOrderViz() {
+export function SliceOrderViz() {
   const { params } = useProtocolStore()
 
   const nSlices = params.slices
@@ -269,7 +269,7 @@ function SliceOrderViz() {
   )
 }
 
-function ScanTimeBreakdown() {
+export function ScanTimeBreakdown() {
   const { params } = useProtocolStore()
   const totalTime = calcScanTime(params)
 
@@ -341,7 +341,7 @@ function ScanTimeBreakdown() {
 
 // ── 定常状態収束シミュレーション ─────────────────────────────────────────────
 // 最初のN回のTR後の磁化の推移をシミュレート。ダミースキャンの必要性を示す
-function SteadyStateConvergence() {
+export function SteadyStateConvergence() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -438,7 +438,7 @@ function SteadyStateConvergence() {
 // ── シミュレーション脳断面 Phantom ──────────────────────────────────────────
 // 現在のTR/TE/TI/FAに基づいて各組織の信号強度をリアルタイム計算し
 // syngo MR-like な疑似MR断面画像として表示する
-function BrainPhantomPreview() {
+export function BrainPhantomPreview() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -600,7 +600,7 @@ function BrainPhantomPreview() {
 }
 
 // ── GM/WM コントラスト TR-TE ヒートマップ ────────────────────────────────────
-function ContrastHeatmap() {
+export function ContrastHeatmap() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -881,7 +881,7 @@ const SEQ_PRESETS: SeqPreset[] = [
   },
 ]
 
-function SequencePresetBar() {
+export function SequencePresetBar() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
   const [hoveredName, setHoveredName] = useState<string | null>(null)
@@ -952,7 +952,7 @@ function SequencePresetBar() {
 // ── シーケンスタイミング図 ───────────────────────────────────────────────────
 // RF / Gss / Gpe / Gro / ADC の波形を現在のパラメータに基づいてリアルタイム描画
 // SE / TSE / GRE / IR の波形切替, TE/TI/ETL を反映
-function SequenceTimingDiagram() {
+export function SequenceTimingDiagram() {
   const { params } = useProtocolStore()
   const isTSE = params.turboFactor > 1
   const isIR = params.TI > 0
@@ -1141,7 +1141,7 @@ function Cell({ children, left }: { children: React.ReactNode; left?: boolean })
   )
 }
 
-function BlankRow() {
+export function BlankRow() {
   return (
     <>
       <div style={{ height: '22px', borderRight: '1px solid #1e1e1e', borderBottom: '1px solid #1e1e1e' }} />
@@ -1150,7 +1150,7 @@ function BlankRow() {
   )
 }
 
-function FullWidthSH({ label }: { label: string }) {
+export function FullWidthSH({ label }: { label: string }) {
   return (
     <div style={{ gridColumn: '1 / -1' }}>
       <SH label={label} />

@@ -2,13 +2,13 @@ import { useState, useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
 import { TISSUES, calcTissueContrast } from '../../store/calculators'
-import { VizSection } from '../VizSection'
+// VizSection available from '../VizSection' for future use
 // TISSUES imported above and used in IRSignalEvolution + LiveTissueSignalBar
 
 // ── Dixon In/Out-of-Phase TE 計算器 ───────────────────────────────────────────
 // 水と脂肪の化学シフト差によるビート周波数を元に in-phase / out-of-phase TE を計算
 // 臨床: 肝臓（脂肪肝）・副腎・骨髄の脂肪定量に必須
-function DixonTECalculator() {
+export function DixonTECalculator() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -139,7 +139,7 @@ function DixonTECalculator() {
 // ── ガドリニウム造影剤 T1 短縮計算機 ──────────────────────────────────────────
 // Gd濃度 × 縦緩和率 r1 によるT1短縮と信号増強をシミュレーション
 // 1/T1_post = 1/T1_pre + r1 × [Gd]
-function GadoliniumEnhancement() {
+export function GadoliniumEnhancement() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
   const [dose, setDose] = useState(0.1)          // mmol/kg
@@ -280,7 +280,7 @@ function GadoliniumEnhancement() {
 
 // ── ライブ組織コントラストバー ────────────────────────────────────────────────
 // 現在の TR/TE/TI/FA 設定に基づき全組織の信号強度をリアルタイム比較表示
-function LiveTissueSignalBar() {
+export function LiveTissueSignalBar() {
   const { params } = useProtocolStore()
   const signals = useMemo(() => calcTissueContrast(params), [params])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -369,11 +369,11 @@ const subTabStyle = (active: boolean) => ({
   borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
 
-const sectionHeader = { color: '#4b5563' }
+export const sectionHeader = { color: '#4b5563' }
 
 // ── 脂肪抑制 B0 不均一性感受性チャート ──────────────────────────────────────
 // 各脂肪抑制法の磁場不均一性(ppm)に対する効果を可視化
-function FatSatB0Chart() {
+export function FatSatB0Chart() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -491,7 +491,7 @@ function FatSatB0Chart() {
   )
 }
 
-const fatSatDesc: Record<string, string> = {
+export const fatSatDesc: Record<string, string> = {
   None: 'なし — 脂肪信号あり',
   CHESS: '化学シフト選択励起 — 均一磁場に最適（頭部・脊椎）',
   SPAIR: 'Spectral Adiabatic IR — 不均一磁場でも均一抑制（腹部・乳腺）',
@@ -501,7 +501,7 @@ const fatSatDesc: Record<string, string> = {
 
 // ── MT比 (Magnetization Transfer Ratio) 可視化 ────────────────────────────────
 // MTRを組織別に表示。MRA/造影後のMTCの効果を定量的に示す
-function MTRatioDisplay() {
+export function MTRatioDisplay() {
   // Clinical MTR values (literature, % = (S0 - Smt)/S0 × 100)
   const tissues = [
     { label: 'White Matter', mtr: 42, color: '#60a5fa', note: 'MS plaque検出に重要' },
@@ -740,7 +740,7 @@ function IRCurveChart({ fieldStrength, TI }: { fieldStrength: number; TI: number
 // ── IR 磁化回復カーブ (Inversion Recovery Mz evolution) ──────────────────────
 // TI に対する各組織の縦磁化 Mz(TI) = M0 × |1 - 2·exp(-TI/T1)| を可視化
 // 現在のTIでの各組織の信号強度をリアルタイム表示
-function IRSignalEvolution() {
+export function IRSignalEvolution() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
@@ -872,7 +872,7 @@ function IRSignalEvolution() {
 }
 
 // ── T2* 減衰カーブ ─────────────────────────────────────────────────────────────
-function T2StarDecayChart({ fieldStrength, TE }: { fieldStrength: number; TE: number }) {
+export function T2StarDecayChart({ fieldStrength, TE }: { fieldStrength: number; TE: number }) {
   const is3T = fieldStrength >= 2.5
 
   // T2* values (ms) at 1.5T and 3T for key tissues
@@ -960,7 +960,7 @@ function T2StarDecayChart({ fieldStrength, TE }: { fieldStrength: number; TE: nu
 // ── MRスペクトロスコピー 代謝産物スペクトル ──────────────────────────────────
 // PRESS/STEAM シングルボクセル MRS の 1H スペクトルシミュレーション
 // NAA/Cho/Cr/mI/Glx の主要代謝産物ピークを TE 依存 T2 減衰を含めて描画
-function MRSSpectrum() {
+export function MRSSpectrum() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
   const TE = params.TE
@@ -1093,7 +1093,7 @@ function MRSSpectrum() {
 }
 
 // TI 自動計算器コンポーネント
-function TICalculator() {
+export function TICalculator() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
