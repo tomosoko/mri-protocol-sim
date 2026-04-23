@@ -1,23 +1,24 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useProtocolStore } from './store/protocolStore'
 import { StatusBar } from './components/StatusBar'
 import { ProtocolTree } from './components/ProtocolTree'
-import { RoutineTab } from './components/tabs/RoutineTab'
-import { ContrastTab } from './components/tabs/ContrastTab'
-import { ResolutionTab } from './components/tabs/ResolutionTab'
-import { GeometryTab } from './components/tabs/GeometryTab'
-import { SystemTab } from './components/tabs/SystemTab'
-import { PhysioTab } from './components/tabs/PhysioTab'
-import { InlineTab } from './components/tabs/InlineTab'
-import { SequenceTab } from './components/tabs/SequenceTab'
 import { presets } from './data/presets'
 import { GraduationCap } from 'lucide-react'
 import { SequenceQueue } from './components/SequenceQueue'
-import { QuizPanel } from './components/QuizPanel'
 import { validateProtocol } from './utils/protocolValidator'
 import { ConsoleParamStrip } from './components/ConsoleParamStrip'
 import { SystemEventLog } from './components/SystemEventLog'
 import { ActiveSequenceBar } from './components/ActiveSequenceBar'
+
+const RoutineTab    = lazy(() => import('./components/tabs/RoutineTab').then(m => ({ default: m.RoutineTab })))
+const ContrastTab   = lazy(() => import('./components/tabs/ContrastTab').then(m => ({ default: m.ContrastTab })))
+const ResolutionTab = lazy(() => import('./components/tabs/ResolutionTab').then(m => ({ default: m.ResolutionTab })))
+const GeometryTab   = lazy(() => import('./components/tabs/GeometryTab').then(m => ({ default: m.GeometryTab })))
+const SystemTab     = lazy(() => import('./components/tabs/SystemTab').then(m => ({ default: m.SystemTab })))
+const PhysioTab     = lazy(() => import('./components/tabs/PhysioTab').then(m => ({ default: m.PhysioTab })))
+const InlineTab     = lazy(() => import('./components/tabs/InlineTab').then(m => ({ default: m.InlineTab })))
+const SequenceTab   = lazy(() => import('./components/tabs/SequenceTab').then(m => ({ default: m.SequenceTab })))
+const QuizPanel     = lazy(() => import('./components/QuizPanel').then(m => ({ default: m.QuizPanel })))
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
@@ -305,14 +306,16 @@ export default function App() {
 
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto" style={{ background: '#1a1a1a' }}>
-            {activeTab === 'Routine' && <RoutineTab />}
-            {activeTab === 'Contrast' && <ContrastTab />}
-            {activeTab === 'Resolution' && <ResolutionTab />}
-            {activeTab === 'Geometry' && <GeometryTab />}
-            {activeTab === 'System' && <SystemTab />}
-            {activeTab === 'Physio' && <PhysioTab />}
-            {activeTab === 'Inline' && <InlineTab />}
-            {activeTab === 'Sequence' && <SequenceTab />}
+            <Suspense fallback={<div className="flex items-center justify-center h-32" style={{ color: '#506070', fontSize: '11px' }}>Loading...</div>}>
+              {activeTab === 'Routine' && <RoutineTab />}
+              {activeTab === 'Contrast' && <ContrastTab />}
+              {activeTab === 'Resolution' && <ResolutionTab />}
+              {activeTab === 'Geometry' && <GeometryTab />}
+              {activeTab === 'System' && <SystemTab />}
+              {activeTab === 'Physio' && <PhysioTab />}
+              {activeTab === 'Inline' && <InlineTab />}
+              {activeTab === 'Sequence' && <SequenceTab />}
+            </Suspense>
           </div>
         </div>
 
@@ -336,7 +339,9 @@ export default function App() {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            <QuizPanel />
+            <Suspense fallback={<div className="flex items-center justify-center h-32" style={{ color: '#a78bfa', fontSize: '11px' }}>Loading...</div>}>
+              <QuizPanel />
+            </Suspense>
           </div>
         </div>
       )}
