@@ -39,6 +39,6 @@ src/
 - スタイルはTailwind + インラインstyle（syngo MR風の暗色テーマ統一）
 
 ## 注意点
-- SystemTab.tsxは1,994行と大きい。変更時は該当セクションのみ読む
+- SystemTab.tsxは282行（system/サブモジュールに分割済み）。変更時はsrc/components/system/配下を確認する
 - data/配下のファイルは巨大（quizData.ts: 3,878行）だが内容データなので分割不要
 - テストは未導入。ビルド成功（`npm run build`）で最低限の型チェックを確認

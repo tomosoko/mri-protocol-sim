@@ -18,7 +18,8 @@ const SystemTab     = lazy(() => import('./components/tabs/SystemTab').then(m =>
 const PhysioTab     = lazy(() => import('./components/tabs/PhysioTab').then(m => ({ default: m.PhysioTab })))
 const InlineTab     = lazy(() => import('./components/tabs/InlineTab').then(m => ({ default: m.InlineTab })))
 const SequenceTab   = lazy(() => import('./components/tabs/SequenceTab').then(m => ({ default: m.SequenceTab })))
-const QuizPanel     = lazy(() => import('./components/QuizPanel').then(m => ({ default: m.QuizPanel })))
+const QuizPanel        = lazy(() => import('./components/QuizPanel').then(m => ({ default: m.QuizPanel })))
+const KSpaceVisualizer = lazy(() => import('./components/KSpaceVisualizer').then(m => ({ default: m.KSpaceVisualizer })))
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
@@ -318,6 +319,15 @@ export default function App() {
             </Suspense>
           </div>
         </div>
+
+        {/* Right: Extended Visualization Panel (k-space) */}
+        {viewMode === 'extended' && (
+          <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: '360px', borderLeft: '1px solid #252525' }}>
+            <Suspense fallback={<div className="flex items-center justify-center h-full" style={{ color: '#506070', fontSize: '11px' }}>Loading...</div>}>
+              <KSpaceVisualizer />
+            </Suspense>
+          </div>
+        )}
 
         </>}
       </div>
