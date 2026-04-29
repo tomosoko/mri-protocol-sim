@@ -1,6 +1,5 @@
-import { useState, useMemo } from 'react'
-import { quizQuestions, type QuizQuestion } from '../data/quizData'
-import { choiceExplanations } from '../data/quizChoiceExplanations'
+import { useState, useMemo, useEffect } from 'react'
+import type { QuizQuestion } from '../data/quizData'
 import { CheckCircle, XCircle, RefreshCw, ChevronRight } from 'lucide-react'
 import { addAllQuizToAnki } from '../utils/ankiConnect'
 
@@ -76,6 +75,21 @@ function AnkiButton({ questions }: { questions: QuizQuestion[] }) {
 }
 
 export function QuizPanel() {
+  const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([])
+  const [allExplanations, setAllExplanations] = useState<Record<number, string[]>>({})
+  const [dataLoaded, setDataLoaded] = useState(false)
+
+  useEffect(() => {
+    Promise.all([
+      import('../data/quizData'),
+      import('../data/quizChoiceExplanations'),
+    ]).then(([quiz, expl]) => {
+      setAllQuestions(quiz.quizQuestions)
+      setAllExplanations(expl.choiceExplanations)
+      setDataLoaded(true)
+    })
+  }, [])
+
   const [category, setCategory] = useState<Category>('すべて')
   const [difficulty, setDifficulty] = useState<Difficulty>(0)
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -83,8 +97,14 @@ export function QuizPanel() {
   const [showExplanation, setShowExplanation] = useState(false)
   const [score, setScore] = useState(0)
   const [answered, setAnswered] = useState(0)
-  const [shuffled, setShuffled] = useState<QuizQuestion[]>(() => shuffle(quizQuestions))
+  const [shuffled, setShuffled] = useState<QuizQuestion[]>([])
   const [finished, setFinished] = useState(false)
+
+  useEffect(() => {
+    if (dataLoaded && allQuestions.length > 0) {
+      setShuffled(shuffle(allQuestions))
+    }
+  }, [dataLoaded, allQuestions])
 
   const filtered = useMemo(() => {
     return shuffled.filter(q =>
@@ -114,7 +134,7 @@ export function QuizPanel() {
   }
 
   function handleReset() {
-    setShuffled(shuffle(quizQuestions))
+    setShuffled(shuffle(allQuestions))
     setCurrentIndex(0)
     setSelected(null)
     setShowExplanation(false)
@@ -135,6 +155,14 @@ export function QuizPanel() {
   }
 
   const categories: Category[] = ['すべて', 'パラメータ', 'アーチファクト', '脂肪抑制', 'SAR/安全', 'シーケンス', '臨床判断']
+
+  if (!dataLoaded) {
+    return (
+      <div className="p-4 flex items-center justify-center h-full">
+        <div className="text-xs" style={{ color: '#4b5563' }}>読み込み中...</div>
+      </div>
+    )
+  }
 
   if (finished || filtered.length === 0) {
     return (
@@ -173,7 +201,7 @@ export function QuizPanel() {
       {/* Filter bar */}
       <div className="shrink-0 px-3 py-2 space-y-1.5" style={{ borderBottom: '1px solid #252525' }}>
         {/* Anki export button */}
-        <AnkiButton questions={quizQuestions} />
+        <AnkiButton questions={allQuestions} />
         {/* Category */}
         <div className="flex flex-wrap gap-1">
           {categories.map(c => (
@@ -277,7 +305,7 @@ export function QuizPanel() {
               textColor = '#9ca3af'
             }
 
-            const choiceExp = choiceExplanations[current.id]?.[i]
+            const choiceExp = allExplanations[current.id]?.[i]
 
             return (
               <button
