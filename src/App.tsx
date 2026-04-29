@@ -27,6 +27,13 @@ const SNRMapPanel            = lazy(() => import('./components/SNRMapPanel').the
 const ProtocolOptimizerPanel = lazy(() => import('./components/ProtocolOptimizerPanel').then(m => ({ default: m.ProtocolOptimizerPanel })))
 const QuantitativeMRIPanel   = lazy(() => import('./components/QuantitativeMRIPanel').then(m => ({ default: m.QuantitativeMRIPanel })))
 const ClinicalIndicationPanel = lazy(() => import('./components/ClinicalIndicationPanel').then(m => ({ default: m.ClinicalIndicationPanel })))
+const PulseSequenceDiagramPanel = lazy(() => import('./components/PulseSequenceDiagramPanel').then(m => ({ default: m.PulseSequenceDiagramPanel })))
+const ValidationPanel           = lazy(() => import('./components/ValidationPanel').then(m => ({ default: m.ValidationPanel })))
+const DiffPanel                 = lazy(() => import('./components/DiffPanel').then(m => ({ default: m.DiffPanel })))
+const CaseTrainingPanel         = lazy(() => import('./components/CaseTrainingPanel').then(m => ({ default: m.CaseTrainingPanel })))
+const ScenarioExercisePanel     = lazy(() => import('./components/ScenarioExercisePanel').then(m => ({ default: m.ScenarioExercisePanel })))
+const ProtocolSummaryPanel      = lazy(() => import('./components/ProtocolSummaryPanel').then(m => ({ default: m.ProtocolSummaryPanel })))
+const ProtocolExportPanel       = lazy(() => import('./components/ProtocolExportPanel').then(m => ({ default: m.ProtocolExportPanel })))
 
 const EXTENDED_PANELS = [
   { id: 'kspace',    label: 'k-Space' },
@@ -37,6 +44,13 @@ const EXTENDED_PANELS = [
   { id: 'optimizer', label: 'Optimize' },
   { id: 'qmri',      label: 'qMRI' },
   { id: 'clinical',  label: 'Clinical' },
+  { id: 'pulse',     label: 'Pulse Seq' },
+  { id: 'validate',  label: 'Validate' },
+  { id: 'diff',      label: 'Diff' },
+  { id: 'cases',     label: 'Cases' },
+  { id: 'scenario',  label: 'Scenario' },
+  { id: 'summary',   label: 'Summary' },
+  { id: 'export',    label: 'Export' },
 ] as const
 type ExtendedPanelId = typeof EXTENDED_PANELS[number]['id']
 
@@ -372,6 +386,13 @@ export default function App() {
                 {extendedPanel === 'optimizer' && <ProtocolOptimizerPanel />}
                 {extendedPanel === 'qmri'      && <QuantitativeMRIPanel />}
                 {extendedPanel === 'clinical'  && <ClinicalIndicationPanel />}
+                {extendedPanel === 'pulse'     && <PulseSequenceDiagramPanel />}
+                {extendedPanel === 'validate'  && <ValidationPanel />}
+                {extendedPanel === 'diff'      && <DiffPanel />}
+                {extendedPanel === 'cases'     && <CaseTrainingPanel />}
+                {extendedPanel === 'scenario'  && <ScenarioExercisePanel />}
+                {extendedPanel === 'summary'   && <ProtocolSummaryPanel />}
+                {extendedPanel === 'export'    && <ProtocolExportPanel />}
               </Suspense>
             </div>
           </div>
