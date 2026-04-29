@@ -18,8 +18,27 @@ const SystemTab     = lazy(() => import('./components/tabs/SystemTab').then(m =>
 const PhysioTab     = lazy(() => import('./components/tabs/PhysioTab').then(m => ({ default: m.PhysioTab })))
 const InlineTab     = lazy(() => import('./components/tabs/InlineTab').then(m => ({ default: m.InlineTab })))
 const SequenceTab   = lazy(() => import('./components/tabs/SequenceTab').then(m => ({ default: m.SequenceTab })))
-const QuizPanel        = lazy(() => import('./components/QuizPanel').then(m => ({ default: m.QuizPanel })))
-const KSpaceVisualizer = lazy(() => import('./components/KSpaceVisualizer').then(m => ({ default: m.KSpaceVisualizer })))
+const QuizPanel              = lazy(() => import('./components/QuizPanel').then(m => ({ default: m.QuizPanel })))
+const KSpaceVisualizer       = lazy(() => import('./components/KSpaceVisualizer').then(m => ({ default: m.KSpaceVisualizer })))
+const TissueContrastPanel    = lazy(() => import('./components/TissueContrastPanel').then(m => ({ default: m.TissueContrastPanel })))
+const ArtifactSimPanel       = lazy(() => import('./components/ArtifactSimPanel').then(m => ({ default: m.ArtifactSimPanel })))
+const WhatIfPanel            = lazy(() => import('./components/WhatIfPanel').then(m => ({ default: m.WhatIfPanel })))
+const SNRMapPanel            = lazy(() => import('./components/SNRMapPanel').then(m => ({ default: m.SNRMapPanel })))
+const ProtocolOptimizerPanel = lazy(() => import('./components/ProtocolOptimizerPanel').then(m => ({ default: m.ProtocolOptimizerPanel })))
+const QuantitativeMRIPanel   = lazy(() => import('./components/QuantitativeMRIPanel').then(m => ({ default: m.QuantitativeMRIPanel })))
+const ClinicalIndicationPanel = lazy(() => import('./components/ClinicalIndicationPanel').then(m => ({ default: m.ClinicalIndicationPanel })))
+
+const EXTENDED_PANELS = [
+  { id: 'kspace',    label: 'k-Space' },
+  { id: 'contrast',  label: 'Tissue' },
+  { id: 'artifact',  label: 'Artifact' },
+  { id: 'whatif',    label: 'What-If' },
+  { id: 'snrmap',    label: 'SNR Map' },
+  { id: 'optimizer', label: 'Optimize' },
+  { id: 'qmri',      label: 'qMRI' },
+  { id: 'clinical',  label: 'Clinical' },
+] as const
+type ExtendedPanelId = typeof EXTENDED_PANELS[number]['id']
 
 const TABS = ['Routine', 'Contrast', 'Resolution', 'Geometry', 'System', 'Physio', 'Inline', 'Sequence'] as const
 
@@ -38,6 +57,7 @@ const TAB_PARAMS: Record<string, string[]> = {
 export default function App() {
   const { activeTab, setActiveTab, activePresetId, params, undo, redo, viewMode, setViewMode, currentPage, setCurrentPage } = useProtocolStore()
   const [quizMode, setQuizMode] = useState(false)
+  const [extendedPanel, setExtendedPanel] = useState<ExtendedPanelId>('kspace')
 
   const activePreset = presets.find(p => p.id === activePresetId)
   const allIssues = validateProtocol(params)
@@ -320,12 +340,40 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right: Extended Visualization Panel (k-space) */}
+        {/* Right: Extended Visualization Panel */}
         {viewMode === 'extended' && (
           <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: '360px', borderLeft: '1px solid #252525' }}>
-            <Suspense fallback={<div className="flex items-center justify-center h-full" style={{ color: '#506070', fontSize: '11px' }}>Loading...</div>}>
-              <KSpaceVisualizer />
-            </Suspense>
+            {/* Panel tab switcher */}
+            <div className="flex shrink-0 overflow-x-auto" style={{ background: '#111', borderBottom: '1px solid #222' }}>
+              {EXTENDED_PANELS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setExtendedPanel(p.id)}
+                  className="whitespace-nowrap shrink-0 transition-colors"
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '9px',
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.03em',
+                    background: extendedPanel === p.id ? '#1e2a30' : 'transparent',
+                    color: extendedPanel === p.id ? '#7aaac8' : '#374151',
+                    borderBottom: extendedPanel === p.id ? '2px solid #5090b0' : '2px solid transparent',
+                  }}
+                >{p.label}</button>
+              ))}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <Suspense fallback={<div className="flex items-center justify-center h-full" style={{ color: '#506070', fontSize: '11px' }}>Loading...</div>}>
+                {extendedPanel === 'kspace'    && <KSpaceVisualizer />}
+                {extendedPanel === 'contrast'  && <TissueContrastPanel />}
+                {extendedPanel === 'artifact'  && <ArtifactSimPanel />}
+                {extendedPanel === 'whatif'    && <WhatIfPanel />}
+                {extendedPanel === 'snrmap'    && <SNRMapPanel />}
+                {extendedPanel === 'optimizer' && <ProtocolOptimizerPanel />}
+                {extendedPanel === 'qmri'      && <QuantitativeMRIPanel />}
+                {extendedPanel === 'clinical'  && <ClinicalIndicationPanel />}
+              </Suspense>
+            </div>
           </div>
         )}
 
