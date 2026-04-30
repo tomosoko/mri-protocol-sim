@@ -34,6 +34,7 @@ const CaseTrainingPanel         = lazy(() => import('./components/CaseTrainingPa
 const ScenarioExercisePanel     = lazy(() => import('./components/ScenarioExercisePanel').then(m => ({ default: m.ScenarioExercisePanel })))
 const ProtocolSummaryPanel      = lazy(() => import('./components/ProtocolSummaryPanel').then(m => ({ default: m.ProtocolSummaryPanel })))
 const ProtocolExportPanel       = lazy(() => import('./components/ProtocolExportPanel').then(m => ({ default: m.ProtocolExportPanel })))
+const ArtifactGuide             = lazy(() => import('./components/ArtifactGuide').then(m => ({ default: m.ArtifactGuide })))
 
 const EXTENDED_PANELS = [
   { id: 'kspace',    label: 'k-Space' },
@@ -51,6 +52,7 @@ const EXTENDED_PANELS = [
   { id: 'scenario',  label: 'Scenario' },
   { id: 'summary',   label: 'Summary' },
   { id: 'export',    label: 'Export' },
+  { id: 'guide',     label: 'Guide' },
 ] as const
 type ExtendedPanelId = typeof EXTENDED_PANELS[number]['id']
 
@@ -393,6 +395,7 @@ export default function App() {
                 {extendedPanel === 'scenario'  && <ScenarioExercisePanel />}
                 {extendedPanel === 'summary'   && <ProtocolSummaryPanel />}
                 {extendedPanel === 'export'    && <ProtocolExportPanel />}
+                {extendedPanel === 'guide'     && <ArtifactGuide />}
               </Suspense>
             </div>
           </div>
