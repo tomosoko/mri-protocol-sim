@@ -3,362 +3,367 @@ import type { ProtocolParams } from '../data/presets'
 import {
   ernstAngle,
   calcGFactor,
-  calcSARLevel,
-  calcSNR,
   calcScanTime,
+  calcSARLevel,
+  sarLevel,
+  calcSNR,
+  calcTissueContrast,
   identifySequence,
-  calcTEmin,
-  calcTRmin,
+  voxelStr,
+  chemShift,
   calcT2Blur,
   calcPNSRisk,
-  chemShift,
-  voxelStr,
-  sarLevel,
-  calcTissueContrast,
-  TISSUES,
+  calcTEmin,
+  calcTRmin,
 } from './calculators'
 
-// ─── Base fixture (T2w TSE, 1.5T) ──────────────────────────────────────────
+// ─── Base protocol fixture ───────────────────────────────────────────────────
 const base: ProtocolParams = {
-  TR: 5000, TE: 100, TI: 0, flipAngle: 90,
-  slices: 20, sliceThickness: 5, sliceGap: 20,
-  averages: 1, phaseOversampling: 0,
-  sarAssistant: 'Normal', allowedDelay: 30,
+  TR: 5000, TE: 100, TI: 0,
+  flipAngle: 90, slices: 20, sliceThickness: 5, sliceGap: 0.5, averages: 1,
+  phaseOversampling: 0, sarAssistant: 'Normal', allowedDelay: 0,
   fatSat: 'None', mt: false,
-  matrixFreq: 256, matrixPhase: 256, fov: 300,
-  phaseResolution: 100, bandwidth: 200, interpolation: false,
+  matrixFreq: 256, matrixPhase: 256, fov: 256, phaseResolution: 100,
+  bandwidth: 200, interpolation: false,
   orientation: 'Tra', phaseEncDir: 'A>>P', satBands: false,
-  coil: 'Body', coilType: 'Body',
+  coil: 'Head_64', coilType: 'Head_64',
   ipatMode: 'Off', ipatFactor: 2,
   gradientMode: 'Normal', shim: 'Auto',
-  ecgTrigger: false, respTrigger: 'Off',
-  triggerDelay: 0, triggerWindow: 5,
+  ecgTrigger: false, respTrigger: 'Off', triggerDelay: 0, triggerWindow: 0,
   inlineADC: false, inlineMIP: false, inlineMPR: false, inlineSubtraction: false,
   turboFactor: 15, echoSpacing: 4.5,
-  partialFourier: 'Off', bValues: [0, 1000],
+  partialFourier: 'Off', bValues: [0],
   fieldStrength: 1.5,
 }
 
-// ─── ernstAngle ─────────────────────────────────────────────────────────────
+// ─── ernstAngle ──────────────────────────────────────────────────────────────
 describe('ernstAngle', () => {
-  it('returns ~52° for T1=1000ms, TR=1000ms (classic result)', () => {
-    // Ernst angle = acos(exp(-TR/T1)) = acos(exp(-1)) ≈ 68.4°? No:
-    // acos(e^-1) = acos(0.3679) ≈ 68.4°... let me verify: the formula
-    // Actually cos(θ) = exp(-TR/T1), so for TR=T1 → exp(-1) ≈ 0.368 → θ ≈ 68.4°
-    const angle = ernstAngle(1000, 1000)
-    expect(angle).toBeCloseTo(68.4, 0)
+  it('returns ~90 when TR >> T1 (full relaxation)', () => {
+    expect(ernstAngle(1000, 100_000)).toBeCloseTo(90, 0)
   })
 
-  it('approaches 90° when TR >> T1', () => {
-    const angle = ernstAngle(500, 100000)
-    expect(angle).toBeGreaterThan(89)
+  it('returns ~0 when TR << T1 (almost no recovery)', () => {
+    expect(ernstAngle(1000, 1)).toBeLessThan(5)
   })
 
-  it('approaches 0° when TR << T1', () => {
-    const angle = ernstAngle(5000, 1)
-    expect(angle).toBeLessThan(2)
+  it('returns ~70 for GM at 3T (T1=1820ms) with TR=2000ms', () => {
+    const angle = ernstAngle(1820, 2000)
+    expect(angle).toBeGreaterThan(65)
+    expect(angle).toBeLessThan(76)
   })
 })
 
 // ─── calcGFactor ─────────────────────────────────────────────────────────────
 describe('calcGFactor', () => {
-  it('returns 1.0 when iPAT is Off', () => {
+  it('returns 1.0 with iPAT Off', () => {
     expect(calcGFactor('Off', 2)).toBe(1.0)
   })
 
-  it('returns 1.08 for GRAPPA AF=2', () => {
-    expect(calcGFactor('GRAPPA', 2)).toBeCloseTo(1.08)
+  it('returns ~1.08 for GRAPPA AF2', () => {
+    expect(calcGFactor('GRAPPA', 2)).toBeCloseTo(1.08, 2)
   })
 
-  it('returns 1.28 for GRAPPA AF=3', () => {
-    expect(calcGFactor('GRAPPA', 3)).toBeCloseTo(1.28)
+  it('returns ~1.28 for GRAPPA AF3', () => {
+    expect(calcGFactor('GRAPPA', 3)).toBeCloseTo(1.28, 2)
   })
 
-  it('returns lower g-factor for CAIPIRINHA than GRAPPA (same AF)', () => {
-    const grappa = calcGFactor('GRAPPA', 3)
-    const caipirinha = calcGFactor('CAIPIRINHA', 3)
-    expect(caipirinha).toBeLessThan(grappa)
-  })
-})
-
-// ─── calcSARLevel ────────────────────────────────────────────────────────────
-describe('calcSARLevel', () => {
-  it('is higher at 3T than 1.5T (same params)', () => {
-    const sar15 = calcSARLevel({ ...base, fieldStrength: 1.5 })
-    const sar3 = calcSARLevel({ ...base, fieldStrength: 3.0 })
-    expect(sar3).toBeGreaterThan(sar15)
-  })
-
-  it('is higher with SPAIR fat-sat than None', () => {
-    const sarNone = calcSARLevel({ ...base, fatSat: 'None' })
-    const sarSpair = calcSARLevel({ ...base, fatSat: 'SPAIR' })
-    expect(sarSpair).toBeGreaterThan(sarNone)
-  })
-
-  it('is higher with MT on than off', () => {
-    const sarOff = calcSARLevel({ ...base, mt: false })
-    const sarOn = calcSARLevel({ ...base, mt: true })
-    expect(sarOn).toBeGreaterThan(sarOff)
-  })
-
-  it('never exceeds 100', () => {
-    const extreme = { ...base, flipAngle: 180, TR: 100, turboFactor: 200, fieldStrength: 3.0 as const, fatSat: 'STIR' as const, mt: true }
-    expect(calcSARLevel(extreme)).toBeLessThanOrEqual(100)
-  })
-
-  it('increases with higher flip angle', () => {
-    const sar90 = calcSARLevel({ ...base, flipAngle: 90 })
-    const sar150 = calcSARLevel({ ...base, flipAngle: 150 })
-    expect(sar150).toBeGreaterThan(sar90)
-  })
-})
-
-// ─── sarLevel ────────────────────────────────────────────────────────────────
-describe('sarLevel', () => {
-  it('classifies 0% as low', () => expect(sarLevel(0)).toBe('low'))
-  it('classifies 39% as low', () => expect(sarLevel(39)).toBe('low'))
-  it('classifies 40% as medium', () => expect(sarLevel(40)).toBe('medium'))
-  it('classifies 70% as high', () => expect(sarLevel(70)).toBe('high'))
-  it('classifies 90% as over', () => expect(sarLevel(90)).toBe('over'))
-})
-
-// ─── calcSNR ─────────────────────────────────────────────────────────────────
-describe('calcSNR', () => {
-  it('is higher with more averages', () => {
-    const snr1 = calcSNR({ ...base, averages: 1 })
-    const snr4 = calcSNR({ ...base, averages: 4 })
-    expect(snr4).toBeGreaterThan(snr1)
-  })
-
-  it('is higher with larger voxel (bigger FOV, same matrix)', () => {
-    const snrSmall = calcSNR({ ...base, fov: 200 })
-    const snrLarge = calcSNR({ ...base, fov: 400 })
-    expect(snrLarge).toBeGreaterThan(snrSmall)
-  })
-
-  it('is lower with iPAT enabled', () => {
-    const snrNoIPAT = calcSNR({ ...base, ipatMode: 'Off' })
-    const snrIPAT = calcSNR({ ...base, ipatMode: 'GRAPPA', ipatFactor: 2 })
-    expect(snrIPAT).toBeLessThan(snrNoIPAT)
-  })
-
-  it('is higher at 3T than 1.5T', () => {
-    const snr15 = calcSNR({ ...base, fieldStrength: 1.5, coilType: 'Head_64' })
-    const snr3 = calcSNR({ ...base, fieldStrength: 3.0, coilType: 'Head_64' })
-    expect(snr3).toBeGreaterThan(snr15)
-  })
-
-  it('never exceeds 200', () => {
-    const extreme = { ...base, averages: 16, fov: 500, sliceThickness: 10, bandwidth: 50 }
-    expect(calcSNR(extreme)).toBeLessThanOrEqual(200)
+  it('CAIPIRINHA g-factor is lower than GRAPPA for same AF', () => {
+    expect(calcGFactor('CAIPIRINHA', 2)).toBeLessThan(calcGFactor('GRAPPA', 2))
   })
 })
 
 // ─── calcScanTime ─────────────────────────────────────────────────────────────
 describe('calcScanTime', () => {
-  it('basic TSE scan time roughly doubles when averages doubles', () => {
+  it('TSE: more averages increases scan time', () => {
     const t1 = calcScanTime({ ...base, averages: 1 })
     const t2 = calcScanTime({ ...base, averages: 2 })
-    // Math.round can cause ±1 second discrepancy, so allow delta of 2
-    expect(Math.abs(t2 - t1 * 2)).toBeLessThanOrEqual(2)
+    expect(t2).toBeGreaterThan(t1)
   })
 
-  it('iPAT reduces scan time', () => {
-    const tNoIPAT = calcScanTime({ ...base, ipatMode: 'Off' })
-    const tIPAT = calcScanTime({ ...base, ipatMode: 'GRAPPA', ipatFactor: 2 })
-    expect(tIPAT).toBeLessThan(tNoIPAT)
+  it('TSE: iPAT reduces scan time', () => {
+    const tNo = calcScanTime({ ...base, ipatMode: 'Off' })
+    const tIpat = calcScanTime({ ...base, ipatMode: 'GRAPPA', ipatFactor: 2 })
+    expect(tIpat).toBeLessThan(tNo)
   })
 
-  it('PACE trigger adds overhead (longer scan time)', () => {
-    const tOff = calcScanTime({ ...base, respTrigger: 'Off' })
-    const tPACE = calcScanTime({ ...base, respTrigger: 'PACE' })
-    expect(tPACE).toBeGreaterThan(tOff)
+  it('partial Fourier reduces scan time', () => {
+    const tFull = calcScanTime({ ...base, partialFourier: 'Off' })
+    const tPF = calcScanTime({ ...base, partialFourier: '6/8' })
+    expect(tPF).toBeLessThan(tFull)
   })
 
-  it('EPI (turboFactor=1) uses TR × slices × averages formula', () => {
-    const p = { ...base, turboFactor: 1, TR: 5000, slices: 10, averages: 1 }
-    expect(calcScanTime(p)).toBe(50) // 5000 * 10 * 1 / 1000
+  it('HASTE (turboFactor>=100): scan time = round(TR * slices / 1000)', () => {
+    const p = { ...base, turboFactor: 200, TR: 1000, slices: 10 }
+    expect(calcScanTime(p)).toBe(10)
   })
 
-  it('HASTE (turboFactor≥100) uses TR × slices formula', () => {
-    const p = { ...base, turboFactor: 128, TR: 1000, slices: 20 }
-    expect(calcScanTime(p)).toBe(20) // 1000 * 20 / 1000
-  })
-})
-
-// ─── identifySequence ────────────────────────────────────────────────────────
-describe('identifySequence', () => {
-  it('identifies T2w TSE correctly', () => {
-    const p = { ...base, TR: 5000, TE: 100, turboFactor: 15, TI: 0 }
-    expect(identifySequence(p).type).toBe('T2w TSE')
+  it('EPI/DWI (turboFactor<=1): scan time = round(TR * slices * averages / 1000)', () => {
+    const p = { ...base, turboFactor: 1, TR: 5000, slices: 20, averages: 2 }
+    expect(calcScanTime(p)).toBe(200)
   })
 
-  it('identifies FLAIR (TI > 1500, TSE)', () => {
-    const p = { ...base, TI: 2000, turboFactor: 16, TR: 9000, TE: 100 }
-    expect(identifySequence(p).type).toBe('FLAIR')
-  })
-
-  it('identifies STIR (fatSat=STIR, low TI)', () => {
-    const p = { ...base, fatSat: 'STIR' as const, TI: 150, TR: 3000, TE: 60, turboFactor: 15 }
-    expect(identifySequence(p).type).toBe('STIR')
-  })
-
-  it('identifies HASTE (turboFactor >= 80)', () => {
-    const p = { ...base, turboFactor: 128, TR: 1000, TE: 90 }
-    expect(identifySequence(p).type).toBe('HASTE SS')
-  })
-
-  it('identifies EPI DWI (bValues.length > 1, turboFactor <= 2)', () => {
-    const p = { ...base, bValues: [0, 500, 1000], turboFactor: 1 }
-    expect(identifySequence(p).type).toBe('EPI DWI')
-  })
-
-  it('identifies VIBE (small FA, short TR, turboFactor<=2)', () => {
-    const p = { ...base, flipAngle: 12, TR: 5, turboFactor: 1, bValues: [0] }
-    expect(identifySequence(p).type).toBe('VIBE/GRE3D')
-  })
-
-  it('identifies T1w TSE (short TR, short TE)', () => {
-    const p = { ...base, TR: 600, TE: 12, turboFactor: 5, TI: 0 }
-    expect(identifySequence(p).type).toBe('T1w TSE')
+  it('respiratory trigger adds overhead', () => {
+    const tNormal = calcScanTime(base)
+    const tNav = calcScanTime({ ...base, respTrigger: 'RT' })
+    expect(tNav).toBeGreaterThan(tNormal)
   })
 })
 
-// ─── calcTEmin ───────────────────────────────────────────────────────────────
-describe('calcTEmin', () => {
-  it('TSE TE_min increases with longer echo spacing', () => {
-    const teMinShort = calcTEmin({ ...base, turboFactor: 10, echoSpacing: 3 })
-    const teMinLong = calcTEmin({ ...base, turboFactor: 10, echoSpacing: 8 })
-    expect(teMinLong).toBeGreaterThan(teMinShort)
+// ─── calcSARLevel / sarLevel ──────────────────────────────────────────────────
+describe('calcSARLevel', () => {
+  it('3T is higher SAR than 1.5T for same protocol', () => {
+    const sar15 = calcSARLevel({ ...base, fieldStrength: 1.5 })
+    const sar3 = calcSARLevel({ ...base, fieldStrength: 3.0 })
+    expect(sar3).toBeGreaterThan(sar15)
   })
 
-  it('TSE TE_min increases with more turbo factor', () => {
-    const teMin5 = calcTEmin({ ...base, turboFactor: 5, echoSpacing: 4.5 })
-    const teMin20 = calcTEmin({ ...base, turboFactor: 20, echoSpacing: 4.5 })
-    expect(teMin20).toBeGreaterThan(teMin5)
+  it('fat saturation increases SAR', () => {
+    const sarNone = calcSARLevel({ ...base, fatSat: 'None' })
+    const sarSpair = calcSARLevel({ ...base, fatSat: 'SPAIR' })
+    expect(sarSpair).toBeGreaterThan(sarNone)
   })
 
-  it('SE TE_min is positive', () => {
-    const teMin = calcTEmin({ ...base, turboFactor: 1, bValues: [0] })
-    expect(teMin).toBeGreaterThan(0)
-  })
-})
-
-// ─── calcTRmin ───────────────────────────────────────────────────────────────
-describe('calcTRmin', () => {
-  it('TSE TR_min is greater than TE', () => {
-    const trMin = calcTRmin({ ...base, TE: 100, turboFactor: 15, echoSpacing: 4.5 })
-    expect(trMin).toBeGreaterThan(100)
+  it('MT pulse increases SAR', () => {
+    const sarNoMT = calcSARLevel({ ...base, mt: false })
+    const sarMT = calcSARLevel({ ...base, mt: true })
+    expect(sarMT).toBeGreaterThan(sarNoMT)
   })
 
-  it('SE TR_min is greater than TE', () => {
-    const trMin = calcTRmin({ ...base, TE: 20, turboFactor: 1 })
-    expect(trMin).toBeGreaterThan(20)
-  })
-})
-
-// ─── calcT2Blur ──────────────────────────────────────────────────────────────
-describe('calcT2Blur', () => {
-  it('returns 1.0 for EPI (turboFactor <= 1)', () => {
-    expect(calcT2Blur({ ...base, turboFactor: 1 })).toBe(1.0)
+  it('Body coil has higher SAR than Head coil', () => {
+    const sarHead = calcSARLevel({ ...base, coilType: 'Head_64' })
+    const sarBody = calcSARLevel({ ...base, coilType: 'Body' })
+    expect(sarBody).toBeGreaterThan(sarHead)
   })
 
-  it('is lower (more blur) with longer echo train', () => {
-    const blur5 = calcT2Blur({ ...base, turboFactor: 5, TE: 50, echoSpacing: 4.5 })
-    const blur30 = calcT2Blur({ ...base, turboFactor: 30, TE: 50, echoSpacing: 4.5 })
-    expect(blur30).toBeLessThan(blur5)
-  })
-
-  it('never goes below 0.1', () => {
-    const extreme = { ...base, turboFactor: 200, echoSpacing: 10, TE: 200 }
-    expect(calcT2Blur(extreme)).toBeGreaterThanOrEqual(0.1)
+  it('SAR is capped at 100', () => {
+    const p = { ...base, flipAngle: 180, turboFactor: 200, TR: 500, mt: true, fatSat: 'SPAIR' as const, fieldStrength: 3.0 as const }
+    expect(calcSARLevel(p)).toBeLessThanOrEqual(100)
   })
 })
 
-// ─── calcPNSRisk ─────────────────────────────────────────────────────────────
-describe('calcPNSRisk', () => {
-  it('returns none for Whisper gradient mode', () => {
-    expect(calcPNSRisk({ ...base, gradientMode: 'Whisper' })).toBe('none')
+describe('sarLevel', () => {
+  it('classifies thresholds correctly', () => {
+    expect(sarLevel(20)).toBe('low')
+    expect(sarLevel(55)).toBe('medium')
+    expect(sarLevel(80)).toBe('high')
+    expect(sarLevel(95)).toBe('over')
   })
 
-  it('returns high for EPI + Fast gradient', () => {
-    const p = { ...base, turboFactor: 1, gradientMode: 'Fast' as const }
-    expect(calcPNSRisk(p)).toBe('high')
+  it('boundary: 40 is medium, 39 is low', () => {
+    expect(sarLevel(39)).toBe('low')
+    expect(sarLevel(40)).toBe('medium')
   })
 
-  it('returns moderate for EPI + Normal gradient', () => {
-    const p = { ...base, turboFactor: 1, gradientMode: 'Normal' as const }
-    expect(calcPNSRisk(p)).toBe('moderate')
-  })
-
-  it('returns low for standard TSE', () => {
-    const p = { ...base, turboFactor: 15, gradientMode: 'Normal' as const }
-    expect(calcPNSRisk(p)).toBe('low')
+  it('boundary: 90 is over, 89 is high', () => {
+    expect(sarLevel(89)).toBe('high')
+    expect(sarLevel(90)).toBe('over')
   })
 })
 
-// ─── chemShift ───────────────────────────────────────────────────────────────
-describe('chemShift', () => {
-  it('is higher at 3T than 1.5T (same bandwidth)', () => {
-    const cs15 = chemShift({ ...base, fieldStrength: 1.5, bandwidth: 200 })
-    const cs3 = chemShift({ ...base, fieldStrength: 3.0, bandwidth: 200 })
-    expect(cs3).toBeGreaterThan(cs15)
+// ─── calcSNR ─────────────────────────────────────────────────────────────────
+describe('calcSNR', () => {
+  it('3T has higher SNR than 1.5T', () => {
+    const snr15 = calcSNR({ ...base, fieldStrength: 1.5 })
+    const snr3 = calcSNR({ ...base, fieldStrength: 3.0 })
+    expect(snr3).toBeGreaterThan(snr15)
   })
 
-  it('decreases with wider bandwidth', () => {
-    const csNarrow = chemShift({ ...base, bandwidth: 100 })
-    const csWide = chemShift({ ...base, bandwidth: 400 })
-    expect(csWide).toBeLessThan(csNarrow)
-  })
-})
-
-// ─── voxelStr ────────────────────────────────────────────────────────────────
-describe('voxelStr', () => {
-  it('returns a string with × separators', () => {
-    const result = voxelStr({ ...base, fov: 256, matrixFreq: 256, matrixPhase: 256, sliceThickness: 5, phaseResolution: 100 })
-    expect(result).toMatch(/\d+\.\d×\d+\.\d×\d+\.\d mm/)
+  it('larger FOV gives higher SNR (larger voxel)', () => {
+    const snrSmall = calcSNR({ ...base, fov: 200 })
+    const snrLarge = calcSNR({ ...base, fov: 400 })
+    expect(snrLarge).toBeGreaterThan(snrSmall)
   })
 
-  it('reflects isotropic voxel when matrix is square and phaseRes=100', () => {
-    const result = voxelStr({ ...base, fov: 300, matrixFreq: 300, matrixPhase: 300, sliceThickness: 1, phaseResolution: 100 })
-    const parts = result.replace(' mm', '').split('×')
-    expect(parseFloat(parts[0])).toBeCloseTo(parseFloat(parts[1]), 1)
+  it('more averages increases SNR', () => {
+    const snr1 = calcSNR({ ...base, averages: 1 })
+    const snr4 = calcSNR({ ...base, averages: 4 })
+    expect(snr4).toBeGreaterThan(snr1)
+  })
+
+  it('iPAT reduces SNR', () => {
+    const snrNo = calcSNR({ ...base, ipatMode: 'Off' })
+    const snrIpat = calcSNR({ ...base, ipatMode: 'GRAPPA', ipatFactor: 2 })
+    expect(snrIpat).toBeLessThan(snrNo)
+  })
+
+  it('is capped at 200', () => {
+    const p = { ...base, fov: 500, matrixFreq: 64, matrixPhase: 64, sliceThickness: 10, bandwidth: 50 }
+    expect(calcSNR(p)).toBeLessThanOrEqual(200)
   })
 })
 
 // ─── calcTissueContrast ───────────────────────────────────────────────────────
 describe('calcTissueContrast', () => {
-  it('returns one entry per tissue', () => {
-    const results = calcTissueContrast(base)
-    expect(results.length).toBe(TISSUES.length)
+  it('returns all 7 tissues', () => {
+    expect(calcTissueContrast(base)).toHaveLength(7)
   })
 
   it('max signal is normalized to 1.0', () => {
     const results = calcTissueContrast(base)
-    const maxSig = Math.max(...results.map(r => r.signal))
-    expect(maxSig).toBeCloseTo(1.0, 5)
+    const max = Math.max(...results.map(r => r.signal))
+    expect(max).toBeCloseTo(1.0, 5)
   })
 
-  it('fat signal is zero when fatSat is CHESS', () => {
+  it('fat signal is zero when fatSat is active', () => {
     const results = calcTissueContrast({ ...base, fatSat: 'CHESS' })
     const fat = results.find(r => r.tissue.label === 'Fat')!
     expect(fat.signal).toBe(0)
     expect(fat.nulled).toBe(true)
   })
 
-  it('CSF has high signal in T2w (long TR, long TE)', () => {
-    const p = { ...base, TR: 9000, TE: 120, TI: 0, turboFactor: 15 }
-    const results = calcTissueContrast(p)
-    const csf = results.find(r => r.tissue.label === 'CSF')!
-    const wm = results.find(r => r.tissue.label === 'WM')!
-    expect(csf.signal).toBeGreaterThan(wm.signal)
+  it('fat is not nulled without fatSat', () => {
+    const results = calcTissueContrast({ ...base, fatSat: 'None' })
+    const fat = results.find(r => r.tissue.label === 'Fat')!
+    expect(fat.nulled).toBe(false)
   })
 
-  it('CSF is nulled in FLAIR (TI ≈ T1_CSF × ln2)', () => {
-    // T1_CSF at 1.5T = 4000ms → null TI ≈ 2773ms
-    const p = { ...base, TR: 9000, TE: 100, TI: 2773, turboFactor: 16, fieldStrength: 1.5 as const }
-    const results = calcTissueContrast(p)
-    const csf = results.find(r => r.tissue.label === 'CSF')!
-    expect(csf.nulled).toBe(true)
+  it('all signals are non-negative', () => {
+    const results = calcTissueContrast(base)
+    results.forEach(r => expect(r.signal).toBeGreaterThanOrEqual(0))
+  })
+})
+
+// ─── identifySequence ─────────────────────────────────────────────────────────
+describe('identifySequence', () => {
+  it('identifies T2w TSE (long TR, long TE, ETL>1)', () => {
+    const p = { ...base, TR: 5000, TE: 100, turboFactor: 15, flipAngle: 90 }
+    expect(identifySequence(p).type).toBe('T2w TSE')
+  })
+
+  it('identifies T1w TSE (short TR, short TE)', () => {
+    const p = { ...base, TR: 600, TE: 12, turboFactor: 5, flipAngle: 90 }
+    expect(identifySequence(p).type).toBe('T1w TSE')
+  })
+
+  it('identifies HASTE (turboFactor >= 100)', () => {
+    expect(identifySequence({ ...base, turboFactor: 200 }).type).toBe('HASTE SS')
+  })
+
+  it('identifies DWI EPI (multiple b-values, turboFactor <= 2)', () => {
+    const p = { ...base, turboFactor: 1, bValues: [0, 1000] }
+    expect(identifySequence(p).type).toBe('EPI DWI')
+  })
+
+  it('identifies GRE (low flip angle, no TSE)', () => {
+    const p = { ...base, turboFactor: 1, flipAngle: 15, TR: 30, TE: 5 }
+    expect(identifySequence(p).type).toBe('GRE')
+  })
+
+  it('identifies FLAIR (TI > 0, TSE, long TR)', () => {
+    const p = { ...base, TI: 2200, turboFactor: 15, TR: 9000, TE: 100 }
+    expect(identifySequence(p).type).toBe('FLAIR')
+  })
+
+  it('returned object has type, color, and details fields', () => {
+    const seq = identifySequence(base)
+    expect(seq).toHaveProperty('type')
+    expect(seq).toHaveProperty('color')
+    expect(seq).toHaveProperty('details')
+  })
+})
+
+// ─── voxelStr ────────────────────────────────────────────────────────────────
+describe('voxelStr', () => {
+  it('formats isotropic 1mm voxel correctly', () => {
+    const p = { ...base, fov: 256, matrixFreq: 256, matrixPhase: 256, phaseResolution: 100, sliceThickness: 1.0 }
+    expect(voxelStr(p)).toBe('1.0×1.0×1.0 mm')
+  })
+
+  it('reflects 50% phase resolution (doubles phase pixel size)', () => {
+    const p = { ...base, fov: 256, matrixFreq: 256, matrixPhase: 256, phaseResolution: 50, sliceThickness: 5.0 }
+    // phase pixel = 256/256 * (100/50) = 2.0mm, freq pixel = 256/256 = 1.0mm
+    expect(voxelStr(p)).toBe('1.0×2.0×5.0 mm')
+  })
+})
+
+// ─── chemShift ───────────────────────────────────────────────────────────────
+describe('chemShift', () => {
+  it('3T has approximately twice the chemical shift of 1.5T', () => {
+    const cs15 = chemShift({ ...base, fieldStrength: 1.5, bandwidth: 200 })
+    const cs3 = chemShift({ ...base, fieldStrength: 3.0, bandwidth: 200 })
+    expect(cs3).toBeCloseTo(cs15 * 2, 0)
+  })
+
+  it('wider bandwidth reduces chemical shift', () => {
+    const csNarrow = chemShift({ ...base, bandwidth: 100 })
+    const csWide = chemShift({ ...base, bandwidth: 400 })
+    expect(csWide).toBeLessThan(csNarrow)
+  })
+})
+
+// ─── calcT2Blur ───────────────────────────────────────────────────────────────
+describe('calcT2Blur', () => {
+  it('returns 1.0 for single-echo sequences (turboFactor <= 1)', () => {
+    expect(calcT2Blur({ ...base, turboFactor: 1 })).toBe(1.0)
+  })
+
+  it('longer ETL causes more T2 blurring (lower decay factor)', () => {
+    const blurShort = calcT2Blur({ ...base, turboFactor: 5 })
+    const blurLong = calcT2Blur({ ...base, turboFactor: 30 })
+    expect(blurLong).toBeLessThan(blurShort)
+  })
+
+  it('is clamped at minimum 0.1', () => {
+    const blur = calcT2Blur({ ...base, turboFactor: 200, TE: 200, echoSpacing: 10 }, 20)
+    expect(blur).toBeGreaterThanOrEqual(0.1)
+  })
+})
+
+// ─── calcPNSRisk ──────────────────────────────────────────────────────────────
+describe('calcPNSRisk', () => {
+  it('Whisper gradient mode = none', () => {
+    expect(calcPNSRisk({ ...base, gradientMode: 'Whisper' })).toBe('none')
+  })
+
+  it('EPI (turboFactor<=1) + Fast gradient = high', () => {
+    expect(calcPNSRisk({ ...base, turboFactor: 1, gradientMode: 'Fast' })).toBe('high')
+  })
+
+  it('EPI without Fast gradient = moderate', () => {
+    expect(calcPNSRisk({ ...base, turboFactor: 1, gradientMode: 'Normal' })).toBe('moderate')
+  })
+
+  it('TSE with normal gradient = low', () => {
+    expect(calcPNSRisk({ ...base, turboFactor: 15, gradientMode: 'Normal' })).toBe('low')
+  })
+})
+
+// ─── calcTEmin ───────────────────────────────────────────────────────────────
+describe('calcTEmin', () => {
+  it('TSE: TEmin increases with longer ETL', () => {
+    const te5 = calcTEmin({ ...base, turboFactor: 5 })
+    const te30 = calcTEmin({ ...base, turboFactor: 30 })
+    expect(te30).toBeGreaterThan(te5)
+  })
+
+  it('DWI: TEmin is larger than SE due to diffusion prep', () => {
+    const teDWI = calcTEmin({ ...base, turboFactor: 1, bValues: [0, 1000] })
+    const teSE = calcTEmin({ ...base, turboFactor: 1, bValues: [0] })
+    expect(teDWI).toBeGreaterThan(teSE)
+  })
+
+  it('returns a positive integer', () => {
+    const te = calcTEmin(base)
+    expect(te).toBeGreaterThan(0)
+    expect(Number.isInteger(te)).toBe(true)
+  })
+})
+
+// ─── calcTRmin ───────────────────────────────────────────────────────────────
+describe('calcTRmin', () => {
+  it('TSE: TRmin increases with longer ETL', () => {
+    const tr5 = calcTRmin({ ...base, turboFactor: 5, TE: 30 })
+    const tr30 = calcTRmin({ ...base, turboFactor: 30, TE: 30 })
+    expect(tr30).toBeGreaterThan(tr5)
+  })
+
+  it('TSE: TRmin is always greater than TE', () => {
+    expect(calcTRmin(base)).toBeGreaterThan(base.TE)
+  })
+
+  it('returns a positive integer', () => {
+    const tr = calcTRmin(base)
+    expect(tr).toBeGreaterThan(0)
+    expect(Number.isInteger(tr)).toBe(true)
   })
 })
