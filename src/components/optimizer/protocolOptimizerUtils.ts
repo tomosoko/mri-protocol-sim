@@ -1,0 +1,348 @@
+import { calcSNR, calcSARLevel, calcScanTime, calcT2Blur, chemShift } from '../../store/calculators'
+import type { ProtocolParams } from '../../data/presets'
+
+export type OptGoal = 'snr' | 'sar' | 'time' | 't2blur' | 'chemshift' | 'balanced'
+
+export interface Suggestion {
+  id: string
+  title: string
+  detail: string
+  apply: Partial<ProtocolParams>
+  snrDelta: number
+  sarDelta: number
+  timeDelta: number
+  blurDelta: number
+  csDelta: number
+  tradeoff?: string
+}
+
+export interface GoalConfig {
+  id: OptGoal
+  label: string
+  color: string
+  bg: string
+  border: string
+  icon: string
+}
+
+export const GOALS: GoalConfig[] = [
+  { id: 'snr',      label: 'SNR↑',      color: '#34d399', bg: '#0d2010', border: '#166534', icon: '📡' },
+  { id: 'sar',      label: 'SAR↓',      color: '#fbbf24', bg: '#1a1200', border: '#a16207', icon: '🌡' },
+  { id: 'time',     label: 'Time↓',     color: '#60a5fa', bg: '#0d1520', border: '#1d4ed8', icon: '⏱' },
+  { id: 't2blur',   label: 'T2Blur↓',   color: '#a78bfa', bg: '#1a0f2e', border: '#7c3aed', icon: '🔍' },
+  { id: 'chemshift',label: 'ChemSh↓',   color: '#fb923c', bg: '#1a0e00', border: '#c2410c', icon: '⚗' },
+  { id: 'balanced', label: 'Balance',   color: '#e2e8f0', bg: '#1a1a1a', border: '#374151', icon: '⚖' },
+]
+
+function pct(a: number, b: number): number {
+  if (b === 0) return 0
+  return Math.round((a - b) / b * 100)
+}
+
+export function computeSuggestions(params: ProtocolParams, goal: OptGoal): Suggestion[] {
+  const base = {
+    snr: calcSNR(params),
+    sar: calcSARLevel(params),
+    time: calcScanTime(params),
+    blur: calcT2Blur(params),
+    cs: chemShift(params),
+  }
+
+  const mk = (id: string, title: string, detail: string, apply: Partial<ProtocolParams>, tradeoff?: string): Suggestion => {
+    const p2 = { ...params, ...apply }
+    return {
+      id, title, detail, apply, tradeoff,
+      snrDelta: pct(calcSNR(p2), base.snr),
+      sarDelta: pct(calcSARLevel(p2), base.sar),
+      timeDelta: pct(calcScanTime(p2), base.time),
+      blurDelta: pct(calcT2Blur(p2), base.blur),
+      csDelta: pct(chemShift(p2), base.cs),
+    }
+  }
+
+  const all: Suggestion[] = []
+
+  // ── SNR向上 ──────────────────────────────────────────────────────────────
+  if (params.averages < 6) {
+    all.push(mk('avg_up',
+      `加算 ${params.averages}回 → ${params.averages + 1}回`,
+      'NEXを1増やすごとにSNRが√NEX倍に向上します。スキャン時間も比例して増加します。',
+      { averages: params.averages + 1 },
+      'スキャン時間+100%'
+    ))
+  }
+
+  if (params.ipatMode !== 'Off' && params.ipatFactor >= 2) {
+    all.push(mk('ipat_reduce',
+      `iPAT係数 ×${params.ipatFactor} → ×${params.ipatFactor - 1}`,
+      'g-factorノイズが低下しSNRが改善します。スキャン時間は増加します。',
+      { ipatFactor: params.ipatFactor - 1 },
+      'スキャン時間+25~50%'
+    ))
+  }
+
+  if (params.bandwidth > 250) {
+    const bw = Math.max(130, Math.round(params.bandwidth * 0.65))
+    all.push(mk('bw_down',
+      `帯域幅 ${params.bandwidth} → ${bw} Hz/px`,
+      '受信帯域幅を狭めることで熱雑音が減少しSNRが向上します。ただし化学シフトと最小TEが増加します。',
+      { bandwidth: bw },
+      '化学シフト増大・最小TE延長'
+    ))
+  }
+
+  if (params.sliceThickness < 5) {
+    all.push(mk('slice_thick',
+      `スライス厚 ${params.sliceThickness}mm → ${params.sliceThickness + 1}mm`,
+      'ボクセル体積が増加しSNRが比例向上します。スライス方向の空間分解能は低下します。',
+      { sliceThickness: params.sliceThickness + 1 },
+      'z方向分解能低下'
+    ))
+  }
+
+  // ── SAR低減 ──────────────────────────────────────────────────────────────
+  if (params.mt) {
+    all.push(mk('mt_off',
+      'MT (磁化移動) をオフ',
+      'MTパルスはRF電力を約20%増加させます。造影効果が不要であればオフにできます。',
+      { mt: false },
+      'MT造影効果なし'
+    ))
+  }
+
+  if (params.fatSat === 'SPAIR') {
+    all.push(mk('spair_chess',
+      '脂肪抑制 SPAIR → CHESS',
+      'CHESSはSPAIRよりRF電力が低く、SAR低減に有効です。均一性はやや低下します。',
+      { fatSat: 'CHESS' },
+      '脂肪抑制の均一性低下'
+    ))
+  }
+
+  if (params.fatSat === 'STIR') {
+    all.push(mk('stir_none',
+      '脂肪抑制 STIR をオフ',
+      'STIRは反転回復パルスによりSARが高くなります。脂肪抑制が不要なら解除を検討します。',
+      { fatSat: 'None', TI: 0 },
+      '脂肪抑制なし・TI削除'
+    ))
+  }
+
+  if (params.turboFactor > 20) {
+    const etl = Math.max(10, Math.round(params.turboFactor * 0.6))
+    all.push(mk('etl_down_sar',
+      `ETL ${params.turboFactor} → ${etl}`,
+      'ETLを下げるとエコートレイン中のRFパルス数が減りSARが低下します。スキャン時間は増加します。',
+      { turboFactor: etl },
+      'スキャン時間増加'
+    ))
+  }
+
+  if (params.flipAngle > 130) {
+    all.push(mk('fa_down_sar',
+      `FA ${params.flipAngle}° → 120°`,
+      'フリップ角はSARに二乗で効きます。わずかな低減でも大きなSAR改善になります。',
+      { flipAngle: 120 },
+      'SNRとコントラストへの影響あり'
+    ))
+  }
+
+  // ── スキャン時間短縮 ──────────────────────────────────────────────────────
+  if (params.ipatMode === 'Off') {
+    all.push(mk('ipat_on',
+      'iPAT GRAPPA ×2 を適用',
+      'iPAT×2でスキャン時間を約50%短縮できます。g-factorノイズによるSNR低下が伴います。',
+      { ipatMode: 'GRAPPA', ipatFactor: 2 },
+      'SNR約30%低下・g-factorノイズ'
+    ))
+  }
+
+  if (params.partialFourier === 'Off') {
+    all.push(mk('pf_6_8',
+      'Partial Fourier 6/8 を適用',
+      'k空間の75%収集によりスキャン時間を約25%短縮します。SNRと分解能のわずかな低下があります。',
+      { partialFourier: '6/8' },
+      'SNRと分解能のわずかな低下'
+    ))
+  }
+
+  if (params.averages > 1) {
+    all.push(mk('avg_down',
+      `加算回数 ${params.averages} → ${params.averages - 1}`,
+      '加算を1回減らすことでスキャン時間を比例短縮します。SNRも√NEXに従い低下します。',
+      { averages: params.averages - 1 },
+      `SNR約${Math.round((1 - Math.sqrt((params.averages - 1) / params.averages)) * 100)}%低下`
+    ))
+  }
+
+  if (params.turboFactor < 20 && params.turboFactor > 2) {
+    const etl = Math.min(30, params.turboFactor + 4)
+    all.push(mk('etl_up_time',
+      `ETL ${params.turboFactor} → ${etl}`,
+      'ETLを増やすと1TRで収集できるk空間ラインが増え、スキャン時間が短縮されます。T2ブラーが増加します。',
+      { turboFactor: etl },
+      'T2ブラー増加・SAR増加'
+    ))
+  }
+
+  // ── T2ブラー改善 ──────────────────────────────────────────────────────────
+  if (params.turboFactor > 8) {
+    const etl = Math.max(4, Math.round(params.turboFactor / 2))
+    all.push(mk('etl_down_blur',
+      `ETL ${params.turboFactor} → ${etl} (T2ブラー改善)`,
+      'ETLを半分にするとエコートレイン内のT2減衰幅が縮小しブラーが改善します。スキャン時間は増加します。',
+      { turboFactor: etl },
+      'スキャン時間約2倍'
+    ))
+  }
+
+  if (params.echoSpacing > 4.0) {
+    const es = Math.max(2.5, params.echoSpacing - 1.5)
+    all.push(mk('es_down',
+      `Echo Spacing ${params.echoSpacing}ms → ${es}ms`,
+      'エコー間隔を短くするとエコートレイン全体の持続時間が縮小しT2ブラーが改善します。',
+      { echoSpacing: es },
+      '最小TE制約に注意'
+    ))
+  }
+
+  if (params.partialFourier !== 'Off') {
+    all.push(mk('pf_off_blur',
+      'Partial Fourier → Off (T2ブラー改善)',
+      'Full Fourier収集によりk空間対称性が確保され、リンギングと分解能が改善します。',
+      { partialFourier: 'Off' },
+      'スキャン時間増加'
+    ))
+  }
+
+  // ── 化学シフト改善 ────────────────────────────────────────────────────────
+  if (params.bandwidth < 350) {
+    const bw = Math.min(500, Math.round(params.bandwidth * 1.6))
+    all.push(mk('bw_up',
+      `帯域幅 ${params.bandwidth} → ${bw} Hz/px`,
+      '帯域幅を広げると脂肪-水プロトンの周波数差に対するシフト量が減少します。SNRはやや低下します。',
+      { bandwidth: bw },
+      'SNR低下'
+    ))
+  }
+
+  if (params.fatSat === 'None' && params.fieldStrength === 3.0) {
+    all.push(mk('fatsat_spair_cs',
+      '脂肪抑制 SPAIR を追加',
+      '3Tでは化学シフトが大きく、脂肪信号抑制により境界アーチファクトが軽減されます。',
+      { fatSat: 'SPAIR' },
+      'SAR増加・スキャン時間増加'
+    ))
+  }
+
+  // ── 3T最適化 ──────────────────────────────────────────────────────────────
+  if (params.fieldStrength === 3.0 && params.bandwidth < 300) {
+    all.push(mk('bw_3t_chemshift',
+      '3T: 帯域幅 ≥300 Hz/px に増加',
+      '3Tでは化学シフトが2倍(440Hz/px)になるため、BW≥300で1pixel以内に抑制できます。',
+      { bandwidth: 320 },
+      'SNR約10%低下'
+    ))
+  }
+  if (params.fieldStrength === 3.0 && params.satBands && params.fatSat === 'STIR') {
+    all.push(mk('stir_3t_spair',
+      '3T: STIR → SPAIR に変更',
+      '3TではSTIRのSAR負荷が大きく、均一性でもSPAIRが優位です。STIR禁止（造影後も注意）。',
+      { fatSat: 'SPAIR' },
+      'TR依存の均一性に注意'
+    ))
+  }
+
+  // ── DWI 最適化 ──────────────────────────────────────────────────────────────
+  const isDWI = params.bValues.length >= 2 && params.turboFactor <= 2
+  if (isDWI && params.ipatFactor < 2 && params.ipatMode === 'Off') {
+    all.push(mk('dwi_grappa2',
+      'DWI: GRAPPA×2 追加でEPI歪み改善',
+      'EPI-DWIでGRAPPA×2を追加するとエコートレインが半分→磁化率歪み・幾何学的歪みが大幅改善。',
+      { ipatMode: 'GRAPPA', ipatFactor: 2 },
+      'SNR約30%低下（歪み改善との交換）'
+    ))
+  }
+  if (isDWI && !params.inlineADC) {
+    all.push(mk('dwi_adc_inline',
+      'DWI: ADC Map をインライン再構成',
+      'ADCマップで拡散制限の定量確認・T2 shine-through 鑑別が可能。臨床DWIでは標準的です。',
+      { inlineADC: true }
+    ))
+  }
+  if (isDWI && params.phaseEncDir === 'A>>P' && params.fieldStrength === 3.0) {
+    all.push(mk('dwi_phase_rl',
+      'DWI(3T): 位相方向 R>>L に変更検討',
+      '腹部DWI 3Tでは A>>P方向に磁化率歪みが出やすい。R>>L変更で特定方向の歪みを軽減できます。',
+      { phaseEncDir: 'R>>L' }
+    ))
+  }
+
+  // ── 心臓 最適化 ─────────────────────────────────────────────────────────────
+  if (params.ecgTrigger && params.TR < 800) {
+    all.push(mk('cardiac_tr_trigger',
+      'ECGトリガー: TR≥1000ms に延長',
+      'ECGトリガー使用時にTR<800msでは心収縮周期が2回に1回しかカバーできない場合があります。',
+      { TR: 1000 }
+    ))
+  }
+
+  // ── 薄スライス高分解能 最適化 ────────────────────────────────────────────────
+  if (params.sliceThickness < 3 && params.averages < 3 && params.fieldStrength === 1.5) {
+    all.push(mk('thin_slice_avg',
+      '薄スライス: Averages ≥ 2 でSNR補償',
+      `${params.sliceThickness}mmスライスはSNRが低い。1.5TではAverages増加でSNRを補います（撮像時間↑）。`,
+      { averages: Math.min(params.averages + 1, 4) },
+      '撮像時間2倍'
+    ))
+  }
+
+  // ── PACE/呼吸同期 最適化 ─────────────────────────────────────────────────────
+  if (params.respTrigger === 'Off' && params.sliceThickness >= 5 &&
+      (params.orientation === 'Tra' || params.orientation === 'Cor') && params.TR > 3000) {
+    all.push(mk('resp_pace',
+      '腹部T2: PACE 呼吸同期を追加',
+      '腹部・骨盤のT2 TSEでは呼吸同期（PACE/Navigator）でモーションアーチファクトを大幅に軽減できます。',
+      { respTrigger: 'PACE' },
+      '撮像時間2-3倍増加の可能性'
+    ))
+  }
+
+  // ── iPAT CAIPIRINHA for 3D ────────────────────────────────────────────────
+  if (params.ipatMode === 'GRAPPA' && params.ipatFactor >= 3 && params.fieldStrength === 3.0) {
+    all.push(mk('caipirinha_3t',
+      '3D 3T: CAIPIRINHA に変更',
+      'GRAPPA×3以上では3TでCAIPIRINHAの方がg-factor（残留アーチファクト）が低くなることが多い。',
+      { ipatMode: 'CAIPIRINHA' }
+    ))
+  }
+
+  // ── relevance score でソート ──────────────────────────────────────────────
+  const score = (s: Suggestion): number => {
+    switch (goal) {
+      case 'snr': return s.snrDelta
+      case 'sar': return -s.sarDelta
+      case 'time': return -s.timeDelta
+      case 't2blur': return -s.blurDelta
+      case 'chemshift': return -s.csDelta
+      case 'balanced': {
+        const snrW = s.snrDelta > 0 ? s.snrDelta * 0.4 : 0
+        const sarW = -s.sarDelta * 0.3
+        const timeW = -s.timeDelta * 0.3
+        return snrW + sarW + timeW
+      }
+    }
+  }
+
+  const seen = new Set<string>()
+  return all
+    .filter(s => score(s) > 0)
+    .sort((a, b) => score(b) - score(a))
+    .filter(s => {
+      const key = Object.keys(s.apply).sort().join(',')
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, 6)
+}
