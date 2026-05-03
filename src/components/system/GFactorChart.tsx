@@ -5,8 +5,6 @@ import { useProtocolStore } from '../../store/protocolStore'
 export function GFactorChart() {
   const { params } = useProtocolStore()
 
-  if (params.ipatMode === 'Off') return null
-
   const W = 290, H = 90
   const PAD = { l: 32, r: 10, t: 10, b: 22 }
   const innerW = W - PAD.l - PAD.r
@@ -56,6 +54,8 @@ export function GFactorChart() {
       return { id, d, color: cfg.color, active: id === coilKey }
     })
   }, [coilKey])
+
+  if (params.ipatMode === 'Off') return null
 
   return (
     <div className="mt-2 rounded overflow-hidden" style={{ background: '#080808', border: '1px solid #1a1a1a' }}>

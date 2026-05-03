@@ -67,8 +67,6 @@ export function PSFBlurSimulator() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
-  if (params.turboFactor <= 2) return null
-
   const T2_TISSUES: { label: string; T2: number; color: string }[] = [
     { label: 'CSF',   T2: is3T ? 1500 : 1800, color: '#38bdf8' },
     { label: 'WM',    T2: is3T ? 69 : 72,     color: '#60a5fa' },
@@ -116,6 +114,8 @@ export function PSFBlurSimulator() {
     return { ...t, d, fwhm }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [etl, es, params.TE, is3T])
+
+  if (params.turboFactor <= 2) return null
 
   const blurPct = calcT2Blur(params)
   const blurColor = blurPct > 60 ? '#f87171' : blurPct > 35 ? '#fbbf24' : '#4ade80'

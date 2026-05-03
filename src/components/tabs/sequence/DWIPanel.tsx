@@ -6,7 +6,6 @@ export function ADCSignalChart() {
   const { params } = useProtocolStore()
 
   const isDWI = params.turboFactor <= 1 && params.bValues.length > 1
-  if (!isDWI) return null
 
   const adcTissues = [
     { label: 'CSF',         adc: 3.0,  color: '#38bdf8' },
@@ -39,6 +38,8 @@ export function ADCSignalChart() {
     return { ...t, d }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [maxB, params.bValues])
+
+  if (!isDWI) return null
 
   return (
     <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080c10', border: '1px solid #1a2030' }}>

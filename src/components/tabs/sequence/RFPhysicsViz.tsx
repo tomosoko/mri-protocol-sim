@@ -109,7 +109,6 @@ export function TrueFISPBandingViz() {
   const { params } = useProtocolStore()
 
   const isTrueFISP = params.TR <= 6 && params.turboFactor <= 1 && params.flipAngle >= 30 && params.flipAngle <= 80
-  if (!isTrueFISP) return null
 
   const is3T = params.fieldStrength >= 2.5
   const bandingPeriodHz = 1000 / params.TR
@@ -137,6 +136,8 @@ export function TrueFISPBandingViz() {
       return { df, signal: isNull ? 0 : Math.min(1, signal), isNull }
     })
   }, [fa, tr])
+
+  if (!isTrueFISP) return null
 
   const maxSig = Math.max(...profile.map(p => p.signal), 0.01)
   const tx = (df: number) => PAD.l + (df / maxHz) * innerW

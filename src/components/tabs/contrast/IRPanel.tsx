@@ -93,9 +93,6 @@ export function IRSignalEvolution() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
-  // Only show when TI > 0 (IR sequence)
-  if (params.TI <= 0) return null
-
   const W = 290, H = 100
   const PAD = { l: 28, r: 10, t: 8, b: 20 }
   const innerW = W - PAD.l - PAD.r
@@ -128,6 +125,9 @@ export function IRSignalEvolution() {
     const sigAtCurrentTI = irSignal(params.TI, T1, isMagnitude)
     return { ...t, T1, d, nullTI, sigAtCurrentTI }
   }), [is3T, maxTI, params.TI, isMagnitude])
+
+  // Only show when TI > 0 (IR sequence)
+  if (params.TI <= 0) return null
 
   const currentTIx = tx(params.TI)
 
