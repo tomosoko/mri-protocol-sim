@@ -1,22 +1,27 @@
 import { useMemo } from 'react'
 import { useProtocolStore } from '../../../store/protocolStore'
-import { TISSUES, calcScanTime } from '../../../store/calculators'
+import { TISSUES } from '../../../store/calculators'
+import {
+  calcErnstAngles,
+  isGRESequence,
+  generateT1RecoveryPath,
+  generateT2DecayPath,
+  calcDummyScans,
+  getSliceOrdering,
+  generateSliceOrder,
+  calcScanTimeStages,
+  formatTime,
+  calcSteadyState,
+  calcPhantomSignals,
+  calcContrastGrid,
+} from './routineVisualsUtils'
 
 // ── Ernst 角インジケーター ────────────────────────────────────────────────────
 export function ErnstAngleIndicator() {
   const { params } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
-
-  // Only show for GRE-like sequences (short TR)
-  const isGRE = params.turboFactor <= 2 && params.TR < 500
-
-  const tissues = TISSUES.filter(t => ['WM', 'GM', 'Fat', 'Liver'].includes(t.label))
-
-  const ernstAngles = tissues.map(t => {
-    const T1 = is3T ? t.T1_30 : t.T1_15
-    const ea = Math.round((Math.acos(Math.exp(-params.TR / T1)) * 180) / Math.PI)
-    return { label: t.label, color: t.color, ea, T1 }
-  })
+  const isGRE = isGRESequence(params.turboFactor, params.TR)
+  const ernstAngles = calcErnstAngles(params.TR, is3T)
 
   if (!isGRE) return null
 
@@ -56,36 +61,11 @@ export function SignalCurveChart() {
   const innerW = W - PAD.l - PAD.r
   const innerH = H - PAD.t - PAD.b
 
-  // 3組織のみ (WM, GM, Fat) + CSF
   const tissues = TISSUES.filter(t => ['WM', 'GM', 'Fat', 'CSF'].includes(t.label))
 
   const maxTR = 10000
   const maxTE = 300
   const nPts = 80
-
-  const trPoints = Array.from({ length: nPts }, (_, i) => {
-    const t = Math.exp(i / (nPts - 1) * Math.log(maxTR + 1)) - 1
-    return t
-  })
-  const tePoints = Array.from({ length: nPts }, (_, i) => i / (nPts - 1) * maxTE)
-
-  const trPathForTissue = (T1: number) => {
-    return trPoints.map((t, i) => {
-      const s = 1 - Math.exp(-t / T1)
-      const x = PAD.l + (Math.log(t + 1) / Math.log(maxTR + 1)) * innerW
-      const y = PAD.t + innerH - s * innerH
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-    }).join(' ')
-  }
-
-  const tePathForTissue = (T2: number) => {
-    return tePoints.map((t, i) => {
-      const s = Math.exp(-t / T2)
-      const x = PAD.l + (t / maxTE) * innerW
-      const y = PAD.t + innerH - s * innerH
-      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
-    }).join(' ')
-  }
 
   const trMarkerX = PAD.l + (Math.log(params.TR + 1) / Math.log(maxTR + 1)) * innerW
   const teMarkerX = PAD.l + Math.min(1, params.TE / maxTE) * innerW
@@ -106,11 +86,11 @@ export function SignalCurveChart() {
             <line x1={PAD.l} y1={PAD.t} x2={PAD.l} y2={PAD.t + innerH} stroke="#252525" strokeWidth={1} />
             <text x={PAD.l - 2} y={PAD.t + 4} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>1.0</text>
             <text x={PAD.l - 2} y={PAD.t + innerH} textAnchor="end" fill="#374151" style={{ fontSize: '7px' }}>0</text>
-            <text x={PAD.l + innerW / 2} y={H - 2} textAnchor="middle" fill="#374151" style={{ fontSize: '7px' }}>TR (ms)</text>
+            <text x={PAD.l + innerW / 2} y={H - 2} textAnchor="middle" fill="#374131" style={{ fontSize: '7px' }}>TR (ms)</text>
             {tissues.map(t => {
               const T1 = is3T ? t.T1_30 : t.T1_15
               return (
-                <path key={t.label} d={trPathForTissue(T1)} fill="none"
+                <path key={t.label} d={generateT1RecoveryPath(T1, nPts, maxTR, PAD, innerW, innerH)} fill="none"
                   stroke={t.color} strokeWidth={1} opacity={0.7} />
               )
             })}
@@ -136,7 +116,7 @@ export function SignalCurveChart() {
             {tissues.map(t => {
               const T2 = is3T ? t.T2_30 : t.T2_15
               return (
-                <path key={t.label} d={tePathForTissue(T2)} fill="none"
+                <path key={t.label} d={generateT2DecayPath(T2, nPts, maxTE, PAD, innerW, innerH)} fill="none"
                   stroke={t.color} strokeWidth={1} opacity={0.7} />
               )
             })}
@@ -164,19 +144,10 @@ export function SliceOrderViz() {
   const is3T = params.fieldStrength >= 2.5
 
   const t1WM = is3T ? 1000 : 800
-  const dummyScans = Math.min(15, Math.max(2, Math.ceil(5 * t1WM / tr)))
-
-  const isEPI = params.bValues.length >= 2 && params.turboFactor <= 2
-  const ordering = isEPI ? 'Interleaved' : nSlices > 8 ? 'Interleaved' : 'Sequential'
-
+  const dummyScans = calcDummyScans(tr, is3T)
+  const ordering = getSliceOrdering(nSlices, params.turboFactor, params.bValues)
   const maxDisplay = Math.min(nSlices, 20)
-  const sliceOrder: number[] = []
-  if (ordering === 'Interleaved') {
-    for (let i = 0; i < maxDisplay; i += 2) sliceOrder.push(i)
-    for (let i = 1; i < maxDisplay; i += 2) sliceOrder.push(i)
-  } else {
-    for (let i = 0; i < maxDisplay; i++) sliceOrder.push(i)
-  }
+  const sliceOrder = generateSliceOrder(nSlices, ordering)
 
   const cellSize = Math.max(4, Math.min(12, Math.floor(280 / maxDisplay)))
 
@@ -216,7 +187,7 @@ export function SliceOrderViz() {
           )
         })}
         {nSlices > maxDisplay && (
-          <span style={{ color: '#374151', fontSize: '7px', alignSelf: 'center' }}>+{nSlices - maxDisplay}</span>
+          <span style={{ color: '#374131', fontSize: '7px', alignSelf: 'center' }}>+{nSlices - maxDisplay}</span>
         )}
       </div>
       <div className="flex gap-3 pt-1" style={{ borderTop: '1px solid #111', fontSize: '8px' }}>
@@ -237,46 +208,22 @@ export function SliceOrderViz() {
 // ── スキャン時間分解 ──────────────────────────────────────────────────────────
 export function ScanTimeBreakdown() {
   const { params } = useProtocolStore()
-  const totalTime = calcScanTime(params)
-
-  const ipatDiv = params.ipatMode !== 'Off' ? params.ipatFactor : 1
-  const pfFactor = params.partialFourier === 'Off' ? 1.0
-    : params.partialFourier === '7/8' ? 0.875
-    : params.partialFourier === '6/8' ? 0.75
-    : params.partialFourier === '5/8' ? 0.625
-    : 0.5
-
-  const basePhaseLines = Math.round(params.matrixPhase * (params.phaseResolution / 100))
-  const baseTime = Math.round((params.TR * basePhaseLines * params.averages) / params.turboFactor / 1000)
-  const timeWithPF = Math.round(baseTime * pfFactor)
-  const timeWithIPAT = Math.round(timeWithPF / ipatDiv)
-  const timeWithResp = params.respTrigger === 'RT' || params.respTrigger === 'PACE'
-    ? Math.round(timeWithIPAT * 1.4) : timeWithIPAT
-
-  const fmt = (s: number) => s < 60 ? `${s}s` : `${Math.floor(s/60)}m${s%60>0 ? String(s%60).padStart(2,'0')+'s' : ''}`
-
-  const stages: { label: string; value: number; savings: number; color: string }[] = [
-    { label: 'Base (ETL×TR×Avg)', value: baseTime, savings: 0, color: '#4b5563' },
-    { label: `PF (${params.partialFourier})`, value: timeWithPF, savings: baseTime - timeWithPF, color: '#60a5fa' },
-    { label: `iPAT (${params.ipatMode === 'Off' ? 'Off' : `×${params.ipatFactor}`})`, value: timeWithIPAT, savings: timeWithPF - timeWithIPAT, color: '#34d399' },
-    { label: `Resp (${params.respTrigger})`, value: timeWithResp, savings: timeWithIPAT - timeWithResp, color: params.respTrigger !== 'Off' ? '#f87171' : '#374151' },
-  ]
-
-  const maxVal = Math.max(baseTime, 1)
+  const { stages, totalTime } = calcScanTimeStages(params)
+  const maxVal = Math.max(stages[0]?.value ?? 1, 1)
   const W = 260
 
   return (
     <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0a0a', border: '1px solid #1a1a1a' }}>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold" style={{ color: '#4b5563' }}>スキャン時間 内訳</span>
-        <span className="font-mono font-bold" style={{ color: '#e88b00', fontSize: '11px' }}>{fmt(totalTime)}</span>
+        <span className="font-mono font-bold" style={{ color: '#e88b00', fontSize: '11px' }}>{formatTime(totalTime)}</span>
       </div>
       <div className="space-y-1">
         {stages.map((s, i) => (
           <div key={i}>
             <div className="flex items-center justify-between mb-0.5" style={{ fontSize: '8px' }}>
               <span style={{ color: '#6b7280' }}>{s.label}</span>
-              <span className="font-mono" style={{ color: s.color }}>{fmt(s.value)}</span>
+              <span className="font-mono" style={{ color: s.color }}>{formatTime(s.value)}</span>
             </div>
             <div style={{ width: W, height: 6, background: '#111', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{
@@ -289,7 +236,7 @@ export function ScanTimeBreakdown() {
             </div>
             {s.savings > 0 && (
               <div style={{ fontSize: '7px', color: '#34d399', textAlign: 'right' }}>
-                −{fmt(s.savings)} 短縮
+                −{formatTime(s.savings)} 短縮
               </div>
             )}
           </div>
@@ -314,22 +261,8 @@ export function SteadyStateConvergence() {
 
   if (!isGRE && !isTSE) return null
 
-  const fa = params.flipAngle * Math.PI / 180
-  const t1WM = is3T ? 1000 : 800
-
-  const N = 12
-  const mzHistory: number[] = [1.0]
-
-  for (let i = 0; i < N; i++) {
-    const mzPrev = mzHistory[mzHistory.length - 1]
-    const mzAfterRF = mzPrev * Math.cos(fa)
-    const mzAfterTR = mzAfterRF * Math.exp(-params.TR / t1WM) + (1 - Math.exp(-params.TR / t1WM))
-    mzHistory.push(mzAfterTR)
-  }
-
-  const mzSS = (1 - Math.exp(-params.TR / t1WM)) / (1 - Math.cos(fa) * Math.exp(-params.TR / t1WM))
-  const trToSS = mzHistory.findIndex(mz => Math.abs(mz - mzSS) < 0.05 * Math.abs(1 - mzSS))
-  const reachedSS = trToSS >= 0 && trToSS <= N
+  const { mzHistory, mzSS, ssSignal, trToSS, reachedSS, t1WM } = calcSteadyState(params.flipAngle, params.TR, is3T)
+  const N = mzHistory.length - 1
 
   const W = 280, H = 50
   const PAD = { l: 20, r: 10, t: 6, b: 14 }
@@ -344,7 +277,6 @@ export function SteadyStateConvergence() {
   const ty = (mz: number) => PAD.t + (1 - (mz - minMz) / mzRange) * innerH
 
   const mzPath = mzHistory.map((mz, i) => `${i === 0 ? 'M' : 'L'}${tx(i).toFixed(1)},${ty(mz).toFixed(1)}`).join(' ')
-  const ssSignal = Math.abs(Math.sin(fa)) * mzSS
 
   return (
     <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#080a06', border: '1px solid #1a2010' }}>
@@ -389,8 +321,6 @@ export function SteadyStateConvergence() {
 // ── シミュレーション脳断面 Phantom ──────────────────────────────────────────
 export function BrainPhantomPreview() {
   const { params } = useProtocolStore()
-  const is3T = params.fieldStrength >= 2.5
-
   const W = 180, H = 180
   const CX = W / 2, CY = H / 2
 
@@ -398,45 +328,10 @@ export function BrainPhantomPreview() {
   const isGRE = params.turboFactor <= 2 && params.flipAngle < 60 && params.TR < 200
 
   const sig = useMemo(() => {
-    const getT1T2 = (t: typeof TISSUES[0]) => is3T
-      ? { T1: t.T1_30, T2: t.T2_30, T2s: t.T2star_30 }
-      : { T1: t.T1_15, T2: t.T2_15, T2s: t.T2star_15 }
+    return calcPhantomSignals(params)
+  }, [params.TR, params.TE, params.TI, params.flipAngle, params.fatSat, params.fieldStrength, params.turboFactor])
 
-    const seSignal = (T1: number, T2: number) =>
-      Math.max(0, (1 - Math.exp(-params.TR / T1)) * Math.exp(-params.TE / T2))
-
-    const irSignal = (T1: number, T2: number) =>
-      Math.max(0, Math.abs(1 - 2 * Math.exp(-params.TI / T1) + Math.exp(-params.TR / T1)) * Math.exp(-params.TE / T2))
-
-    const faRad = (params.flipAngle * Math.PI) / 180
-    const greSignal = (T1: number, T2s: number) => {
-      const e1 = Math.exp(-params.TR / T1)
-      const ernst = Math.sin(faRad) * (1 - e1) / (1 - Math.cos(faRad) * e1 + 1e-10)
-      return Math.max(0, ernst * Math.exp(-params.TE / T2s))
-    }
-
-    const compute = (label: string) => {
-      const t = TISSUES.find(x => x.label === label)
-      if (!t) return 0
-      const { T1, T2, T2s } = getT1T2(t)
-      let s = isIR ? irSignal(T1, T2) : isGRE ? greSignal(T1, T2s) : seSignal(T1, T2)
-      if (params.fatSat !== 'None' && label === 'Fat') s = 0
-      return s
-    }
-
-    const raw = {
-      CSF: compute('CSF'),
-      GM: compute('GM'),
-      WM: compute('WM'),
-      Fat: compute('Fat'),
-      Muscle: compute('Muscle'),
-    }
-    const maxS = Math.max(...Object.values(raw), 0.001)
-    return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v / maxS])) as typeof raw
-  }, [params.TR, params.TE, params.TI, params.flipAngle, params.fatSat, params.fieldStrength, params.turboFactor, isIR, isGRE, is3T])
-
-  const gray = (s: number) => Math.round(s * 230)
-  const toRgb = (s: number) => { const v = gray(s); return `rgb(${v},${v},${v})` }
+  const toRgb = (s: number) => { const v = Math.round(s * 230); return `rgb(${v},${v},${v})` }
 
   const peDir = params.phaseEncDir
   const isAP = peDir === 'A>>P' || peDir === 'P>>A'
@@ -519,33 +414,14 @@ export function ContrastHeatmap() {
   const { params, setParam } = useProtocolStore()
   const is3T = params.fieldStrength >= 2.5
 
-  const GM = TISSUES.find(t => t.label === 'GM')!
-  const WM = TISSUES.find(t => t.label === 'WM')!
-  const gmT1 = is3T ? GM.T1_30 : GM.T1_15
-  const wmT1 = is3T ? WM.T1_30 : WM.T1_15
-  const gmT2 = is3T ? GM.T2_30 : GM.T2_15
-  const wmT2 = is3T ? WM.T2_30 : WM.T2_15
-
   const COLS = 16
   const ROWS = 12
-  const trRange = [200, 6000]
-  const teRange = [5, 200]
 
-  const trVals = Array.from({ length: COLS }, (_, i) => Math.round(trRange[0] + (trRange[1] - trRange[0]) * (i / (COLS - 1))))
-  const teVals = Array.from({ length: ROWS }, (_, i) => Math.round(teRange[0] + (teRange[1] - teRange[0]) * (i / (ROWS - 1))))
+  const { grid, trVals, teVals, maxContrast } = useMemo(
+    () => calcContrastGrid(is3T),
+    [is3T]
+  )
 
-  const grid = useMemo(() => {
-    return teVals.map(te =>
-      trVals.map(tr => {
-        const sgm = (1 - Math.exp(-tr / gmT1)) * Math.exp(-te / gmT2)
-        const swm = (1 - Math.exp(-tr / wmT1)) * Math.exp(-te / wmT2)
-        return Math.abs(sgm - swm)
-      })
-    )
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [is3T, gmT1, wmT1, gmT2, wmT2])
-
-  const maxContrast = Math.max(...grid.flat())
   const W = 340
   const H = 100
   const PAD = { l: 28, r: 4, t: 4, b: 20 }
