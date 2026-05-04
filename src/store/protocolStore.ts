@@ -65,15 +65,17 @@ export const useProtocolStore = create<ProtocolStore>()(
 
   setParam: (key, value) =>
     set((state) => {
-      const newHistory = [
-        ...state.history.slice(0, state.historyIndex + 1),
-        state.params,
-      ]
-      const trimmed = newHistory.length > MAX_HISTORY
-        ? newHistory.slice(newHistory.length - MAX_HISTORY)
-        : newHistory
+      const newParams = { ...state.params, [key]: value }
+      // Build timeline: keep past states up to current position, append new state
+      const past = state.history.length === 0
+        ? [state.params]  // first change: include initial state
+        : state.history.slice(0, state.historyIndex + 1)
+      const timeline = [...past, newParams]
+      const trimmed = timeline.length > MAX_HISTORY
+        ? timeline.slice(timeline.length - MAX_HISTORY)
+        : timeline
       return {
-        params: { ...state.params, [key]: value },
+        params: newParams,
         history: trimmed,
         historyIndex: trimmed.length - 1,
       }
@@ -118,11 +120,11 @@ export const useProtocolStore = create<ProtocolStore>()(
 
   undo: () =>
     set((state) => {
-      if (state.historyIndex < 0) return state
-      // history[historyIndex] is the snapshot BEFORE the current params
+      if (state.historyIndex <= 0) return state
+      const newIndex = state.historyIndex - 1
       return {
-        params: state.history[state.historyIndex],
-        historyIndex: state.historyIndex - 1,
+        params: state.history[newIndex],
+        historyIndex: newIndex,
       }
     }),
 
