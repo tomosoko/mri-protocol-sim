@@ -16,7 +16,7 @@ const SEQ_PRESETS: SeqPreset[] = [
     full: 'Turbo Spin Echo T2w',
     color: '#60a5fa',
     category: 'T2',
-    apply: (_p, _) => ({
+    apply: () => ({
       TR: 5000, TE: 100, TI: 0, flipAngle: 90,
       turboFactor: 15, echoSpacing: 4.5,
       sliceThickness: 5, matrixFreq: 256, matrixPhase: 256,
@@ -55,7 +55,7 @@ const SEQ_PRESETS: SeqPreset[] = [
     full: '3D Sampling Perfection with Application optimized Contrasts',
     color: '#34d399',
     category: 'T2',
-    apply: (_p, _) => ({
+    apply: () => ({
       TR: 3200, TE: 500, TI: 0, flipAngle: 120,
       turboFactor: 120, echoSpacing: 3.8,
       sliceThickness: 1, matrixFreq: 256, matrixPhase: 256,
@@ -68,7 +68,7 @@ const SEQ_PRESETS: SeqPreset[] = [
     full: 'Half-Fourier Acquisition Single-shot TSE',
     color: '#38bdf8',
     category: 'T2',
-    apply: (_p, _) => ({
+    apply: () => ({
       TR: 1400, TE: 84, TI: 0, flipAngle: 90,
       turboFactor: 256, echoSpacing: 3.4,
       sliceThickness: 5, matrixFreq: 256, matrixPhase: 128,
@@ -81,7 +81,7 @@ const SEQ_PRESETS: SeqPreset[] = [
     full: 'True Fast Imaging with Steady-state Precession',
     color: '#f472b6',
     category: 'GRE',
-    apply: (_p, _) => ({
+    apply: () => ({
       TR: 4, TE: 2, TI: 0, flipAngle: 60,
       turboFactor: 1, echoSpacing: 4,
       sliceThickness: 4, matrixFreq: 192, matrixPhase: 192,
@@ -94,7 +94,7 @@ const SEQ_PRESETS: SeqPreset[] = [
     full: 'Volumetric Interpolated Breath-hold Examination',
     color: '#fb923c',
     category: 'GRE',
-    apply: (_p, _) => ({
+    apply: () => ({
       TR: 5, TE: 2, TI: 0, flipAngle: 15,
       turboFactor: 1, echoSpacing: 4,
       sliceThickness: 3, matrixFreq: 256, matrixPhase: 192,
@@ -159,7 +159,7 @@ const SEQ_PRESETS: SeqPreset[] = [
     full: 'T1-weighted Turbo Spin Echo',
     color: '#fbbf24',
     category: 'T1',
-    apply: (_p, _) => ({
+    apply: () => ({
       TR: 500, TE: 15, TI: 0, flipAngle: 90,
       turboFactor: 3, echoSpacing: 4.0,
       sliceThickness: 5, matrixFreq: 256, matrixPhase: 192,

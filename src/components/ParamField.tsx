@@ -268,24 +268,24 @@ export function ParamField({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '10px' }}>
               <div style={{ background: '#0a150a', border: '1px solid #1a2a1a', borderRadius: 3, padding: '4px 8px' }}>
-                <span style={{ color: '#34d399', fontWeight: 600 }}>↑ 増やすと　</span>
+                <span style={{ color: '#34d399', fontWeight: 600 }}>{'↑ 増やすと\u3000'}</span>
                 <span style={{ color: '#8a8a8a' }}>{hint.increase}</span>
               </div>
               <div style={{ background: '#150a0a', border: '1px solid #2a1a1a', borderRadius: 3, padding: '4px 8px' }}>
-                <span style={{ color: '#f87171', fontWeight: 600 }}>↓ 減らすと　</span>
+                <span style={{ color: '#f87171', fontWeight: 600 }}>{'↓ 減らすと\u3000'}</span>
                 <span style={{ color: '#8a8a8a' }}>{hint.decrease}</span>
               </div>
               <div style={{ background: '#111', border: '1px solid #222', borderRadius: 3, padding: '4px 8px' }}>
-                <span style={{ color: '#fbbf24', fontWeight: 600 }}>Trade-off　</span>
+                <span style={{ color: '#fbbf24', fontWeight: 600 }}>{'Trade-off\u3000'}</span>
                 <span style={{ color: '#8a8a8a' }}>{hint.tradeoff}</span>
               </div>
               <div style={{ background: '#130e00', border: '1px solid #2a1e00', borderRadius: 3, padding: '4px 8px' }}>
-                <span style={{ color: '#e88b00', fontWeight: 600 }}>臨床値　</span>
+                <span style={{ color: '#e88b00', fontWeight: 600 }}>{'臨床値\u3000'}</span>
                 <span style={{ color: '#8a8a8a' }}>{hint.clinical}</span>
               </div>
               {hint.tip && (
                 <div style={{ background: '#0d0a18', border: '1px solid #1e1830', borderRadius: 3, padding: '4px 8px' }}>
-                  <span style={{ color: '#a78bfa', fontWeight: 600 }}>Tip　</span>
+                  <span style={{ color: '#a78bfa', fontWeight: 600 }}>{'Tip\u3000'}</span>
                   <span style={{ color: '#8a8a8a' }}>{hint.tip}</span>
                 </div>
               )}
