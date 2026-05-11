@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 // ── K-space fill order ───────────────────────────────────────────────────────
-export function kFillOrder(n: number, centric: boolean): number[] {
+function kFillOrder(n: number, centric: boolean): number[] {
   if (!centric) return Array.from({ length: n }, (_, i) => i)
   const order: number[] = []
   const c = Math.floor(n / 2)

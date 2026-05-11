@@ -121,14 +121,6 @@ export function FatSatB0Chart() {
   )
 }
 
-export const fatSatDesc: Record<string, string> = {
-  None: 'なし — 脂肪信号あり',
-  CHESS: '化学シフト選択励起 — 均一磁場に最適（頭部・脊椎）',
-  SPAIR: 'Spectral Adiabatic IR — 不均一磁場でも均一抑制（腹部・乳腺）',
-  STIR: 'Short TI IR — 磁場不均一に最強。造影後は不可',
-  Dixon: '水脂肪分離 — 定量評価・造影ダイナミックに最適',
-}
-
 // ── MT比 (Magnetization Transfer Ratio) 可視化 ────────────────────────────────
 // MTRを組織別に表示。MRA/造影後のMTCの効果を定量的に示す
 export function MTRatioDisplay() {

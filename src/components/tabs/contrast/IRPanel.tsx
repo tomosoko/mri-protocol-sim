@@ -114,7 +114,7 @@ export function IRSignalEvolution() {
 
   const tissues = TISSUES.filter(t => ['GM', 'WM', 'CSF', 'Fat'].includes(t.label))
 
-  const paths = useMemo(() => tissues.map(t => {
+  const paths = tissues.map(t => {
     const T1 = is3T ? t.T1_30 : t.T1_15
     const d = Array.from({ length: nPts + 1 }, (_, i) => {
       const ti = (i / nPts) * maxTI
@@ -124,7 +124,7 @@ export function IRSignalEvolution() {
     const nullTI = Math.round(T1 * Math.log(2))
     const sigAtCurrentTI = irSignal(params.TI, T1, isMagnitude)
     return { ...t, T1, d, nullTI, sigAtCurrentTI }
-  }), [is3T, maxTI, params.TI, isMagnitude])
+  })
 
   // Only show when TI > 0 (IR sequence)
   if (params.TI <= 0) return null

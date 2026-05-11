@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useProtocolStore } from '../store/protocolStore'
 import { protocolTree } from '../data/protocols'
 import type { SequenceStep } from '../data/protocols'
@@ -151,15 +151,15 @@ function ExamTimeline({ sequences, totalSeconds }: { sequences: SequenceStep[]; 
     return m * 60 + (s || 0)
   }
   const W = 188
-  const segments = useMemo(() => {
-    let elapsed = 0
-    return sequences.map(s => {
-      const dur = parseSec(s.duration)
-      const x = elapsed
-      elapsed += dur
-      return { name: s.name, dur, x, isCE: s.isCE, isTimer: s.isTimer, isOptional: s.isOptional }
-    })
-  }, [sequences])
+  const durs = sequences.map(s => parseSec(s.duration))
+  const segments = sequences.map((s, i) => ({
+    name: s.name,
+    dur: durs[i],
+    x: durs.slice(0, i).reduce((a, b) => a + b, 0),
+    isCE: s.isCE,
+    isTimer: s.isTimer,
+    isOptional: s.isOptional,
+  }))
 
   return (
     <div className="shrink-0 px-2 py-1.5" style={{ borderTop: '1px solid #1a1a1a', background: '#080808' }}>

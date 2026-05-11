@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 
 // IVIM モデル計算機 (Intravoxel Incoherent Motion)
 export function IVIMCalculator({ bValues }: { bValues: number[] }) {
@@ -31,13 +30,13 @@ export function IVIMCalculator({ bValues }: { bValues: number[] }) {
   const tx = (b: number) => PAD.l + (b / bMax) * innerW
   const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
 
-  const paths = useMemo(() => tissues.map(t => {
+  const paths = tissues.map(t => {
     const d = bPts.map((b, i) => {
       const s = ivimSignal(b, t.D, t.Dstar, t.f)
       return `${i === 0 ? 'M' : 'L'}${tx(b).toFixed(1)},${ty(s).toFixed(1)}`
     }).join(' ')
     return { ...t, d }
-  }), [bValues])
+  })
 
   return (
     <div className="mx-3 mt-2 p-2 rounded" style={{ background: '#0a0e14', border: '1px solid #1a2a3a' }}>

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useMemo } from 'react'
 import { TISSUES, calcTissueContrast } from '../../store/calculators'
 import type { ProtocolParams } from '../../data/presets'

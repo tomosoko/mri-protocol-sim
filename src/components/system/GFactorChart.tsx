@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 
 // ── g-factor SNR 損失チャート ─────────────────────────────────────────────────
@@ -44,16 +43,14 @@ export function GFactorChart() {
   const dotY = ty(currentSNREff)
 
   // All coil curves for comparison (dimmed)
-  const allCurves = useMemo(() => {
-    return Object.entries(COIL_G).map(([id, cfg]) => {
-      const gf = (r: number) => 1 + cfg.k * Math.pow(r - 1, cfg.e)
-      const se = (r: number) => 1 / (Math.sqrt(r) * gf(r))
-      const d = rVals.map((r, i) => {
-        return `${i === 0 ? 'M' : 'L'}${tx(r).toFixed(1)},${ty(se(r)).toFixed(1)}`
-      }).join(' ')
-      return { id, d, color: cfg.color, active: id === coilKey }
-    })
-  }, [coilKey])
+  const allCurves = Object.entries(COIL_G).map(([id, cfg]) => {
+    const gf = (r: number) => 1 + cfg.k * Math.pow(r - 1, cfg.e)
+    const se = (r: number) => 1 / (Math.sqrt(r) * gf(r))
+    const d = rVals.map((r, i) => {
+      return `${i === 0 ? 'M' : 'L'}${tx(r).toFixed(1)},${ty(se(r)).toFixed(1)}`
+    }).join(' ')
+    return { id, d, color: cfg.color, active: id === coilKey }
+  })
 
   if (params.ipatMode === 'Off') return null
 

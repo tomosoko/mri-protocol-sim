@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useMemo } from 'react'
 
 // ── T1 mapping: VFA (Variable Flip Angle) シミュレーション ──────────────────

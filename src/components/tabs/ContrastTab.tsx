@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { useProtocolStore } from '../../store/protocolStore'
 import { ParamField } from '../ParamField'
-// Re-export sub-components for consumers that import directly from ContrastTab
-export { DixonTECalculator } from './contrast/DixonPanel'
-export { GadoliniumEnhancement, LiveTissueSignalBar } from './contrast/GadoliniumPanel'
-export { FatSatB0Chart, fatSatDesc, MTRatioDisplay } from './contrast/FatSatPanel'
-export { IRSignalEvolution, TICalculator } from './contrast/IRPanel'
-export { T2StarDecayChart, MRSSpectrum } from './contrast/T2StarPanel'
-
 type SubTab = 'Common' | 'Dynamic'
 
 const subTabStyle = (active: boolean) => ({
@@ -15,8 +8,6 @@ const subTabStyle = (active: boolean) => ({
   color: active ? '#e88b00' : '#4a7a9a',
   borderBottom: active ? '2px solid #e88b00' : '2px solid transparent',
 })
-
-export const sectionHeader = { color: '#4b5563' }
 
 const Spacer = () => <div style={{ height: 22 }} />
 

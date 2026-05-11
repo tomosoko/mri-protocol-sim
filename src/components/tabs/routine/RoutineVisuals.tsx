@@ -329,7 +329,7 @@ export function BrainPhantomPreview() {
 
   const sig = useMemo(() => {
     return calcPhantomSignals(params)
-  }, [params.TR, params.TE, params.TI, params.flipAngle, params.fatSat, params.fieldStrength, params.turboFactor])
+  }, [params])
 
   const toRgb = (s: number) => { const v = Math.round(s * 230); return `rgb(${v},${v},${v})` }
 
