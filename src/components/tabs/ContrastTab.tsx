@@ -18,6 +18,8 @@ const subTabStyle = (active: boolean) => ({
 
 export const sectionHeader = { color: '#4b5563' }
 
+const Spacer = () => <div style={{ height: 22 }} />
+
 export function ContrastTab() {
   const { params, setParam, highlightedParams } = useProtocolStore()
   const hl = (k: string) => highlightedParams.includes(k)
@@ -34,9 +36,6 @@ export function ContrastTab() {
   const [dynMeasurements, setDynMeasurements] = useState(1)
   const [multipleSeries, setMultipleSeries] = useState('Each Measurement')
   const [contrastAgent, setContrastAgent] = useState('None')
-
-  // Spacer row matching ParamField height
-  const Spacer = () => <div style={{ height: 22 }} />
 
   return (
     <div>

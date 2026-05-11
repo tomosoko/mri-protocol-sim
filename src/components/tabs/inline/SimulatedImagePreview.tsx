@@ -2,16 +2,22 @@ import { useMemo } from 'react'
 import { useProtocolStore } from '../../../store/protocolStore'
 import { calcTissueContrast } from '../../../store/calculators'
 
+// Pre-computed deterministic noise grain (module-level to avoid impure render)
+const NOISE_GRAIN = (() => {
+  let s = 42
+  const rand = () => { s = (s * 16807) % 2147483647; return s / 2147483647 }
+  return Array.from({ length: 200 }, () => ({
+    x: rand() * 110, y: rand() * 110, r: rand() * 1.2, op: rand() * 0.12,
+  }))
+})()
+
 // ── シミュレーション画像プレビュー ──────────────────────────────────────────
 // 現在のプロトコル TR/TE/TI/FA から各組織の信号強度を計算し
 // 脳軸位断像のグレースケールシミュレーション画像として表示
 // 組織: WM / GM / CSF / Fat / Blood / Tumor
 export function SimulatedImagePreview() {
   const { params } = useProtocolStore()
-  const signals = useMemo(() => calcTissueContrast(params), [
-    params.TR, params.TE, params.TI, params.flipAngle,
-    params.fatSat, params.fieldStrength, params.turboFactor, params.averages
-  ])
+  const signals = useMemo(() => calcTissueContrast(params), [params])
 
   // Map tissue label → signal (0-1)
   const sigMap = useMemo(() => {
@@ -34,15 +40,8 @@ export function SimulatedImagePreview() {
   const W = 110, H = 110
   const CX = W / 2, CY = H / 2
 
-  // Noise overlay: subtle grain
-  const noiseGrain = useMemo(() => {
-    return Array.from({ length: 200 }, () => ({
-      x: Math.random() * W,
-      y: Math.random() * H,
-      r: Math.random() * 1.2,
-      op: Math.random() * 0.12,
-    }))
-  }, [])
+  // Noise overlay: subtle grain (pre-computed module-level constant)
+  const noiseGrain = NOISE_GRAIN
 
   return (
     <div className="mx-3 mt-2 p-1.5 rounded" style={{ background: '#030506', border: '1px solid #0a1418' }}>

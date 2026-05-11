@@ -37,7 +37,8 @@ export function PrescanStatusPanel() {
     for (let i = 0; i < 20; i++) {
       const hz = -100 + i * 10
       const sigma = is3T ? 35 : 18
-      bins.push(Math.round(Math.exp(-(hz * hz) / (2 * sigma * sigma)) * 80 + Math.random() * 5))
+      const jitter = ((i * 7 + 3) % 5)  // deterministic pseudo-noise
+      bins.push(Math.round(Math.exp(-(hz * hz) / (2 * sigma * sigma)) * 80 + jitter))
     }
     return bins
   }, [is3T])
