@@ -182,9 +182,10 @@ export function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
     [maxTE, etl]
   )
 
+  const padL = PAD.l, padT = PAD.t
   const tissueData = useMemo(() => {
-    const _tx = (te: number) => PAD.l + (te / maxTE) * innerW
-    const _ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+    const _tx = (te: number) => padL + (te / maxTE) * innerW
+    const _ty = (s: number) => padT + (1 - Math.max(0, Math.min(1, s))) * innerH
     return tissues.map(t => {
       const pts = echos.map(te => ({ te, s: Math.exp(-te / t.T2) }))
       // Smooth curve
@@ -196,7 +197,7 @@ export function T2MappingMSE({ fieldStrength }: { fieldStrength: number }) {
       }).join(' ')
       return { ...t, pts, d }
     })
-  }, [tissues, echos, maxTE, innerW, innerH])
+  }, [tissues, echos, maxTE, innerW, innerH, padL, padT])
 
   const sliderCls = 'w-full h-1 rounded appearance-none cursor-pointer'
   const sliderStyle = { accentColor: '#a78bfa' }
@@ -293,19 +294,20 @@ export function T2StarMappingGRE({ fieldStrength }: { fieldStrength: number }) {
     { label: '出血',   t2s: is3T ? 4 : 8,   color: '#6b7280' },
   ], [is3T])
 
-  const echos = [2, 5, 10, 15, 20, 25, 30, 40]
   const W = 280, H = 80
   const PAD = { l: 28, r: 8, t: 8, b: 18 }
   const innerW = W - PAD.l - PAD.r
   const innerH = H - PAD.t - PAD.b
   const maxTE = 45
 
-  const tx = (te: number) => PAD.l + (te / maxTE) * innerW
-  const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+  const padL2 = PAD.l, padT2 = PAD.t
+  const tx = (te: number) => padL2 + (te / maxTE) * innerW
+  const ty = (s: number) => padT2 + (1 - Math.max(0, Math.min(1, s))) * innerH
 
   const tissueData = useMemo(() => {
-    const _tx = (te: number) => PAD.l + (te / maxTE) * innerW
-    const _ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+    const echos = [2, 5, 10, 15, 20, 25, 30, 40]
+    const _tx = (te: number) => padL2 + (te / maxTE) * innerW
+    const _ty = (s: number) => padT2 + (1 - Math.max(0, Math.min(1, s))) * innerH
     return tissues.map(t => {
       const nPts = 50
       const d = Array.from({ length: nPts + 1 }, (_, i) => {
@@ -316,7 +318,7 @@ export function T2StarMappingGRE({ fieldStrength }: { fieldStrength: number }) {
       const pts = echos.map(te => ({ te, s: Math.exp(-te / t.t2s) }))
       return { ...t, d, pts }
     })
-  }, [tissues])
+  }, [tissues, innerW, innerH, padL2, padT2, maxTE])
 
   return (
     <div className="p-2 rounded mt-2" style={{ background: '#080808', border: '1px solid #1a2520' }}>

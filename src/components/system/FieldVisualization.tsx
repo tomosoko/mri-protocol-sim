@@ -32,7 +32,7 @@ export function B1FieldMap({ fieldStrength, trueForm }: { fieldStrength: number;
       }
     }
     return pts
-  }, [is3T, trueForm])
+  }, [is3T, trueForm, CX, CY, RX, RY])
 
   // Map value to color (blue→green→yellow→red heatmap)
   const valToColor = useCallback((v: number) => {
@@ -134,7 +134,7 @@ export function B0FieldMap2D() {
         return z2 + linear + sus1 - sus2 * 0.5
       })
     })
-  }, [is3T, params.fov, params.slices, sigma, NX, NY])
+  }, [params.fov, params.slices, sigma, NX, NY])
 
   // Color scale: -maxHz (blue) → 0 (green) → +maxHz (red)
   const maxHz = sigma * 1.5
