@@ -1,19 +1,19 @@
 import { useMemo } from 'react'
 import { useProtocolStore } from '../../../store/protocolStore'
 
+// T2* values (ms) at 1.5T and 3T for key tissues
+const T2STAR_TISSUES: { label: string; t2s_15: number; t2s_30: number; color: string }[] = [
+  { label: 'GM',    t2s_15: 66,  t2s_30: 33,  color: '#a78bfa' },
+  { label: 'WM',    t2s_15: 72,  t2s_30: 36,  color: '#60a5fa' },
+  { label: 'Liver', t2s_15: 23,  t2s_30: 12,  color: '#fb923c' },
+  { label: 'Spleen',t2s_15: 60,  t2s_30: 30,  color: '#4ade80' },
+  { label: 'Muscle',t2s_15: 35,  t2s_30: 18,  color: '#fbbf24' },
+  { label: 'Blood', t2s_15: 200, t2s_30: 90,  color: '#f87171' },
+]
+
 // ── T2* 減衰カーブ ─────────────────────────────────────────────────────────────
 export function T2StarDecayChart({ fieldStrength, TE }: { fieldStrength: number; TE: number }) {
   const is3T = fieldStrength >= 2.5
-
-  // T2* values (ms) at 1.5T and 3T for key tissues
-  const tissues: { label: string; t2s_15: number; t2s_30: number; color: string }[] = [
-    { label: 'GM',    t2s_15: 66,  t2s_30: 33,  color: '#a78bfa' },
-    { label: 'WM',    t2s_15: 72,  t2s_30: 36,  color: '#60a5fa' },
-    { label: 'Liver', t2s_15: 23,  t2s_30: 12,  color: '#fb923c' },
-    { label: 'Spleen',t2s_15: 60,  t2s_30: 30,  color: '#4ade80' },
-    { label: 'Muscle',t2s_15: 35,  t2s_30: 18,  color: '#fbbf24' },
-    { label: 'Blood', t2s_15: 200, t2s_30: 90,  color: '#f87171' },
-  ]
 
   const W = 290, H = 90
   const PAD = { l: 28, r: 8, t: 8, b: 18 }
@@ -25,15 +25,19 @@ export function T2StarDecayChart({ fieldStrength, TE }: { fieldStrength: number;
   const tx = (t: number) => PAD.l + (t / maxTE) * innerW
   const ty = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
 
-  const paths = useMemo(() => tissues.map(t => {
-    const T2s = is3T ? t.t2s_30 : t.t2s_15
-    const d = Array.from({ length: nPts + 1 }, (_, i) => {
-      const te = (i / nPts) * maxTE
-      const s = Math.exp(-te / T2s)
-      return `${i === 0 ? 'M' : 'L'}${tx(te).toFixed(1)},${ty(s).toFixed(1)}`
-    }).join(' ')
-    return { ...t, T2s, d }
-  }), [is3T])
+  const paths = useMemo(() => {
+    const txLocal = (t: number) => PAD.l + (t / maxTE) * innerW
+    const tyLocal = (s: number) => PAD.t + (1 - Math.max(0, Math.min(1, s))) * innerH
+    return T2STAR_TISSUES.map(t => {
+      const T2s = is3T ? t.t2s_30 : t.t2s_15
+      const d = Array.from({ length: nPts + 1 }, (_, i) => {
+        const te = (i / nPts) * maxTE
+        const s = Math.exp(-te / T2s)
+        return `${i === 0 ? 'M' : 'L'}${txLocal(te).toFixed(1)},${tyLocal(s).toFixed(1)}`
+      }).join(' ')
+      return { ...t, T2s, d }
+    })
+  }, [is3T, PAD.l, PAD.t, innerW, innerH])
 
   const teX = tx(Math.min(TE, maxTE))
 

@@ -57,17 +57,21 @@ export function FatSatB0Chart() {
   const tx = (ppm: number) => PAD.l + (ppm / maxPpm) * innerW
   const ty = (e: number) => PAD.t + (1 - Math.max(0, Math.min(1, e))) * innerH
 
-  const paths = useMemo(() => methods.map(m => {
-    const d = ppmPts.map((ppm, i) => {
-      const e = m.eff(ppm)
-      return `${i === 0 ? 'M' : 'L'}${tx(ppm).toFixed(1)},${ty(e).toFixed(1)}`
-    }).join(' ')
-    // Current effectiveness at typical field uniformity
-    const typicalPpm = is3T ? 1.5 : 0.8
-    const currentEff = Math.round(m.eff(typicalPpm) * 100)
-    const isSelected = params.fatSat === m.name
-    return { ...m, d, currentEff, isSelected }
-  }), [methods, ppmPts, tx, ty, is3T, params.fatSat])
+  const paths = useMemo(() => {
+    const txLocal = (ppm: number) => PAD.l + (ppm / maxPpm) * innerW
+    const tyLocal = (e: number) => PAD.t + (1 - Math.max(0, Math.min(1, e))) * innerH
+    return methods.map(m => {
+      const d = ppmPts.map((ppm, i) => {
+        const e = m.eff(ppm)
+        return `${i === 0 ? 'M' : 'L'}${txLocal(ppm).toFixed(1)},${tyLocal(e).toFixed(1)}`
+      }).join(' ')
+      // Current effectiveness at typical field uniformity
+      const typicalPpm = is3T ? 1.5 : 0.8
+      const currentEff = Math.round(m.eff(typicalPpm) * 100)
+      const isSelected = params.fatSat === m.name
+      return { ...m, d, currentEff, isSelected }
+    })
+  }, [methods, ppmPts, is3T, params.fatSat, PAD.l, PAD.t, innerW, innerH])
 
   // Current B0 uniformity line (typical value)
   const typicalPpm = is3T ? 1.5 : 0.8

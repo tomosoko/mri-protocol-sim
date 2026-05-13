@@ -43,7 +43,7 @@ export function ScannerBoreDiagram() {
         angle,
       }
     })
-  }, [coilCfg.n, coilCfg.r])
+  }, [coilCfg.n, coilCfg.r, CX, CY])
 
   // B0 field lines (horizontal, pointing along Z = bore axis = perpendicular to cross-section)
   // Shown as dots in cross-section (field into the screen)
@@ -58,7 +58,7 @@ export function ScannerBoreDiagram() {
       }
     }
     return dots
-  }, [])
+  }, [CX, CY])
 
   // SAR level color
   const sarPct = calcSARLevel(params)

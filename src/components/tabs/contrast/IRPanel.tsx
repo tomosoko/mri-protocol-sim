@@ -2,6 +2,10 @@ import { useMemo } from 'react'
 import { useProtocolStore } from '../../../store/protocolStore'
 import { TISSUES } from '../../../store/calculators'
 
+// Stable filtered tissue list (TISSUES is a module-level constant)
+const IR_SHOW_LABELS = ['CSF', 'Fat', 'WM', 'GM', 'Liver']
+const IR_TISSUES = TISSUES.filter(t => IR_SHOW_LABELS.includes(t.label))
+
 // ── IR Mz 回復カーブ ──────────────────────────────────────────────────────────
 function IRCurveChart({ fieldStrength, TI }: { fieldStrength: number; TI: number }) {
   const W = 310, H = 110
@@ -14,13 +18,9 @@ function IRCurveChart({ fieldStrength, TI }: { fieldStrength: number; TI: number
   // Y: Mz range -1 to +1 — map 1 → top, -1 → bottom
   const ty = (mz: number) => PAD.t + ((1 - mz) / 2) * innerH
 
-  // Tissues to show in IR chart
-  const SHOW = ['CSF', 'Fat', 'WM', 'GM', 'Liver']
-  const tissues = TISSUES.filter(t => SHOW.includes(t.label))
-
   const curves = useMemo(() => {
     const N = 120
-    return tissues.map(tissue => {
+    return IR_TISSUES.map(tissue => {
       const T1 = fieldStrength >= 2.5 ? tissue.T1_30 : tissue.T1_15
       const nullTI = Math.round(T1 * Math.log(2))
       const pts = Array.from({ length: N + 1 }, (_, i) => {

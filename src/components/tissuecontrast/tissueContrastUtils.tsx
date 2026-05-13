@@ -317,7 +317,7 @@ export function SequenceOptimizationTips({
     }
 
     return result.slice(0, 4)
-  }, [isDWI, isFLAIR, isIR, isGRE, TR, TE, FA, fieldStrength, turboFactor, is3T, contrastLabel])
+  }, [isDWI, isFLAIR, isIR, isGRE, TR, TE, FA, turboFactor, is3T])
 
   if (tips.length === 0 && !pathologyRecommendation) return null
 

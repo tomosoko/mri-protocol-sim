@@ -179,6 +179,11 @@ function LegendItem({ color, label, opacity = 1, border = false, borderColor }: 
   )
 }
 
+const ETL_COLORS = [
+  '#e88b00', '#60a5fa', '#34d399', '#a78bfa', '#f87171',
+  '#fbbf24', '#38bdf8', '#4ade80', '#fb923c', '#c084fc',
+]
+
 export function KSpaceGrid2D() {
   const { params } = useProtocolStore()
   const [hovered, setHovered] = useState<{ row: number; info: string } | null>(null)
@@ -207,15 +212,8 @@ export function KSpaceGrid2D() {
   const ACS_HALF = ipatFactor > 1 ? 3 : 0
   const centerRow = Math.floor(ROWS / 2)
 
-  const ETL_COLORS = [
-    '#e88b00', '#60a5fa', '#34d399', '#a78bfa', '#f87171',
-    '#fbbf24', '#38bdf8', '#4ade80', '#fb923c', '#c084fc',
-  ]
-
-  const linesPerTR = etl
-  const getEchoGroup = (row: number) => Math.floor(row / linesPerTR)
-
   const rows = useMemo(() => {
+    const getEchoGroup = (row: number) => Math.floor(row / etl)
     return Array.from({ length: ROWS }, (_, r) => {
       const isPFMissing = r < missingRows
       const isACS = Math.abs(r - centerRow) <= ACS_HALF && ipatFactor > 1
@@ -227,7 +225,7 @@ export function KSpaceGrid2D() {
       const kWeight = Math.exp(-distFromCenter * distFromCenter * 3)
       return { isPFMissing, isACS, isIPATSkipped, echoGroup, color, kWeight, r }
     })
-  }, [etl, ipatFactor, pfFrac, isTSE, isDWI, centerRow, ACS_HALF, missingRows])
+  }, [etl, ipatFactor, isTSE, isDWI, centerRow, ACS_HALF, missingRows])
 
   const epiOrderMap = useMemo(() => {
     if (!isDWI) return new Map<number, number>()

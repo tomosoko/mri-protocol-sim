@@ -148,7 +148,7 @@ export function GadoliniumEnhancement() {
 // 現在の TR/TE/TI/FA 設定に基づき全組織の信号強度をリアルタイム比較表示
 export function LiveTissueSignalBar() {
   const { params } = useProtocolStore()
-  const signals = useMemo(() => calcTissueContrast(params), [params])  // eslint-disable-line react-hooks/exhaustive-deps
+  const signals = useMemo(() => calcTissueContrast(params), [params])
 
   // Sort by signal strength for display
   const sorted = [...signals].sort((a, b) => b.signal - a.signal)

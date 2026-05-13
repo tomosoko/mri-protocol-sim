@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react'
 
+// Initial HR value computed once at module load (not during render)
+const INITIAL_HR = 68 + Math.random() * 10 | 0  // 68-77 bpm
+
 // syngo MR コンソール下部のリアルタイム生体信号表示（ECG + 呼吸）
 // canvas + requestAnimationFrame で連続スクロール波形を描画
 export function LivePhysioMonitor() {
   const ecgRef = useRef<HTMLCanvasElement>(null)
   const respRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef(0)
-  const hrRef = useRef(68 + Math.random() * 10 | 0)  // 68-77 bpm
+  const hrRef = useRef(INITIAL_HR)
 
   // ECG amplitude function — realistic P-QRS-T complex
   function ecgAmp(t: number, hr: number): number {
@@ -116,10 +119,9 @@ export function LivePhysioMonitor() {
 
     let raf = requestAnimationFrame(draw)
     return () => cancelAnimationFrame(raf)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const hr = hrRef.current
+  const hr = INITIAL_HR
   const rr = Math.round(60000 / hr)
 
   return (
