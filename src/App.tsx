@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react'
 import { useProtocolStore } from './store/protocolStore'
 import { StatusBar } from './components/StatusBar'
 import { ProtocolTree } from './components/ProtocolTree'
@@ -76,7 +76,7 @@ export default function App() {
   const [extendedPanel, setExtendedPanel] = useState<ExtendedPanelId>('kspace')
 
   const activePreset = presets.find(p => p.id === activePresetId)
-  const allIssues = validateProtocol(params)
+  const allIssues = useMemo(() => validateProtocol(params), [params])
 
   // Keyboard shortcuts
   useEffect(() => {
